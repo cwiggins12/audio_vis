@@ -3,7 +3,7 @@
 #include <thread>
 
 int main() {
-    AudioCapture audio;
+    AudioCapture audio(60);
 
     if (!audio.init()) {
         std::cerr << "Failed to initialize audio capture\n";

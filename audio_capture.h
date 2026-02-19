@@ -9,10 +9,14 @@ public:
 	AudioCapture();
 	~AudioCapture();
 
-	bool init();
+	bool init(ma_uint32 size);
 	void shutdown();
 
-	void getSamples(std::vector<float>& out);
+	ma_uint32 getSamples(float* out, ma_uint32 max);
+
+	ma_uint32 getSnapshot(float* out, ma_uint32 count);
+
+	void setReadIndex(ma_uint32 i);
 
 private:
 	static void dataCallback(struct ma_device* device, void* output, const void* input, ma_uint32 frameCount);
@@ -22,10 +26,8 @@ private:
 	ma_context context;
 
 	std::vector<float> ringBuffer;
-	std::atomic<size_t> writeIndex;
+	std::atomic<ma_uint32> writeIndex;
+	std::atomic<ma_uint32> readIndex;
 
-	unsigned int channels;
-	unsigned int sampleRate;
-
-	static constexpr size_t BUFFER_SIZE = 44100 * 2;
+	ma_uint32 bufferSize = 0;
 };
