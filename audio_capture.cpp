@@ -149,3 +149,6 @@ void AudioCapture::setReadIndex(ma_uint32 i) {
 	readIndex.store(i);
 }
 
+ma_uint32 AudioCapture::getChannels() {
+	return device.capture.channels;
+}

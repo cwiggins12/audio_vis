@@ -18,6 +18,8 @@ public:
 
 	void setReadIndex(ma_uint32 i);
 
+	ma_uint32 getChannels();
+
 private:
 	static void dataCallback(struct ma_device* device, void* output, const void* input, ma_uint32 frameCount);
 	void processInput(const float* input, ma_uint32 frameCount);
