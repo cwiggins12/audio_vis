@@ -14,7 +14,7 @@ public:
 
 	ma_uint32 getSamples(float* out, ma_uint32 max);
 
-	ma_uint32 getSnapshot(float* out, ma_uint32 count);
+	ma_uint32 getBlock(float* out, ma_uint32 count);
 
 	void setReadIndex(ma_uint32 i);
 

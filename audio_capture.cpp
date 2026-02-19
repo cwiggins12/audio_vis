@@ -42,6 +42,9 @@ bool AudioCapture::init(ma_uint32 size) {
 	}
 
 	ma_device_config config = ma_device_config_init(ma_device_type_capture);
+	config.capture.format = ma_format_f32;
+	config.capture.channels = 0;
+	config.sampleRate = 0;
 	config.dataCallback = dataCallback;
 	config.pUserData = this;
 
@@ -70,6 +73,7 @@ bool AudioCapture::init(ma_uint32 size) {
 }
 
 void AudioCapture::shutdown() {
+    ma_device_stop(&device);
 	ma_device_uninit(&device);
 	ma_context_uninit(&context);
 }
@@ -122,12 +126,12 @@ ma_uint32 AudioCapture::getSamples(float* out, ma_uint32 max) {
 
 //NOTE: copies last count of samples read to given out buffer. Handles channel count. Just needs frame count in miniaudio terms.
 //if you would like for this to be considered as a read for your read index, call setReadIndex with the return of this function
-ma_uint32 AudioCapture::getSnapshot(float* out, ma_uint32 count) {
+ma_uint32 AudioCapture::getBlock(float* out, ma_uint32 count) {
 	ma_uint32 localWrite = writeIndex.load();
 	ma_uint32 start = 0;
 	count *= device.capture.channels;
 	
-	if (localWrite - count < 0) {
+	if (count > localWrite) {
 		start = localWrite - count + bufferSize;
 	}
 	else {
