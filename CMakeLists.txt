@@ -7,7 +7,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_executable(audio_vis
     main.cpp
-    audio_capture.cpp
 )
 
 # Include current directory (for miniaudio.h and headers)
@@ -17,9 +16,9 @@ target_include_directories(audio_vis PRIVATE
 
 # Link libraries
 target_link_libraries(audio_vis PRIVATE
-    fftw3f        # <-- float FFTW (because you're using fftwf_)
-    pthread       # required by miniaudio
-    dl            # required on Linux
-    m             # math library
+    fftw3f        #float FFTW
+    pthread       #required by miniaudio
+    dl            #required on Linux
+    m             #math library
 )
 
