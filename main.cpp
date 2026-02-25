@@ -8,14 +8,14 @@ int main() {
     int frameAmount = fft_size + hop_size;
     AudioCapture capture(frameAmount);
 
-    const int channels = capture.getChannels();
+    const int channels = capture.getNumChannels();
 
     std::vector<Peak> peaks(channels);
     std::vector<RMS> rmss(channels);
-    //NOTE: remember to mono sum BEFORE PUSHING TO THIS OBJECT
+    //NOTE: remember to use mono sum window function for this class
     FFT fft(fft_size);
 
-
+    
 
     return 0;
 }

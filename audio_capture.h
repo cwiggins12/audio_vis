@@ -37,6 +37,28 @@ public:
 		}
 	}
 
+	void getMonoSummedWindow(float* out, int frameAmt) {
+		int localWrite = writeIndex.load();
+		int start = 0;
+		int channels = spec.channels;
+		frameAmt *= channels;
+
+		if (frameAmt > localWrite) {
+			start = localWrite - frameAmt + bufferSize;
+		}
+		else {
+			start = localWrite - frameAmt;
+		}
+
+		for (int i = 0; i < frameAmt; i += channels) {
+			int sum = 0;
+			for (int ch = 0; ch < channels; ++ch) {
+				sum += buffer[(start + i + ch) % bufferSize];
+			}
+			out[i / channels] = sum / channels;
+		}
+	}
+
 	int pop(float* out, int maxFrames) {
 		int localRead = readIndex.load();
 		int localWrite = writeIndex.load();
