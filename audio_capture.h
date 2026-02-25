@@ -6,16 +6,78 @@
 #include <atomic>
 #include <iostream>
 
+//eventually, rather than callback, have a run function with a while loop and call it on the audio thread?
+//all calls to this class only require frames, channels and ring buffer logic are internally handled
 class AudioCapture {
 public:
-	AudioCapture() : writeIndex(0), readIndex(0) {}
+	//setup print on fail pls
+	AudioCapture(int size) : writeIndex(0), readIndex(0) {
+		init(size);
+	}
 
 	~AudioCapture() {
 		shutdown();
 	}
 
-	int init() {
-		if (SDL_Init(SDL_INIT_AUDIO) < 0) {
+	void getWindow(float* out, int frameAmt) {
+		int localWrite = writeIndex.load();
+		int start = 0;
+		frameAmt *= spec.channels;
+		
+		if (frameAmt > localWrite) {
+			start = localWrite - frameAmt + bufferSize;
+		}
+		else {
+			start = localWrite - frameAmt;
+		}
+
+		for (int i = 0; i < frameAmt; ++i) {
+			int index = (start + i) % bufferSize;
+			out[i] = buffer[index];
+		}
+	}
+
+	int pop(float* out, int maxFrames) {
+		int localRead = readIndex.load();
+		int localWrite = writeIndex.load();
+		int readSize = 0;
+		maxFrames *= spec.channels;
+
+		if (localWrite < localRead) {
+			readSize = localWrite + (bufferSize - localRead);
+		}
+		else {
+			readSize = localWrite - localRead;
+		}
+
+		if (readSize > maxFrames) {
+			readSize = maxFrames;
+		}
+
+		for (int i = 0; i < readSize; ++i) {
+			int index = (localRead + i) % bufferSize;
+			out[i] = buffer[index];
+		}
+
+		readIndex.store((localRead + readSize) % bufferSize);
+
+		return readSize / spec.channels;
+	}
+
+	void moveReadIndexForwardByFrames(int i) {
+		int localRead = readIndex.load();
+		localRead = (localRead + (i * spec.channels)) % bufferSize;
+		readIndex.store(localRead);
+	}
+
+	int getNumChannels() {
+		return spec.channels;
+	}
+	
+private:
+	//refactor pls
+	int init(int size) {
+		if (SDL_Init(SDL_INIT_AUDIO) == false) {
 			printf("SDL_Init failed: %s\n", SDL_GetError());
 			return -1;
 		}
@@ -43,70 +105,69 @@ public:
 			return -1;
 		}
 
-		SDL_AudioSpec spec;
-		SDL_zero(spec);
-		spec.freq = 48000;
-		spec.format = SDL_AUDIO_F32;
-		spec.channels = 2;
-
-		capture_device = SDL_OpenAudioDevice(monitor_id, &spec);
-		if (!capture_device) {
+		device = SDL_OpenAudioDevice(monitor_id, &spec);
+		if (!device) {
 			printf("Failed to open device: %s\n", SDL_GetError());
 			SDL_free(devices);
 			return -1;
 		}
 
-		SDL_ResumeAudioDevice(capture_device);
+		audioStream = SDL_CreateAudioStream(&spec, &spec);
+		SDL_BindAudioStream(device, audioStream);
 
+		SDL_SetAudioStreamGetCallback(audioStream, callback, this);
+
+		SDL_ResumeAudioDevice(device);
 		SDL_free(devices);
+
+		bufferSize = size * spec.channels;
+		buffer.resize(bufferSize);
 
 		printf("Loopback capture started.\n");
 		return 0;
 	}
 
 	void shutdown() {
-
-	}
-	
-	int getSamples(float* out) {
-
-	}
-	
-	int getBlock(float* out) {
-
-	}
-	
-	void setReadIndex(int i) {
-		readIndex.store(i);
+		if (audioStream) {
+			SDL_DestroyAudioStream(audioStream);
+			audioStream = nullptr;	
+		}
+		if (device) {
+			SDL_CloseAudioDevice(device);
+			device = 0;
+		}
 	}
 
-	int getChannels() {
-//		return device.capture.channels;
+	//static callback for audiostream needs a pointer to instance of self, then calls
+	static void SDLCALL callback(void *userdata, SDL_AudioStream *stream, int additional_amount, int total_amount) {
+		AudioCapture* self = (AudioCapture*)userdata;
+		self->push(additional_amount, stream);
 	}
-	
-private:
-//	static void dataCallback(ma_device* device, void* output, const void* input, ma_uint32 frameCount) {
-//		AudioCapture* self = (AudioCapture*)device->pUserData;
-//		self->processInput((const float*)input, frameCount);
-//	}
 
-//	void processInput(const float* input, ma_uint32 frameCount) {
-//		ma_uint32 localWrite = writeIndex.load();
-//		ma_uint32 totalSamples = frameCount * device.capture.channels;
+	//callback to pass to ring buffer from audiostream
+	void push(int bytesToRead, SDL_AudioStream *stream) {
+		int floatsToRead = bytesToRead / sizeof(float);
+		int bytesRead = 0;
+		int localWrite = writeIndex.load();
+		if (floatsToRead + localWrite > bufferSize) {
+			int amt = bufferSize - localWrite;
+			bytesRead = SDL_GetAudioStreamData(stream, buffer.data() + localWrite, amt * sizeof(float));
+			floatsToRead = floatsToRead - (bytesRead / sizeof(float));
+			if (bytesRead == amt * sizeof(float)) {
+				bytesRead += SDL_GetAudioStreamData(stream, buffer.data(), floatsToRead * sizeof(float));
+			}
+		}
+		else {
+			bytesRead += SDL_GetAudioStreamData(stream, buffer.data() + localWrite, bytesToRead);
+		}
+		writeIndex.store((localWrite + (bytesRead / sizeof(float))) % bufferSize);
+	}
 
-//		for (ma_uint32 i = 0; i < totalSamples; ++i) {
-//			ringBuffer[localWrite] = input[i];
-//			localWrite = (localWrite + 1) % bufferSize;
-//		}
-//		writeIndex.store(localWrite);
-//	}
+	SDL_AudioDeviceID device = 0;
+	SDL_AudioStream *audioStream = nullptr;
+	SDL_AudioSpec spec = {SDL_AUDIO_F32, 2, 48000};
 
-//	struct ma_device device;
-//	ma_context context;
-
-	static SDL_AudioDeviceID capture_device = 0;
-
-	std::vector<float> ringBuffer;
+	std::vector<float> buffer;
 	std::atomic<int> writeIndex;
 	std::atomic<int> readIndex;
 
