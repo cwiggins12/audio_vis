@@ -20,6 +20,5 @@ target_link_libraries(audio_vis PRIVATE
     pthread       #required by miniaudio
     dl            #required on Linux
     m             #math library
-    SDL3::SDL3    #SDL3
 )
 

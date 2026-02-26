@@ -1,28 +1,121 @@
 #pragma once
 
-#include <SDL3/SDL.h>
-#include <SDL3/SDL_audio.h>
+#include "miniaudio.h"
 #include <vector>
 #include <atomic>
-#include <iostream>
+#include <cstring>
+#include <cstdio>
 
-//eventually, rather than callback, have a run function with a while loop and call it on the audio thread?
-//all calls to this class only require frames, channels and ring buffer logic are internally handled
 class AudioCapture {
 public:
-	//setup print on fail pls
-	AudioCapture(int size) : writeIndex(0), readIndex(0) {
-		init(size);
-	}
+	//This class utilizes miniaudio capture device, houses a ring buffer of its capture, and only needs to know sample size
+	//THIS CLASS REQUIRES YOU TO PULL SAMPLES FAST ENOUGH. IF YOU DON'T IT WILL OVERLAP AND ERRORS WILL OCCUR.
+	AudioCapture() : writeIndex(0), readIndex(0) {}
 
 	~AudioCapture() {
 		shutdown();
 	}
 
-	void getWindow(float* out, int frameAmt) {
-		int localWrite = writeIndex.load();
-		int start = 0;
-		frameAmt *= spec.channels;
+	AudioCapture(const AudioCapture&) = delete;
+	AudioCapture& operator=(const AudioCapture&) = delete;
+	AudioCapture(AudioCapture&&) = delete;
+	AudioCapture& operator=(AudioCapture&&) = delete;
+
+	//initializes capture device and ring buffer. Size of ring buffer will be: device channel amount * size * 2
+	//you only need to deal with samples (frames in miniaudio terms), not channels. All channel logic is handled internally
+	bool init(unsigned int size) {
+		if (ma_context_init(nullptr, 0, nullptr, &context) != MA_SUCCESS) {
+			return false;
+		}
+		ma_device_info* captureInfos;
+		ma_uint32 captureCount;
+
+		if (ma_context_get_devices(&context, nullptr, nullptr, &captureInfos, &captureCount) != MA_SUCCESS) {
+			return false;
+		}
+
+		ma_device_id selectedId = {0};
+		bool foundMonitor = false;
+
+		for (ma_uint32 i = 0; i < captureCount; i++) {
+			char* name = captureInfos[i].name;
+			printf("Capture Device: %s \n", name);
+			
+			//search name for monitor, necessary if on linux devices. Windows devices have this as a property to check
+			if (strstr(name, "monitor") || strstr(name, "Monitor")) {
+				selectedId = captureInfos[i].id;
+				foundMonitor = true;
+				break;
+			}
+		}
+		ma_device_config config = ma_device_config_init(ma_device_type_capture);
+		config.capture.format = ma_format_f32;
+		config.capture.channels = 0;
+		config.sampleRate = 0;
+		config.dataCallback = dataCallback;
+		config.pUserData = this;
+
+		if (foundMonitor) {
+			config.capture.pDeviceID = &selectedId;
+			printf("Using monitor device \n");
+		}
+		else {
+			printf("No monitor found \n");
+			return false;
+		}
+
+		if (ma_device_init(&context, &config, &device) != MA_SUCCESS) {
+			return false;
+		}
+
+		if (ma_device_start(&device) != MA_SUCCESS) {
+			return false;
+		}
+		
+		//NOTE: expectation is that the working amount user will need 
+		//* channel amount to only require sample amount (frame amount in miniaudio terms)
+		bufferSize = size * device.capture.channels;
+		buffer.resize(bufferSize);
+
+		return true;
+	}
+
+	
+	//when given buffer, checks where last internal read ended, and gives unread samples to buffer
+	//returns samples read as an ma_uint32, if a buffer limit is needed, pass max for max frames to push to buffer
+	ma_uint32 getSamples(float* out, unsigned int max) {
+		ma_uint32 localRead = readIndex.load();
+		ma_uint32 localWrite = writeIndex.load();
+		ma_uint32 readSize = 0;
+		max *= device.capture.channels;
+
+		if (localWrite < localRead) {
+			readSize = localWrite + (bufferSize - localRead);
+		}
+		else {
+			readSize = localWrite - localRead;
+		}
+
+		if (readSize > max) {
+			readSize = max;
+		}
+
+		for (ma_uint32 i = 0; i < readSize; ++i) {
+			ma_uint32 index = (localRead + i) % bufferSize;
+			out[i] = buffer[index];
+		}
+
+		readIndex.store((localRead + readSize) % bufferSize);
+
+		return readSize;
+	}
+	
+	//NOTE: copies last count of samples read to given out buffer. Handles channel count. Just needs frame count in miniaudio terms.
+	//if you would like for this to be considered as a read for your read index, call setReadIndex with the return of this function
+	void getWindow(float* out, ma_uint32 frameAmt) {
+		ma_uint32 localWrite = writeIndex.load();
+		ma_uint32 start = 0;
+		frameAmt *= device.capture.channels;
 		
 		if (frameAmt > localWrite) {
 			start = localWrite - frameAmt + bufferSize;
@@ -31,8 +124,8 @@ public:
 			start = localWrite - frameAmt;
 		}
 
-		for (int i = 0; i < frameAmt; ++i) {
-			int index = (start + i) % bufferSize;
+		for (ma_uint32 i = 0; i < frameAmt; ++i) {
+			ma_uint32 index = (start + i) % bufferSize;
 			out[i] = buffer[index];
 		}
 	}
@@ -40,7 +133,7 @@ public:
 	void getMonoSummedWindow(float* out, int frameAmt) {
 		int localWrite = writeIndex.load();
 		int start = 0;
-		int channels = spec.channels;
+		int channels = device.capture.channels;
 		frameAmt *= channels;
 
 		if (frameAmt > localWrite) {
@@ -51,11 +144,11 @@ public:
 		}
 
 		for (int i = 0; i < frameAmt; i += channels) {
-			int sum = 0;
+			float sum = 0;
 			for (int ch = 0; ch < channels; ++ch) {
 				sum += buffer[(start + i + ch) % bufferSize];
 			}
-			out[i / channels] = sum / channels;
+			out[i / channels] = sum / (float)channels;
 		}
 	}
 
@@ -63,7 +156,7 @@ public:
 		int localRead = readIndex.load();
 		int localWrite = writeIndex.load();
 		int readSize = 0;
-		maxFrames *= spec.channels;
+		maxFrames *= device.capture.channels;
 
 		if (localWrite < localRead) {
 			readSize = localWrite + (bufferSize - localRead);
@@ -83,116 +176,53 @@ public:
 
 		readIndex.store((localRead + readSize) % bufferSize);
 
-		return readSize / spec.channels;
+		return readSize / device.capture.channels;
 	}
 
-	void moveReadIndexForwardByFrames(int i) {
+	void setReadIndexForwardByFrames(unsigned int i) {
 		int localRead = readIndex.load();
-		localRead = (localRead + (i * spec.channels)) % bufferSize;
+		localRead = (localRead + (i * device.capture.channels)) % bufferSize;
 		readIndex.store(localRead);
 	}
 
-	int getNumChannels() {
-		return spec.channels;
+	unsigned int getNumChannels() {
+		return device.capture.channels;
+	}
+
+	unsigned int getSampleRate() {
+		return device.sampleRate;
 	}
 	
 private:
-	//refactor pls
-	int init(int size) {
-		if (SDL_Init(SDL_INIT_AUDIO) == false) {
-			printf("SDL_Init failed: %s\n", SDL_GetError());
-			return -1;
-		}
-		
-		int count = 0;
-		SDL_AudioDeviceID *devices = SDL_GetAudioRecordingDevices(&count);
-		if (!devices || count == 0) {
-			printf("No recording devices found\n");
-			return -1;
-		}
-
-		SDL_AudioDeviceID monitor_id = 0;
-
-		for (int i = 0; i < count; ++i) {
-			const char *name = SDL_GetAudioDeviceName(devices[i]);
-			printf("Recording Device %d: %s\n", i, name);
-			if (strstr(name, "Monitor") || strstr(name, ".monitor")) {
-				monitor_id = devices[i];
-			}
-		}
-
-		if (!monitor_id) {
-			printf("No monitor device found \n");
-			SDL_free(devices);
-			return -1;
-		}
-
-		device = SDL_OpenAudioDevice(monitor_id, &spec);
-		if (!device) {
-			printf("Failed to open device: %s\n", SDL_GetError());
-			SDL_free(devices);
-			return -1;
-		}
-
-		audioStream = SDL_CreateAudioStream(&spec, &spec);
-		SDL_BindAudioStream(device, audioStream);
-
-		SDL_SetAudioStreamGetCallback(audioStream, callback, this);
-
-		SDL_ResumeAudioDevice(device);
-		SDL_free(devices);
-
-		bufferSize = size * spec.channels;
-		buffer.resize(bufferSize);
-
-		printf("Loopback capture started.\n");
-		return 0;
-	}
-
 	void shutdown() {
-		if (audioStream) {
-			SDL_DestroyAudioStream(audioStream);
-			audioStream = nullptr;	
-		}
-		if (device) {
-			SDL_CloseAudioDevice(device);
-			device = 0;
-		}
+		ma_device_stop(&device);
+		ma_device_uninit(&device);
+		ma_context_uninit(&context);
 	}
 
-	//static callback for audiostream needs a pointer to instance of self, then calls
-	static void SDLCALL callback(void *userdata, SDL_AudioStream *stream, int additional_amount, int total_amount) {
-		AudioCapture* self = (AudioCapture*)userdata;
-		self->push(additional_amount, stream);
+	static void dataCallback(ma_device* device, void* output, const void* input, ma_uint32 frameCount) {
+		AudioCapture* self = (AudioCapture*)device->pUserData;
+		self->processInput((const float*)input, frameCount);
 	}
 
-	//callback to pass to ring buffer from audiostream
-	void push(int bytesToRead, SDL_AudioStream *stream) {
-		int floatsToRead = bytesToRead / sizeof(float);
-		int bytesRead = 0;
-		int localWrite = writeIndex.load();
-		if (floatsToRead + localWrite > bufferSize) {
-			int amt = bufferSize - localWrite;
-			bytesRead = SDL_GetAudioStreamData(stream, buffer.data() + localWrite, amt * sizeof(float));
-			floatsToRead = floatsToRead - (bytesRead / sizeof(float));
-			if (bytesRead == amt * sizeof(float)) {
-				bytesRead += SDL_GetAudioStreamData(stream, buffer.data(), floatsToRead * sizeof(float));
-			}
+	void processInput(const float* input, ma_uint32 frameCount) {
+		ma_uint32 localWrite = writeIndex.load();
+		ma_uint32 totalSamples = frameCount * device.capture.channels;
+
+		for (ma_uint32 i = 0; i < totalSamples; ++i) {
+			buffer[localWrite] = input[i];
+			localWrite = (localWrite + 1) % bufferSize;
 		}
-		else {
-			bytesRead += SDL_GetAudioStreamData(stream, buffer.data() + localWrite, bytesToRead);
-		}
-		writeIndex.store((localWrite + (bytesRead / sizeof(float))) % bufferSize);
+		writeIndex.store(localWrite);
 	}
 
-	SDL_AudioDeviceID device = 0;
-	SDL_AudioStream *audioStream = nullptr;
-	SDL_AudioSpec spec = {SDL_AUDIO_F32, 2, 48000};
+	struct ma_device device;
+	ma_context context;
 
 	std::vector<float> buffer;
-	std::atomic<int> writeIndex;
-	std::atomic<int> readIndex;
+	std::atomic<ma_uint32> writeIndex;
+	std::atomic<ma_uint32> readIndex;
 
-	int bufferSize = 0;
+	ma_uint32 bufferSize = 0;
 };
 
