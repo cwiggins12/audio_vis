@@ -5,7 +5,7 @@
 #include <vector>
 #include <fftw3.h>
 
-#define PI 3.14159265358979323846f
+static constexpr float PI = 3.14159265358979323846f;
 
 //peak measurement per channel
 struct Peak {
@@ -22,6 +22,18 @@ struct Peak {
         float peakValue = 0.0f;
         for (int i = channelNum; i < numSamples * channelAmount; i += channelAmount) {
             float absSample = std::abs(block[i]);
+            if (absSample > peakValue) {
+                peakValue = absSample;
+            }
+        }
+        update(peakValue);
+    }
+
+    void getPeakFromRingBuffer(const float* buffer, const int numSamples, const int channelNum, const int channelAmount, const int start, const int buffSize) {
+        float peakValue = 0.0f;
+        for (int i = channelNum; i < numSamples * channelAmount; i += channelAmount) {
+            int idx = (i + start) % buffSize;
+            float absSample = std::abs(buffer[idx]);
             if (absSample > peakValue) {
                 peakValue = absSample;
             }
@@ -58,13 +70,25 @@ struct RMS {
         value.store(rmsValue);
     }
 
+    void getRMSFromRingBuffer(const float* buffer, const int numSamples, const int channelNum, const int channelAmount, const int start, const int buffSize) {
+        float rmsValue = 0.0f;
+        for (int i = channelNum; i < numSamples * channelAmount; i += channelAmount) {
+            int idx = (i + start) % buffSize;
+            rmsValue += buffer[idx] * buffer[idx];
+        }
+        rmsValue /= numSamples;
+        rmsValue = std::sqrt(rmsValue);
+        value.store(rmsValue);
+    }
+
 private:
     std::atomic<float> value{ 0.0f };
 };
 
 struct FFT{
-    FFT(int N, bool per, bool win, bool dB, float sr, float slope = 0.0f) : 
-        n(N), isPerceptual(per), isWindowed(win), isDB(dB), perceptualSlope(slope) {
+    FFT(int N, bool per, bool win, bool dB, bool ss, float sr, float slope = 0.0f) : 
+        n(N), isPerceptual(per), isWindowed(win), isDB(dB), isSingleSided(ss), 
+        perceptualSlope(slope) {
         //initialize fft and precompute table
         in = (float *)fftwf_malloc(sizeof(float) * n);
         out = (fftwf_complex *)fftwf_malloc(sizeof(fftwf_complex) * (n / 2 + 1));
@@ -93,6 +117,7 @@ struct FFT{
                                 placement(other.placement), n(other.n),
                                 isPerceptual(other.isPerceptual),
                                 isWindowed(other.isWindowed), isDB(other.isDB),
+                                isSingleSided(other.isSingleSided),
                                 perceptualSlope(other.perceptualSlope),
                                 windowingTable(std::move(other.windowingTable)),
                                 scalarTable(std::move(other.scalarTable)) {
@@ -111,9 +136,11 @@ struct FFT{
             out = other.out;
             p = other.p;
             placement = other.placement;
+            n = other.n;
             isPerceptual = other.isPerceptual;
             isWindowed = other.isWindowed;
             isDB = other.isDB;
+            isSingleSided = other.isSingleSided;
             perceptualSlope = other.perceptualSlope;
             windowingTable = std::move(other.windowingTable);
             scalarTable = std::move(other.scalarTable);
@@ -138,7 +165,7 @@ struct FFT{
             multiplyWithWindowingTable();
         }
         fftwf_execute(p);
-        convertToPower();
+        convertToMag();
         multiplyWithScalarTable();
         if (isDB) {
             convertToDB();
@@ -167,16 +194,21 @@ private:
     }
 
     void fillScalarTable(float sr) {
-        const float winScale = (isWindowed) ? 2.0f : 1.0f;
-        const float pScale = winScale / (float)((double)n * (double)n);
+        //NOTE: accounts for single sided and loss from FFT ops at 2.0f each. 
+        //Scale has been tested, it is consistently in line with peak and RMS
+        float scaleNumerator = (isSingleSided) ? 4.0f : 2.0f;
+        const float scale = scaleNumerator / (float)n;
         const float tiltExponent = (isPerceptual) ? perceptualSlope / 6.0206f : 0.0f;
         const float binMult = sr / (float)n;
         const int binAmt = n / 2 + 1;
-        for (int i = 0; i < binAmt; ++i) {
+        scalarTable[0] = scale / 2.0f;
+        for (int i = 1; i < binAmt - 1; ++i) {
             float binFreq = (float)i * binMult;
             float tilt = std::pow(binFreq / 1000.0f, tiltExponent);
-            scalarTable[i] = tilt * pScale;
+            scalarTable[i] = tilt * scale;
         }
+        //annoying
+        scalarTable[binAmt - 1] = std::pow(((float)binAmt - 1 * binMult) / 1000.0f, tiltExponent) * (scale / 2);
     }
 
     void multiplyWithWindowingTable() {
@@ -185,13 +217,13 @@ private:
         }
     }
 
-    void convertToPower() {
+    void convertToMag() {
         const int binAmt = n / 2 + 1;
         for (int i = 0; i < binAmt; ++i) {
             float real = out[i][0];
             float imag = out[i][1];
-            float power = real * real + imag * imag;
-            placement[i] = power;
+            float mag = std::sqrt(real * real + imag * imag);
+            placement[i] = mag;
         }
     }
 
@@ -203,24 +235,32 @@ private:
     }
 
     void convertToDB() {
-        const float min_power = 1e-12f;
+        const float min_mag = 1e-12f;
         const int binAmt = n / 2 + 1;
         for (int i = 0; i < binAmt; ++i) {
-            float power = std::max(placement[i], min_power);
-            placement[i] = 10.0f * std::log10(power);
+            float mag = std::max(placement[i], min_mag);
+            mag = 20.0f * std::log10(mag);
+            placement[i] = std::max(mag, -120.0f);
         }
     }
+    //NOTE: total byte size: ((3n + 1) * (n / 2 + 1) * sizeof(float)) + 74 + sizeof(plan)
 
+    //size: n * sizeof(float)
     float *in;
+    //size: (n / 2 + 1) * sizeof(complex(8 bytes))
     fftwf_complex *out;
+    //pointer to overwrite complexes after conversions
     float *placement;
     fftwf_plan p;
     bool isPerceptual;
     bool isWindowed;
     bool isDB;
+    bool isSingleSided;
     float perceptualSlope;
     int n;
+    //size: n * sizeof(float)
     std::vector<float> windowingTable;
+    //size: (n / 2 + 1) * sizeof(float)
     std::vector<float> scalarTable;
 };
 

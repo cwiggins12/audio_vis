@@ -68,50 +68,21 @@ public:
 			return false;
 		}
 
-		if (ma_device_start(&device) != MA_SUCCESS) {
-			return false;
-		}
-		
 		//NOTE: expectation is that the working amount user will need 
 		//* channel amount to only require sample amount (frame amount in miniaudio terms)
 		bufferSize = size * device.capture.channels;
+		firstFillIndex = bufferSize / 2;
 		buffer.resize(bufferSize);
+
+		if (ma_device_start(&device) != MA_SUCCESS) {
+			return false;
+		}
 
 		return true;
 	}
 
-	
-	//when given buffer, checks where last internal read ended, and gives unread samples to buffer
-	//returns samples read as an ma_uint32, if a buffer limit is needed, pass max for max frames to push to buffer
-	ma_uint32 getSamples(float* out, unsigned int max) {
-		ma_uint32 localRead = readIndex.load();
-		ma_uint32 localWrite = writeIndex.load();
-		ma_uint32 readSize = 0;
-		max *= device.capture.channels;
-
-		if (localWrite < localRead) {
-			readSize = localWrite + (bufferSize - localRead);
-		}
-		else {
-			readSize = localWrite - localRead;
-		}
-
-		if (readSize > max) {
-			readSize = max;
-		}
-
-		for (ma_uint32 i = 0; i < readSize; ++i) {
-			ma_uint32 index = (localRead + i) % bufferSize;
-			out[i] = buffer[index];
-		}
-
-		readIndex.store((localRead + readSize) % bufferSize);
-
-		return readSize;
-	}
-	
 	//NOTE: copies last count of samples read to given out buffer. Handles channel count. Just needs frame count in miniaudio terms.
-	//if you would like for this to be considered as a read for your read index, call setReadIndex with the return of this function
+	//if you would like for this to be considered as a read for your read index, call setReadIndexForwardByFrames
 	void getWindow(float* out, ma_uint32 frameAmt) {
 		ma_uint32 localWrite = writeIndex.load();
 		ma_uint32 start = 0;
@@ -180,9 +151,23 @@ public:
 	}
 
 	void setReadIndexForwardByFrames(unsigned int i) {
-		int localRead = readIndex.load();
-		localRead = (localRead + (i * device.capture.channels)) % bufferSize;
-		readIndex.store(localRead);
+		if (i > bufferSize / device.capture.channels) {
+			printf("setReadIndexForwardByFrames(): given i outside possible range\n");
+			return;
+		}
+		ma_uint32 oldRead = readIndex.load();
+		ma_uint32 advance = i * device.capture.channels;
+		ma_uint32 write = writeIndex.load();
+		ma_uint32 available = (write - oldRead + bufferSize) % bufferSize;
+		if (advance > available) {
+			advance = available;
+		}
+		readIndex.store((oldRead + advance) % bufferSize);
+	}
+
+	unsigned int getWindowStartFromWrite(unsigned int windowSize) {
+		ma_uint32 samples = windowSize * device.capture.channels;
+		return (writeIndex.load() + bufferSize - samples) % bufferSize;
 	}
 
 	unsigned int getNumChannels() {
@@ -192,6 +177,30 @@ public:
 	unsigned int getSampleRate() {
 		return device.sampleRate;
 	}
+
+	unsigned int getBufferSizeInSamples() {
+		return bufferSize;
+	}
+
+	unsigned int getBufferSizeInFrames() {
+		return bufferSize / device.capture.channels;
+	}
+
+	float* getRawBufferPointer() {
+		return buffer.data();
+	}
+
+	unsigned getWriteIndex() {
+		return writeIndex.load();
+	}
+
+	unsigned getReadIndex() {
+		return readIndex.load();
+	}
+
+	bool getFirstFillFlag() {
+		return firstFillDone.load();
+	}
 	
 private:
 	void shutdown() {
@@ -200,6 +209,7 @@ private:
 		ma_context_uninit(&context);
 	}
 
+	//NOTE: these 2 are the write funcs handled in ma's thread to fill the ring buffer.
 	static void dataCallback(ma_device* device, void* output, const void* input, ma_uint32 frameCount) {
 		AudioCapture* self = (AudioCapture*)device->pUserData;
 		self->processInput((const float*)input, frameCount);
@@ -208,21 +218,30 @@ private:
 	void processInput(const float* input, ma_uint32 frameCount) {
 		ma_uint32 localWrite = writeIndex.load();
 		ma_uint32 totalSamples = frameCount * device.capture.channels;
-
+		bool setFirstFill = false;
+		if (!firstFillDone.load() && (localWrite > firstFillIndex || localWrite + totalSamples > firstFillIndex)) {
+			setFirstFill = true;
+		}
 		for (ma_uint32 i = 0; i < totalSamples; ++i) {
 			buffer[localWrite] = input[i];
 			localWrite = (localWrite + 1) % bufferSize;
 		}
+		if (setFirstFill) {
+			firstFillDone.store(true);
+		}
 		writeIndex.store(localWrite);
 	}
 
+	//NOTE: total size = bufferSize(size passed in * channels) * 4 + sizeof(device) + sizeof(context) + 29 bytes
 	struct ma_device device;
 	ma_context context;
 
 	std::vector<float> buffer;
 	std::atomic<ma_uint32> writeIndex;
 	std::atomic<ma_uint32> readIndex;
-
-	ma_uint32 bufferSize = 0;
+	ma_uint32 bufferSize;
+	//eventually these 2 can be in the parent class
+	ma_uint32 firstFillIndex;
+	std::atomic<bool> firstFillDone{false};
 };
 
