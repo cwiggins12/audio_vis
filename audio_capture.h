@@ -215,6 +215,8 @@ private:
 		self->processInput((const float*)input, frameCount);
 	}
 
+	//TODO:this needs a global uint64 to accumulate, rather than the first fill logic.
+	//It needs a public setter to reset on analysis loop completion
 	void processInput(const float* input, ma_uint32 frameCount) {
 		ma_uint32 localWrite = writeIndex.load();
 		ma_uint32 totalSamples = frameCount * device.capture.channels;

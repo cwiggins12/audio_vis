@@ -4,6 +4,7 @@
 #include <cmath>
 #include <vector>
 #include <fftw3.h>
+#include <array>
 
 static constexpr float PI = 3.14159265358979323846f;
 
@@ -18,7 +19,8 @@ struct Peak {
     }
 
     //only called in process block per channel. gets peak and calls update per block
-    void getPeakFromBlock(const float* block, const int numSamples, const int channelNum, const int channelAmount) {
+    void getPeakFromBlock(const float* block, const int numSamples, 
+                          const int channelNum, const int channelAmount) {
         float peakValue = 0.0f;
         for (int i = channelNum; i < numSamples * channelAmount; i += channelAmount) {
             float absSample = std::abs(block[i]);
@@ -29,7 +31,9 @@ struct Peak {
         update(peakValue);
     }
 
-    void getPeakFromRingBuffer(const float* buffer, const int numSamples, const int channelNum, const int channelAmount, const int start, const int buffSize) {
+    void getPeakFromRingBuffer(const float* buffer, const int numSamples, 
+                               const int channelNum, const int channelAmount, 
+                               const int start, const int buffSize) {
         float peakValue = 0.0f;
         for (int i = channelNum; i < numSamples * channelAmount; i += channelAmount) {
             int idx = (i + start) % buffSize;
@@ -86,7 +90,7 @@ private:
 };
 
 struct FFT{
-    FFT(int N, bool per, bool win, bool dB, bool ss, float sr, float slope = 0.0f) : 
+    FFT(int N, bool per = true, bool win = true, bool dB = true, bool ss = true, float slope = 0.0f) : 
         n(N), isPerceptual(per), isWindowed(win), isDB(dB), isSingleSided(ss), 
         perceptualSlope(slope) {
         //initialize fft and precompute table
@@ -96,10 +100,8 @@ struct FFT{
         placement = (float *) out;
         if (isWindowed) {
             windowingTable.resize(n);
-            fillWindowingTable();
         }
         scalarTable.resize(n / 2 + 1);
-        fillScalarTable(sr);
     }
 
     ~FFT() {
@@ -152,12 +154,38 @@ struct FFT{
         return *this;
     }
 
+    void initFFT(unsigned int sr) {
+        fillScalarTable(sr);
+        fillWindowingTable();
+    }
+
     float* getInputBuffer() {
         return in;
     }
 
     float* getOutputBuffer() {
         return placement;
+    }
+
+    //return first index and amount of bins used in spectral analysis
+    std::array<unsigned int, 2> getAudibleRange(unsigned int sr) {
+        const int binAmt = n / 2 + 1;
+        const float binMult = (float)sr / (float) n;
+        bool firstAudibleSet = false;
+        std::array<unsigned int, 2> res = {0, 0};
+
+        for (int i = 0; i < binAmt; ++i) {
+            float binFreq = (float)i * binMult;
+            if (!firstAudibleSet && binFreq >= 20.0f) {
+                res[0] = i;
+                firstAudibleSet = true;
+            }
+            if (binFreq > 20000.0f) {
+                res[1] = i - res[0];
+                break;
+            }
+        }
+        return res;
     }
 
     void runFFT() {
@@ -193,14 +221,17 @@ private:
         }
     }
 
-    void fillScalarTable(float sr) {
+    void fillScalarTable(unsigned int sr) {
         //NOTE: accounts for single sided and loss from FFT ops at 2.0f each. 
         //Scale has been tested, it is consistently in line with peak and RMS
         float scaleNumerator = (isSingleSided) ? 4.0f : 2.0f;
         const float scale = scaleNumerator / (float)n;
         const float tiltExponent = (isPerceptual) ? perceptualSlope / 6.0206f : 0.0f;
-        const float binMult = sr / (float)n;
+        const float binMult = (float)sr / (float)n;
         const int binAmt = n / 2 + 1;
+        bool firstAudibleSet = false;
+        bool lastAudibleSet = false;
+
         scalarTable[0] = scale / 2.0f;
         for (int i = 1; i < binAmt - 1; ++i) {
             float binFreq = (float)i * binMult;
@@ -208,7 +239,7 @@ private:
             scalarTable[i] = tilt * scale;
         }
         //annoying
-        scalarTable[binAmt - 1] = std::pow(((float)binAmt - 1 * binMult) / 1000.0f, tiltExponent) * (scale / 2);
+        scalarTable[binAmt - 1] = std::pow(((float)binAmt - 1.0f * binMult) / 1000.0f, tiltExponent) * (scale / 2);
     }
 
     void multiplyWithWindowingTable() {
@@ -243,7 +274,9 @@ private:
             placement[i] = std::max(mag, -120.0f);
         }
     }
-    //NOTE: total byte size: ((3n + 1) * (n / 2 + 1) * sizeof(float)) + 74 + sizeof(plan)
+
+    //NOTE: 
+    //total byte size: ((3n + 1) * (n / 2 + 1) * sizeof(float)) + 82 + sizeof(plan) 
 
     //size: n * sizeof(float)
     float *in;
