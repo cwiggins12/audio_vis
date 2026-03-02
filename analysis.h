@@ -156,7 +156,9 @@ struct FFT{
 
     void initFFT(unsigned int sr) {
         fillScalarTable(sr);
-        fillWindowingTable();
+        if (isWindowed) {
+            fillWindowingTable();
+        }
     }
 
     float* getInputBuffer() {
@@ -239,7 +241,7 @@ private:
             scalarTable[i] = tilt * scale;
         }
         //annoying
-        scalarTable[binAmt - 1] = std::pow(((float)binAmt - 1.0f * binMult) / 1000.0f, tiltExponent) * (scale / 2);
+        scalarTable[binAmt - 1] = std::pow(((float)(binAmt - 1) * binMult) / 1000.0f, tiltExponent) * (scale / 2);
     }
 
     void multiplyWithWindowingTable() {

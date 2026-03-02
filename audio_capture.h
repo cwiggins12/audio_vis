@@ -71,7 +71,6 @@ public:
 		//NOTE: expectation is that the working amount user will need 
 		//* channel amount to only require sample amount (frame amount in miniaudio terms)
 		bufferSize = size * device.capture.channels;
-		firstFillIndex = bufferSize / 2;
 		buffer.resize(bufferSize);
 
 		if (ma_device_start(&device) != MA_SUCCESS) {
@@ -150,7 +149,7 @@ public:
 		return readSize / device.capture.channels;
 	}
 
-	void setReadIndexForwardByFrames(unsigned int i) {
+	void setReadIndexForwardByFrames(uint32_t i) {
 		if (i > bufferSize / device.capture.channels) {
 			printf("setReadIndexForwardByFrames(): given i outside possible range\n");
 			return;
@@ -165,24 +164,24 @@ public:
 		readIndex.store((oldRead + advance) % bufferSize);
 	}
 
-	unsigned int getWindowStartFromWrite(unsigned int windowSize) {
+	uint32_t getWindowStartFromWrite(uint32_t windowSize) {
 		ma_uint32 samples = windowSize * device.capture.channels;
 		return (writeIndex.load() + bufferSize - samples) % bufferSize;
 	}
 
-	unsigned int getNumChannels() {
+	uint32_t getNumChannels() {
 		return device.capture.channels;
 	}
 
-	unsigned int getSampleRate() {
+	uint32_t getSampleRate() {
 		return device.sampleRate;
 	}
 
-	unsigned int getBufferSizeInSamples() {
+	uint32_t getBufferSizeInSamples() {
 		return bufferSize;
 	}
 
-	unsigned int getBufferSizeInFrames() {
+	uint32_t getBufferSizeInFrames() {
 		return bufferSize / device.capture.channels;
 	}
 
@@ -190,16 +189,24 @@ public:
 		return buffer.data();
 	}
 
-	unsigned getWriteIndex() {
+	uint32_t getWriteIndex() {
 		return writeIndex.load();
 	}
 
-	unsigned getReadIndex() {
+	uint32_t getReadIndex() {
 		return readIndex.load();
 	}
 
-	bool getFirstFillFlag() {
-		return firstFillDone.load();
+	uint32_t getAccumulatedFrames() {
+		return framesAccumulated.load();
+	}
+
+	void resetAccumulator() {
+		framesAccumulated.store(0);
+	}
+
+	void moveAccumulator(uint32_t amt) {
+		framesAccumulated.fetch_sub(amt);
 	}
 	
 private:
@@ -215,26 +222,20 @@ private:
 		self->processInput((const float*)input, frameCount);
 	}
 
-	//TODO:this needs a global uint64 to accumulate, rather than the first fill logic.
-	//It needs a public setter to reset on analysis loop completion
 	void processInput(const float* input, ma_uint32 frameCount) {
 		ma_uint32 localWrite = writeIndex.load();
 		ma_uint32 totalSamples = frameCount * device.capture.channels;
-		bool setFirstFill = false;
-		if (!firstFillDone.load() && (localWrite > firstFillIndex || localWrite + totalSamples > firstFillIndex)) {
-			setFirstFill = true;
-		}
+
 		for (ma_uint32 i = 0; i < totalSamples; ++i) {
 			buffer[localWrite] = input[i];
 			localWrite = (localWrite + 1) % bufferSize;
 		}
-		if (setFirstFill) {
-			firstFillDone.store(true);
-		}
+
 		writeIndex.store(localWrite);
+		framesAccumulated.fetch_add(frameCount);
 	}
 
-	//NOTE: total size = bufferSize(size passed in * channels) * 4 + sizeof(device) + sizeof(context) + 29 bytes
+	//NOTE: total size = bufferSize(size passed in * channels) * sizeof(float) + sizeof(device) + sizeof(context) + 28 bytes
 	struct ma_device device;
 	ma_context context;
 
@@ -242,8 +243,7 @@ private:
 	std::atomic<ma_uint32> writeIndex;
 	std::atomic<ma_uint32> readIndex;
 	ma_uint32 bufferSize;
-	//eventually these 2 can be in the parent class
-	ma_uint32 firstFillIndex;
-	std::atomic<bool> firstFillDone{false};
+
+	std::atomic<uint32_t> framesAccumulated{0};
 };
 

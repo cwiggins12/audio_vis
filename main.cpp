@@ -4,7 +4,8 @@
 #include <csignal>
 #include <SDL3/SDL.h>
 #include <iostream>
-#include <glad/glad.h>
+#include <glad/gles2.h>
+
 class Shader {
 public:
     GLuint id;
@@ -52,8 +53,8 @@ private:
     }
 };
 
-const char* vertexSrc = R"(#version 300 es
-precision highp floatreturn false;
+const char* vertexSrc = R"(#version 310 es
+precision highp float;
 
 out vec2 uv;
 
@@ -70,13 +71,21 @@ void main() {
 }
 )";
 
-const char* fragmentSrc = R"(#version 300 es
+const char* fragmentSrc = R"(#version 310 es
 precision highp float;
 
 in vec2 uv;
 out vec4 FragColor;
 
 uniform float time;
+
+layout(std430, binding = 0) readonly buffer PeakRMS {
+    float peakRmsData[];
+};
+
+layout(std430, binding = 1) readonly buffer FFTBins {
+    float fftData[];
+};
 
 void main() {
     vec3 color = 0.5 + 0.5 * cos(time + uv.xyx + vec3(0,2,4));
@@ -86,7 +95,7 @@ void main() {
 
 int main() {
     const int hop_amt  = 4;
-    const int fft_order = 12;
+    const int fft_order = 11;
     Audio audio(hop_amt, fft_order);
     if (!audio.init()) {
         std::cerr << "Audio initialization failed \n";
@@ -100,11 +109,11 @@ int main() {
 
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 
-    SDL_Window* window = SDL_CreateWindow("audio_vis", 1280, 720, 
+    SDL_Window* window = SDL_CreateWindow("audio_vis", 1280, 720,
                          SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
     if (!window) {
         std::cerr << "Window creation failed: " << SDL_GetError() << std::endl;
@@ -122,7 +131,7 @@ int main() {
 
     SDL_GL_SetSwapInterval(1);
 
-    if (!gladLoadGLES2Loader((GLADloadproc)SDL_GL_GetProcAddress)) {
+    if (!gladLoadGLES2(SDL_GL_GetProcAddress)) {
         std::cerr << "Failed to initialize GLAD\n";
         SDL_GL_DestroyContext(glContext);
         SDL_DestroyWindow(window);
@@ -133,6 +142,9 @@ int main() {
     std::cout << "GL Version: " << glGetString(GL_VERSION) << std::endl;
     std::cout << "GLSL Version: " << glGetString(GL_SHADING_LANGUAGE_VERSION) << std::endl;
 
+    const unsigned int numChannels = audio.getNumChannels();
+    const unsigned int numAudibleBins = audio.getAudibleSize();
+
     glViewport(0, 0, 1280, 720);
 
     GLuint vao;
@@ -141,6 +153,22 @@ int main() {
 
     Shader shader(vertexSrc, fragmentSrc);
     GLint timeLoc = glGetUniformLocation(shader.id, "time");
+
+    // --- SSBO setup ---
+    GLuint ssbos[2];
+    glGenBuffers(2, ssbos);
+
+    // SSBO 0: peak/rms — numChannels * 2 floats, tightly packed with std430
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbos[0]);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, numChannels * 2 * sizeof(float), nullptr, GL_DYNAMIC_DRAW);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbos[0]);
+
+    // SSBO 1: FFT bins — audibleSize floats, tightly packed with std430
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbos[1]);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, numAudibleBins * sizeof(float), nullptr, GL_DYNAMIC_DRAW);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, ssbos[1]);
+
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
     bool running = true;
     SDL_Event event;
@@ -161,15 +189,21 @@ int main() {
                     break;
             }
         }
+
         glClearColor(0.05f, 0.07f, 0.12f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        //if (audio.canAnalyze()) {
-        //    audio.analyze();
-        //}
-        //upload FFT data to shader
-        //audio.placeInContext()
-        //draw
+        if (audio.canAnalyze()) {
+            audio.analyze();
+
+            glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbos[0]);
+            glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, numChannels * 2 * sizeof(float), audio.getRMSPeakPtr());
+
+            glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbos[1]);
+            glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, numAudibleBins * sizeof(float), audio.getFFTPtr());
+
+            glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+        }
 
         shader.use();
         float t = SDL_GetTicks() / 1000.0f;
@@ -179,6 +213,8 @@ int main() {
         SDL_GL_SwapWindow(window);
     }
 
+    glDeleteBuffers(2, ssbos);
+    glDeleteVertexArrays(1, &vao);
     SDL_GL_DestroyContext(glContext);
     SDL_DestroyWindow(window);
     SDL_Quit();

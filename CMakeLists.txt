@@ -12,7 +12,8 @@ find_package(OpenGL REQUIRED)
 
 add_executable(audio_vis
     main.cpp
-    external/glad/src/glad.c
+    external/glad/src/gles2.c
+    external/glad/src/egl.c
 )
 
 # Include current directory (for miniaudio.h and headers)
@@ -29,5 +30,6 @@ target_link_libraries(audio_vis PRIVATE
     m               #math library
     SDL3::SDL3      #SDL3 for windowing
     OpenGL::GL      #OpenGL for context
+    EGL             #OpenGL dependency
 )
 
