@@ -23,6 +23,7 @@ public:
     Audio(uint32_t hops, uint32_t fft_o, size_t smoothSize = 0) : 
           hopAmt(hops), fftOrder(fft_o), smoothFFTSize(smoothSize) {}
 	~Audio() {}
+    //no moves, no copies
 	Audio(const Audio&) = delete;
 	Audio& operator=(const Audio&) = delete;
 	Audio(Audio&&) = delete;
@@ -48,7 +49,7 @@ public:
         fft = std::make_unique<FFT>(fftSize, true, true, true, true, 4.5);
         fft->initFFT(sampleRate);
         //getters for audible range here pls
-        std::array<unsigned int, 2> audible = fft->getAudibleRange(sampleRate);
+        std::vector<uint32_t> audible = fft->getAudibleRange(sampleRate);
         firstAudibleIndex = audible[0];
         audibleSize = audible[1];
 
@@ -86,8 +87,8 @@ public:
     void analyze() {
         // --- Peak & RMS ---
         float *buff = capture.getRawBufferPointer();
-        unsigned int start = capture.getWindowStartFromWrite(fftSize);
-        unsigned int size = capture.getBufferSizeInSamples();
+        uint32_t start = capture.getWindowStartFromWrite(fftSize);
+        uint32_t size = capture.getBufferSizeInSamples();
         for (int ch = 0; ch < channels; ++ch) {
             peak[ch].getPeakFromRingBuffer(buff, fftSize, ch, channels, start, size);
             rms[ch].getRMSFromRingBuffer(buff, fftSize, ch, channels, start, size);
@@ -112,15 +113,15 @@ public:
         capture.moveAccumulator(hopSize);
     }
 
-    unsigned int getNumChannels() {
+    uint32_t getNumChannels() {
         return channels;
     }
 
-    unsigned int getFirstAudibleIndex() {
+    uint32_t getFirstAudibleIndex() {
         return firstAudibleIndex;
     }
 
-    unsigned int getAudibleSize() {
+    uint32_t getAudibleSize() {
         return audibleSize;
     }
 

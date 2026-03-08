@@ -1,3 +1,4 @@
+#include <SDL3/SDL_video.h>
 #define MINIAUDIO_IMPLEMENTATION
 
 #include "audio.h"
@@ -140,10 +141,6 @@ int main() {
     const int hop_amt  = 4;
     const int fft_order = 11;
     Audio audio(hop_amt, fft_order);
-    if (!audio.init()) {
-        std::cerr << "Audio initialization failed \n";
-        return -1;
-    }
 
     if (!SDL_Init(SDL_INIT_VIDEO)) {
         std::cerr << "SDL_Init failed: " << SDL_GetError() << std::endl;
@@ -172,7 +169,7 @@ int main() {
         SDL_Quit();
         return -1;
     }
-    
+
     //ties gl frames to device fps
     SDL_GL_SetSwapInterval(1);
 
@@ -188,9 +185,19 @@ int main() {
     std::cout << "GL Version: " << glGetString(GL_VERSION) << std::endl;
     std::cout << "GLSL Version: " << glGetString(GL_SHADING_LANGUAGE_VERSION) << std::endl;
 
-    const unsigned int numChannels = audio.getNumChannels();
+    //my assumtion of passing fps to audio on init being cheap, easy, and consistent is not looking good here
+    int displayHz = 60; //fallback :(
+    SDL_DisplayID displayID = SDL_GetDisplayForWindow(window);
+    const SDL_DisplayMode* mode = SDL_GetCurrentDisplayMode(displayID);
+    if (mode) displayHz = (int)mode->refresh_rate;
+    if (!audio.init(displayHz)) {
+        std::cerr << "Audio initialization failed \n";
+        return -1;
+    }
+
+    const uint32_t numChannels = audio.getNumChannels();
     //set up a better way to do this in fft pls
-    const unsigned int numAudibleBins = audio.getAudibleSize();
+    const uint32_t numAudibleBins = audio.getAudibleSize();
 
     //this should be variables set at window creation
     glViewport(0, 0, 1280, 720);
