@@ -4,7 +4,6 @@
 #include <cmath>
 #include <vector>
 #include <fftw3.h>
-#include <array>
 
 static constexpr float PI = 3.14159265358979323846f;
 
@@ -154,7 +153,7 @@ struct FFT{
         return *this;
     }
 
-    void initFFT(unsigned int sr) {
+    void initFFT(uint32_t sr) {
         fillScalarTable(sr);
         if (isWindowed) {
             fillWindowingTable();
@@ -170,11 +169,11 @@ struct FFT{
     }
 
     //return first index and amount of bins used in spectral analysis
-    std::array<unsigned int, 2> getAudibleRange(unsigned int sr) {
+    std::vector<uint32_t> getAudibleRange(uint32_t sr) {
         const int binAmt = n / 2 + 1;
         const float binMult = (float)sr / (float) n;
         bool firstAudibleSet = false;
-        std::array<unsigned int, 2> res = {0, 0};
+        std::vector<uint32_t> res = {0, 0};
 
         for (int i = 0; i < binAmt; ++i) {
             float binFreq = (float)i * binMult;
@@ -223,7 +222,7 @@ private:
         }
     }
 
-    void fillScalarTable(unsigned int sr) {
+    void fillScalarTable(uint32_t sr) {
         //NOTE: accounts for single sided and loss from FFT ops at 2.0f each. 
         //Scale has been tested, it is consistently in line with peak and RMS
         float scaleNumerator = (isSingleSided) ? 4.0f : 2.0f;
