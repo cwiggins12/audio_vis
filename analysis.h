@@ -96,7 +96,7 @@ struct FFT{
         //initialize fft and precompute table
         in = (float *)fftwf_malloc(sizeof(float) * n);
         out = (fftwf_complex *)fftwf_malloc(sizeof(fftwf_complex) * (n / 2 + 1));
-        p = fftwf_plan_dft_r2c_1d(n, in, out, FFTW_ESTIMATE);
+        p = fftwf_plan_dft_r2c_1d(n, in, out, FFTW_MEASURE);
         placement = (float *) out;
         if (isWindowed) {
             windowingTable.resize(n);

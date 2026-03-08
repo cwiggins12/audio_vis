@@ -216,7 +216,8 @@ private:
 		ma_context_uninit(&context);
 	}
 
-	//NOTE: these 2 are the write funcs handled in ma's thread to fill the ring buffer.
+	//NOTE: these 2 are the write funcs handled in ma's thread to fill the ring buffer. 
+	//would like to add peak and rms readings here possibly since they are made for audio thread speed
 	static void dataCallback(ma_device* device, void* output, const void* input, ma_uint32 frameCount) {
 		AudioCapture* self = (AudioCapture*)device->pUserData;
 		self->processInput((const float*)input, frameCount);

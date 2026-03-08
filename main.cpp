@@ -71,6 +71,7 @@ void main() {
 }
 )";
 
+/*
 const char* fragmentSrc = R"(#version 310 es
 precision highp float;
 
@@ -89,6 +90,48 @@ layout(std430, binding = 1) readonly buffer FFTBins {
 
 void main() {
     vec3 color = 0.5 + 0.5 * cos(time + uv.xyx + vec3(0,2,4));
+    FragColor = vec4(color, 1.0);
+}
+)";
+*/
+
+const char* fragmentSrc = R"(#version 310 es
+precision highp float;
+
+in vec2 uv;
+out vec4 FragColor;
+
+uniform float time;
+uniform int numBins;
+
+layout(std430, binding = 0) readonly buffer PeakRMS {
+    float peakRmsData[];
+};
+
+layout(std430, binding = 1) readonly buffer FFTBins {
+    float fftData[];
+};
+
+void main() {
+    //map uv.x to a bin index
+    int binIndex = int(uv.x * float(numBins));
+    binIndex = clamp(binIndex, 0, numBins - 1);
+
+    float db = fftData[binIndex];
+
+    //normalize -120..0 to 0..1
+    float normalized =(db + 120.0) / 120.0;
+    normalized = clamp(normalized, 0.0, 1.0);
+
+    //draw bar - 1.0 if uv.y is below the bar height, 0.0 otherwise
+    float bar = step(uv.y, normalized);
+
+    //color: gradient from blue at bottom to cyan at top
+    vec3 color = mix(vec3(0.0, 0.2, 0.8), vec3(0.0, 1.0, 0.9), uv.y) * bar;
+
+    //dark background where there's no bar
+    color += vec3(0.05, 0.07, 0.12) * (1.0 - bar);
+
     FragColor = vec4(color, 1.0);
 }
 )";
@@ -113,6 +156,7 @@ int main() {
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 
+    //probably need this to scale and start full screen eventually, we'll see
     SDL_Window* window = SDL_CreateWindow("audio_vis", 1280, 720,
                          SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
     if (!window) {
@@ -128,7 +172,8 @@ int main() {
         SDL_Quit();
         return -1;
     }
-
+    
+    //ties gl frames to device fps
     SDL_GL_SetSwapInterval(1);
 
     if (!gladLoadGLES2(SDL_GL_GetProcAddress)) {
@@ -139,12 +184,15 @@ int main() {
         return -1;
     }
 
+    //comment out eventually
     std::cout << "GL Version: " << glGetString(GL_VERSION) << std::endl;
     std::cout << "GLSL Version: " << glGetString(GL_SHADING_LANGUAGE_VERSION) << std::endl;
 
     const unsigned int numChannels = audio.getNumChannels();
+    //set up a better way to do this in fft pls
     const unsigned int numAudibleBins = audio.getAudibleSize();
 
+    //this should be variables set at window creation
     glViewport(0, 0, 1280, 720);
 
     GLuint vao;
@@ -154,16 +202,18 @@ int main() {
     Shader shader(vertexSrc, fragmentSrc);
     GLint timeLoc = glGetUniformLocation(shader.id, "time");
 
-    // --- SSBO setup ---
     GLuint ssbos[2];
     glGenBuffers(2, ssbos);
 
-    // SSBO 0: peak/rms — numChannels * 2 floats, tightly packed with std430
+    GLint numBinsLoc = glGetUniformLocation(shader.id, "numBins");
+    glUniform1i(numBinsLoc, numAudibleBins);
+
+    //SSBO 0: peak/rms - numChannels * 2 floats, tightly packed with std430
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbos[0]);
     glBufferData(GL_SHADER_STORAGE_BUFFER, numChannels * 2 * sizeof(float), nullptr, GL_DYNAMIC_DRAW);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbos[0]);
 
-    // SSBO 1: FFT bins — audibleSize floats, tightly packed with std430
+    //SSBO 1: FFT bins - audibleSize floats, tightly packed with std430
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbos[1]);
     glBufferData(GL_SHADER_STORAGE_BUFFER, numAudibleBins * sizeof(float), nullptr, GL_DYNAMIC_DRAW);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, ssbos[1]);
@@ -208,6 +258,7 @@ int main() {
         shader.use();
         float t = SDL_GetTicks() / 1000.0f;
         glUniform1f(timeLoc, t);
+        glUniform1i(numBinsLoc, numAudibleBins);
         glDrawArrays(GL_TRIANGLES, 0, 3);
 
         SDL_GL_SwapWindow(window);
