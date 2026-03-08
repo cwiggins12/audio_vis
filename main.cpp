@@ -217,12 +217,14 @@ int main() {
 
     //SSBO 0: peak/rms - numChannels * 2 floats, tightly packed with std430
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbos[0]);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, numChannels * 2 * sizeof(float), nullptr, GL_DYNAMIC_DRAW);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, numChannels * 2 * sizeof(float), 
+                 nullptr, GL_DYNAMIC_DRAW);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbos[0]);
 
     //SSBO 1: FFT bins - audibleSize floats, tightly packed with std430
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbos[1]);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, numAudibleBins * sizeof(float), nullptr, GL_DYNAMIC_DRAW);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, numAudibleBins * sizeof(float), 
+                 nullptr, GL_DYNAMIC_DRAW);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, ssbos[1]);
 
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
@@ -254,10 +256,12 @@ int main() {
             audio.analyze();
 
             glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbos[0]);
-            glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, numChannels * 2 * sizeof(float), audio.getRMSPeakPtr());
+            glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, 
+                            numChannels * 2 * sizeof(float), audio.getRMSPeakPtr());
 
             glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbos[1]);
-            glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, numAudibleBins * sizeof(float), audio.getFFTPtr());
+            glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, 
+                            numAudibleBins * sizeof(float), audio.getFFTPtr());
 
             glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
         }

@@ -49,7 +49,9 @@ private:
     //write peak from block to value
     void update(float newValue) {
         auto oldValue = value.load(std::memory_order_relaxed);
-        while (newValue > oldValue && !value.compare_exchange_weak(oldValue, newValue, std::memory_order_relaxed, std::memory_order_relaxed));
+        while (newValue > oldValue && 
+               !value.compare_exchange_weak(oldValue, newValue, 
+               std::memory_order_relaxed, std::memory_order_relaxed));
     }
 };
 
@@ -63,7 +65,8 @@ struct RMS {
         return value.load();
     }
 
-    void getRMSFromBlock(const float* block, const int numSamples, const int channelNum, const int channelAmount) {
+    void getRMSFromBlock(const float* block, const int numSamples, 
+                         const int channelNum, const int channelAmount) {
         float rmsValue = 0.0f;
         for (int i = channelNum; i < numSamples * channelAmount; i += channelAmount) {
             rmsValue += block[i] * block[i];
@@ -73,7 +76,9 @@ struct RMS {
         value.store(rmsValue);
     }
 
-    void getRMSFromRingBuffer(const float* buffer, const int numSamples, const int channelNum, const int channelAmount, const int start, const int buffSize) {
+    void getRMSFromRingBuffer(const float* buffer, const int numSamples, 
+                              const int channelNum, const int channelAmount, 
+                              const int start, const int buffSize) {
         float rmsValue = 0.0f;
         for (int i = channelNum; i < numSamples * channelAmount; i += channelAmount) {
             int idx = (i + start) % buffSize;
@@ -89,9 +94,10 @@ private:
 };
 
 struct FFT{
-    FFT(int N, bool per = true, bool win = true, bool dB = true, bool ss = true, float slope = 0.0f) : 
-        n(N), isPerceptual(per), isWindowed(win), isDB(dB), isSingleSided(ss), 
-        perceptualSlope(slope) {
+    FFT(int N, bool per = true, bool win = true, 
+        bool dB = true, bool ss = true, float slope = 0.0f) : 
+        n(N), isPerceptual(per), isWindowed(win), 
+        isDB(dB), isSingleSided(ss), perceptualSlope(slope) {
         //initialize fft and precompute table
         in = (float *)fftwf_malloc(sizeof(float) * n);
         out = (fftwf_complex *)fftwf_malloc(sizeof(fftwf_complex) * (n / 2 + 1));
@@ -240,7 +246,8 @@ private:
             scalarTable[i] = tilt * scale;
         }
         //annoying
-        scalarTable[binAmt - 1] = std::pow(((float)(binAmt - 1) * binMult) / 1000.0f, tiltExponent) * (scale / 2);
+        scalarTable[binAmt - 1] = std::pow(((float)(binAmt - 1) * binMult) / 1000.0f, 
+                                             tiltExponent) * (scale / 2);
     }
 
     void multiplyWithWindowingTable() {

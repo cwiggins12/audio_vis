@@ -177,7 +177,7 @@ private:
             else {
                 dB = getHighFreqSmoothedValues(i, fftOut);
             }
-        smoothFFT.setTargetVal(i, dB);
+            smoothFFT.setTargetVal(i, dB);
         }
     }
 

@@ -83,7 +83,8 @@ private:
 // to OpenGL (glTexSubImage1D, SSBO, etc.) with no copy or temp buffer needed.
 // Tradeoff is loss of [i] operator ergonomics - all calls go through the struct.
 struct SmoothArraySoA {
-    //left for use as a member variable, but make sure to run resize(), setup(), and setAsym() ASAP or all hell breaks loose
+    //left for use as a member variable, but make sure to 
+    //run resize(), setup(), and setAsym() ASAP or all hell breaks loose
     SmoothArraySoA() = default;
 
     SmoothArraySoA(uint32_t sampleRate, float rampLengthInSeconds, size_t size,
@@ -163,7 +164,8 @@ struct SmoothArraySoA {
         return current[i];
     }
 
-    // use when you've called setAsym with non-default values, otherwise just use getNextVal
+    //use when you've called setAsym with non-default values, 
+    //otherwise just use getNextVal
     float getAsymVal(size_t i) {
         if (current[i] < target[i]) {
             return skipVal(i, attack_steps);
@@ -171,7 +173,6 @@ struct SmoothArraySoA {
         else {
             return skipVal(i, release_steps);
         }
-
     }
 
     float skipVal(size_t i, uint32_t amtToSkip) {
@@ -229,15 +230,21 @@ private:
 
 //this version is still here for reference or use on another project, but
 //due to my specific use case here, its not being used
-//array of LinearSmoothValues, but with a shared setup. 16 bytes per value rather than JUCE's 20
-//[i] is overridden to allow for any LinearSmoothValue call to work with the internal vector.
-//I also set a custom call of getAsymVal(int index) in the common case of asymmetric attack/release
-//that asym call is slower if you are not adjusting the atk/rls values, so only use it in the case of when you adjust them
+//array of LinearSmoothValues, but with a shared setup. 
+//16 bytes per value rather than JUCE's 20
+//[i] is overridden to allow for any LinearSmoothValue 
+//call to work with the internal vector.
+//I also set a custom call of getAsymVal(int index) 
+//in the common case of asymmetric attack/release
+//that asym call is slower if you are not adjusting 
+//the atk/rls values, so only use it in the case of when you adjust them
 struct SmoothArray {
-    //left for use as a member variable, but make sure to run resize(), setup(), and setAsym() ASAP or all hell breaks loose
+    //left for use as a member variable, but make sure to 
+    //run resize(), setup(), and setAsym() ASAP or all hell breaks loose
     SmoothArray() = default;
 
-    SmoothArray(uint32_t sampleRate, float rampLengthInSeconds, size_t size, uint32_t atk = 1, uint32_t rls = 1) {
+    SmoothArray(uint32_t sampleRate, float rampLengthInSeconds, size_t size, 
+                uint32_t atk = 1, uint32_t rls = 1) {
         arr.resize(size);
         //if you pass a 0 or less as either of these, you're gonna have a bad time
         setup((int)std::floor(rampLengthInSeconds * sampleRate));

@@ -21,8 +21,10 @@ public:
 	AudioCapture(AudioCapture&&) = delete;
 	AudioCapture& operator=(AudioCapture&&) = delete;
 
-	//initializes capture device and ring buffer. Size of ring buffer will be: device channel amount * size * 2
-	//you only need to deal with samples (frames in miniaudio terms), not channels. All channel logic is handled internally
+	//initializes capture device and ring buffer.
+	//Size of ring buffer will be: device channel amount * size * 2
+	//you only need to deal with samples (frames in miniaudio terms), not channels.
+	//All channel logic is handled internally
 	bool init(unsigned int size) {
 		if (ma_context_init(nullptr, 0, nullptr, &context) != MA_SUCCESS) {
 			return false;
@@ -30,7 +32,8 @@ public:
 		ma_device_info* captureInfos;
 		ma_uint32 captureCount;
 
-		if (ma_context_get_devices(&context, nullptr, nullptr, &captureInfos, &captureCount) != MA_SUCCESS) {
+		if (ma_context_get_devices(&context, nullptr, nullptr, 
+								   &captureInfos, &captureCount) != MA_SUCCESS) {
 			return false;
 		}
 
@@ -41,7 +44,8 @@ public:
 			char* name = captureInfos[i].name;
 			printf("Capture Device: %s \n", name);
 			
-			//search name for monitor, necessary if on linux devices. Windows devices have this as a property to check
+			//search name for monitor, necessary if on linux devices. 
+			//Windows devices have this as a property to check
 			if (strstr(name, "monitor") || strstr(name, "Monitor")) {
 				selectedId = captureInfos[i].id;
 				foundMonitor = true;
@@ -69,7 +73,8 @@ public:
 		}
 
 		//NOTE: expectation is that the working amount user will need 
-		//* channel amount to only require sample amount (frame amount in miniaudio terms)
+		//* channel amount to only require sample amount 
+		//(frame amount in miniaudio terms)
 		bufferSize = size * device.capture.channels;
 		buffer.resize(bufferSize);
 
@@ -80,8 +85,10 @@ public:
 		return true;
 	}
 
-	//NOTE: copies last count of samples read to given out buffer. Handles channel count. Just needs frame count in miniaudio terms.
-	//if you would like for this to be considered as a read for your read index, call setReadIndexForwardByFrames
+	//NOTE: copies last count of samples read to given out buffer. 
+	//Handles channel count. Just needs frame count in miniaudio terms.
+	//if you would like for this to be considered as a read for your read index, 
+	//call setReadIndexForwardByFrames
 	void getWindow(float* out, ma_uint32 frameAmt) {
 		ma_uint32 localWrite = writeIndex.load();
 		ma_uint32 start = 0;
@@ -217,8 +224,10 @@ private:
 	}
 
 	//NOTE: these 2 are the write funcs handled in ma's thread to fill the ring buffer. 
-	//would like to add peak and rms readings here possibly since they are made for audio thread speed
-	static void dataCallback(ma_device* device, void* output, const void* input, ma_uint32 frameCount) {
+	//would like to add peak and rms readings here 
+	//possibly since they are made for audio thread speed
+	static void dataCallback(ma_device* device, void* output, 
+							 const void* input, ma_uint32 frameCount) {
 		AudioCapture* self = (AudioCapture*)device->pUserData;
 		self->processInput((const float*)input, frameCount);
 	}
@@ -236,7 +245,8 @@ private:
 		framesAccumulated.fetch_add(frameCount);
 	}
 
-	//NOTE: total size = bufferSize(size passed in * channels) * sizeof(float) + sizeof(device) + sizeof(context) + 28 bytes
+	//NOTE: total size = bufferSize(size passed in * channels) * sizeof(float) + 
+	//sizeof(device) + sizeof(context) + 28 bytes
 	struct ma_device device;
 	ma_context context;
 
