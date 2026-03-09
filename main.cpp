@@ -72,30 +72,6 @@ void main() {
 }
 )";
 
-/*
-const char* fragmentSrc = R"(#version 310 es
-precision highp float;
-
-in vec2 uv;
-out vec4 FragColor;
-
-uniform float time;
-
-layout(std430, binding = 0) readonly buffer PeakRMS {
-    float peakRmsData[];
-};
-
-layout(std430, binding = 1) readonly buffer FFTBins {
-    float fftData[];
-};
-
-void main() {
-    vec3 color = 0.5 + 0.5 * cos(time + uv.xyx + vec3(0,2,4));
-    FragColor = vec4(color, 1.0);
-}
-)";
-*/
-
 const char* fragmentSrc = R"(#version 310 es
 precision highp float;
 
@@ -137,10 +113,14 @@ void main() {
 }
 )";
 
+//in dire need of some helpers once things start getting settled
 int main() {
     const int hop_amt  = 4;
     const int fft_order = 11;
-    Audio audio(hop_amt, fft_order);
+    //10px area around outside(x2), 10 to split meter area, 5 to split meters, 
+    //20 per meter, and 5 to split those meters
+    uint32_t fftOutSize = 1200;
+    Audio audio(hop_amt, fft_order, fftOutSize);
 
     if (!SDL_Init(SDL_INIT_VIDEO)) {
         std::cerr << "SDL_Init failed: " << SDL_GetError() << std::endl;
@@ -181,11 +161,11 @@ int main() {
         return -1;
     }
 
-    //comment out eventually
     std::cout << "GL Version: " << glGetString(GL_VERSION) << std::endl;
     std::cout << "GLSL Version: " << glGetString(GL_SHADING_LANGUAGE_VERSION) << std::endl;
 
-    //my assumtion of passing fps to audio on init being cheap, easy, and consistent is not looking good here
+    //my assumtion of passing fps to audio on init 
+    //being cheap, easy, and consistent is not looking good here
     int displayHz = 60; //fallback :(
     SDL_DisplayID displayID = SDL_GetDisplayForWindow(window);
     const SDL_DisplayMode* mode = SDL_GetCurrentDisplayMode(displayID);
@@ -196,8 +176,7 @@ int main() {
     }
 
     const uint32_t numChannels = audio.getNumChannels();
-    //set up a better way to do this in fft pls
-    const uint32_t numAudibleBins = audio.getAudibleSize();
+    const uint32_t fftGpuOut = (fftOutSize == 0) ? audio.getAudibleSize() : fftOutSize;
 
     //this should be variables set at window creation
     glViewport(0, 0, 1280, 720);
@@ -213,7 +192,7 @@ int main() {
     glGenBuffers(2, ssbos);
 
     GLint numBinsLoc = glGetUniformLocation(shader.id, "numBins");
-    glUniform1i(numBinsLoc, numAudibleBins);
+    glUniform1i(numBinsLoc, fftGpuOut);
 
     //SSBO 0: peak/rms - numChannels * 2 floats, tightly packed with std430
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbos[0]);
@@ -223,7 +202,7 @@ int main() {
 
     //SSBO 1: FFT bins - audibleSize floats, tightly packed with std430
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbos[1]);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, numAudibleBins * sizeof(float), 
+    glBufferData(GL_SHADER_STORAGE_BUFFER, fftGpuOut * sizeof(float), 
                  nullptr, GL_DYNAMIC_DRAW);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, ssbos[1]);
 
@@ -261,7 +240,7 @@ int main() {
 
             glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbos[1]);
             glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, 
-                            numAudibleBins * sizeof(float), audio.getFFTPtr());
+                            fftGpuOut * sizeof(float), audio.getSmoothFFTPtr());
 
             glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
         }
@@ -269,7 +248,7 @@ int main() {
         shader.use();
         float t = SDL_GetTicks() / 1000.0f;
         glUniform1f(timeLoc, t);
-        glUniform1i(numBinsLoc, numAudibleBins);
+        glUniform1i(numBinsLoc, fftGpuOut);
         glDrawArrays(GL_TRIANGLES, 0, 3);
 
         SDL_GL_SwapWindow(window);
@@ -284,3 +263,4 @@ int main() {
     printf("Stopped. :)\n");
     return 0;
 }
+

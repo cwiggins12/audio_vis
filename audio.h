@@ -48,7 +48,6 @@ public:
 
         fft = std::make_unique<FFT>(fftSize, true, true, true, true, 4.5);
         fft->initFFT(sampleRate);
-        //getters for audible range here pls
         std::vector<uint32_t> audible = fft->getAudibleRange(sampleRate);
         firstAudibleIndex = audible[0];
         audibleSize = audible[1];
@@ -97,9 +96,8 @@ public:
         }
 
         // --- FFT ---
-        capture.getMonoSummedWindow(fft->getInputBuffer(), fftSize);
+        capture.getMonoSummedWindow(fft->getInputBuffer(), fftSize, start);
         fft->runFFT();
-
         if (smoothFFTSize == 0) {
             spencySmooth();
         }
@@ -108,8 +106,7 @@ public:
         }
 
         // --- Update Ring Buffer Indices ---
-        capture.setReadIndexForwardByFrames(hopSize);
-
+        capture.setReadIndexForwardByFrames(hopSize, start);
         capture.moveAccumulator(hopSize);
     }
 
@@ -159,7 +156,8 @@ private:
             }
             float binIndexFloat = freq * scale;
 
-            pixelBinIndices[i] = std::min(std::max(binIndexFloat, 0.0f), (float)totalBinAmt);
+            pixelBinIndices[i] = std::min(
+                                 std::max(binIndexFloat, 0.0f), (float)totalBinAmt);
         }
     }
 
