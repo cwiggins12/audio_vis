@@ -1,3 +1,5 @@
+#pragma once
+
 #include "audio_capture.h"
 #include "analysis.h"
 #include "smooth_value.h"
@@ -98,7 +100,7 @@ public:
         // --- FFT ---
         capture.getMonoSummedWindow(fft->getInputBuffer(), fftSize, start);
         fft->runFFT();
-        if (smoothFFTSize == 0) {
+        if (smoothFFTSize != 0) {
             spencySmooth();
         }
         else {
@@ -108,6 +110,11 @@ public:
         // --- Update Ring Buffer Indices ---
         capture.setReadIndexForwardByFrames(hopSize, start);
         capture.moveAccumulator(hopSize);
+    }
+
+    void nextFrame() {
+        rmsPeakPerChannel.advanceAllAsym();
+        smoothFFT.advanceAllAsym();
     }
 
     uint32_t getNumChannels() {
@@ -137,6 +144,9 @@ public:
 
     void resize(size_t newSize) {
         setPixelBinIndices(newSize);
+        smoothFFTSize = newSize;
+        smoothFFT.resize(newSize);
+        firstWindowAccumulated = false;
     }
 
 private:
@@ -148,8 +158,8 @@ private:
         const float scale = (float)fftSize / (float)sampleRate;
 
         for (int i = 0; i < size; ++i) {
-            float normalized = (float)i / (float)(size - 1);
-            float freq; //need convertFrom0to1 equivalent
+            float norm = (float)i / (float)(size - 1);
+            float freq = MIN_FREQ * std::pow(MAX_FREQ / MIN_FREQ, norm);
             if (!firstHighPixelFound && freq > MID_FREQ) {
                 firstHighPixel = i;
                 firstHighPixelFound = true;
@@ -198,9 +208,9 @@ private:
     }
 
     //basically, gets rms of bounds from last bucket + 1 to current
-    float getHighFreqSmoothedValues(int i, float* fftOut) {
-        int lowB = (int)pixelBinIndices[i - 1] + 1;
-        int highB = (int)pixelBinIndices[i];
+    float getHighFreqSmoothedValues(int idx, float* fftOut) {
+        int lowB = (int)pixelBinIndices[idx - 1] + 1;
+        int highB = (int)pixelBinIndices[idx];
 
         float sumSq = 0.0f;
         for (int i = lowB; i <= highB && i < fftSize; ++i) {
@@ -239,7 +249,8 @@ private:
 
     //float to float db to gain/mag helper
     float dBToGain(float dB, float minDB) {
-        return std::max(minDB, std::pow(10.0f, dB * 0.05f));
+        dB = std::max(minDB, dB);
+        return std::pow(10.0f, dB * 0.05f);
     }
 
     AudioCapture capture;

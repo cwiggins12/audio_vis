@@ -132,7 +132,7 @@ public:
 
 	int pop(float* out, ma_uint32 maxFrames, uint32_t passedWrite = 0) {
 		uint32_t localRead = readIndex.load();
-		uint32_t localWrite = (passedWrite) ? writeIndex.load() : passedWrite;
+		uint32_t localWrite = (passedWrite == 0) ? writeIndex.load() : passedWrite;
 		ma_uint32 readSize = 0;
 		maxFrames *= device.capture.channels;
 
