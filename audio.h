@@ -8,6 +8,7 @@
 
 static constexpr float MIN_FREQ = 20.0f;
 static constexpr float MID_FREQ = 1000.0f;
+static constexpr float SWAP_FREQ = 2000.0f;
 static constexpr float MAX_FREQ = 20000.0f;
 static constexpr float MIN_DB = -96.0f;
 
@@ -159,7 +160,7 @@ private:
         for (int i = 0; i < size; ++i) {
             float norm = (float)i / (float)(size - 1);
             float freq = MIN_FREQ * std::pow(MAX_FREQ / MIN_FREQ, norm);
-            if (!firstHighPixelFound && freq > MID_FREQ) {
+            if (!firstHighPixelFound && freq > SWAP_FREQ) {
                 firstHighPixel = i;
                 firstHighPixelFound = true;
             }

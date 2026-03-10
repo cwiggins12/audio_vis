@@ -1,10 +1,18 @@
-TODO: 
+TODO:
 need initial test spec, peak, and rms shader
-need to handle gl buffers when output is over 6 kB
-need another class to prepare audio outputs for rendering
+
+THESE THINGS NEED TO BE DONE AFTER SPEC, PEAK, AND RMS SHADER:
+need another class to prepare audio outputs for rendering to ease Audio's work
+abstract out any reference to pixels in the arbitrary size fftOut
 also need a struct of info the renderer will need?
 pass struct on shader change and let the class handle the changes?
 That struct could also handle the initialization in the audio class
+this class will need to handle all changes to configs(fft vars, peak holds on/off, sizes...)
+
+AFTER SHADER AND CLASS:
+Shader switching logic(this is gonna basically be bugfixing of the above class)
+Dynamically (either compile time or on boot) know shader amount to allow looping through them
+add key presses to events to switch through these
 
 optional and cleanup before 1.0.0:
 could rms and peak work in the callback by passing the static func to capture on init?
@@ -12,9 +20,9 @@ make list all devices functionality and allow for monitor substring to be var th
 give another command line function to check that vars will keep up with call back at 30 & 60 FPS? (or set fft_size according to fps?)
 need Mesa's V3DV driver for this to work on a pi
 trim all but what is used from miniaudio.h
-hella comments
+need hella more comments
 
-Done:
+Done This Week:
 smoothing classes with logic for single, AoS, and SoA
 audio parent class(covers analysis classes)
 added logic in audio to use multiple configs of smoothValue arrays easily with more to come

@@ -2,6 +2,7 @@
 
 #include "audio.h"
 #include "shader.h"
+#include "render_bridge.h"
 #include <SDL3/SDL.h>
 
 //in dire need of some helpers once things start getting settled
@@ -41,8 +42,6 @@ int main() {
         return -1;
     }
 
-    //1551
-    //this should be variables set at window creation
     int w, h;
     SDL_GetWindowSizeInPixels(window, &w, &h);
     glViewport(0, 0, w, h);
@@ -50,14 +49,15 @@ int main() {
     //ties gl frames to device fps
     SDL_GL_SetSwapInterval(1);
 
-    std::cout << "GL Version: " << glGetString(GL_VERSION) << std::endl;
-    std::cout << "GLSL Version: " << glGetString(GL_SHADING_LANGUAGE_VERSION) << std::endl;
+    //std::cout << "GL Version: " << glGetString(GL_VERSION) << std::endl;
+    //std::cout << "GLSL Version: " << 
+    //              glGetString(GL_SHADING_LANGUAGE_VERSION) << std::endl;
 
     const int hop_amt  = 2;
-    const int fft_order = 11;
+    const int fft_order = 12;
     //10px area around outside(x2), 10 to split meter area, 5 to split meters, 
     //20 per meter, and 5 to split those meters
-    uint32_t fftOutSize = 1200;
+    uint32_t fftOutSize = w;
     Audio audio(hop_amt, fft_order, fftOutSize);
 
     //my assumtion of passing fps to audio on init 
