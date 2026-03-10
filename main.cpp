@@ -53,7 +53,7 @@ int main() {
     std::cout << "GL Version: " << glGetString(GL_VERSION) << std::endl;
     std::cout << "GLSL Version: " << glGetString(GL_SHADING_LANGUAGE_VERSION) << std::endl;
 
-    const int hop_amt  = 4;
+    const int hop_amt  = 2;
     const int fft_order = 11;
     //10px area around outside(x2), 10 to split meter area, 5 to split meters, 
     //20 per meter, and 5 to split those meters
@@ -121,7 +121,9 @@ int main() {
                     w = event.window.data1;
                     h = event.window.data2;
                     glViewport(0, 0, w, h);
-                    //resize the smootharray here with audio
+                    //look into a better way to resize this pls
+                    //maybe when a customization struct comes in for shader switching
+                    //have a variable scalar here
                     audio.resize(w);
                     break;
             }

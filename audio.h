@@ -34,7 +34,6 @@ public:
     bool init(uint32_t deviceFrameRate) {
         fftSize = 1 << fftOrder;
         hopSize = fftSize / hopAmt;
-        totalBinAmt = fftSize / 2 + 1;
         const int frameAmount = fftSize * 2;
 
         if (capture.init(frameAmount) == false) {
@@ -154,7 +153,7 @@ private:
     void setPixelBinIndices(size_t size) {
         pixelBinIndices.resize(size);
         bool firstHighPixelFound = false;
-
+        float totalBinAmt = fft->getTotalBins();
         const float scale = (float)fftSize / (float)sampleRate;
 
         for (int i = 0; i < size; ++i) {
@@ -167,7 +166,7 @@ private:
             float binIndexFloat = freq * scale;
 
             pixelBinIndices[i] = std::min(
-                                 std::max(binIndexFloat, 0.0f), (float)totalBinAmt);
+                                 std::max(binIndexFloat, 0.0f), totalBinAmt);
         }
     }
 
@@ -194,10 +193,11 @@ private:
         float centerBinFloat = pixelBinIndices[i];
         int bin1 = (int)centerBinFloat;
         float fraction = centerBinFloat - bin1;
+        int totalBins = fft->getTotalBins(); 
 
         int bin0 = std::max(0, bin1 - 1);
-        int bin2 = std::min(totalBinAmt - 1, bin1 + 1);
-        int bin3 = std::min(totalBinAmt - 1, bin1 + 2);
+        int bin2 = std::min(totalBins - 1, bin1 + 1);
+        int bin3 = std::min(totalBins, bin1 + 2);
 
         float y0 = fftOut[bin0];
         float y1 = fftOut[bin1];
@@ -269,7 +269,6 @@ private:
 
     uint32_t fftSize = 0;
     uint32_t hopSize = 0;
-    int totalBinAmt = 0;
 
     uint32_t channels = 0;
     uint32_t sampleRate = 0;

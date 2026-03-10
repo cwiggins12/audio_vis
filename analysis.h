@@ -2,6 +2,7 @@
 
 #include <atomic>
 #include <cmath>
+#include <cstdint>
 #include <vector>
 #include <fftw3.h>
 
@@ -98,15 +99,16 @@ struct FFT{
         bool dB = true, bool ss = true, float slope = 0.0f) : 
         n(N), isPerceptual(per), isWindowed(win), 
         isDB(dB), isSingleSided(ss), perceptualSlope(slope) {
+        binAmt = n / 2 + 1;
         //initialize fft and precompute table
         in = (float *)fftwf_malloc(sizeof(float) * n);
-        out = (fftwf_complex *)fftwf_malloc(sizeof(fftwf_complex) * (n / 2 + 1));
+        out = (fftwf_complex *)fftwf_malloc(sizeof(fftwf_complex) * binAmt);
         p = fftwf_plan_dft_r2c_1d(n, in, out, FFTW_MEASURE);
-        placement = (float *) out;
+        placement = (float *)out;
         if (isWindowed) {
             windowingTable.resize(n);
         }
-        scalarTable.resize(n / 2 + 1);
+        scalarTable.resize(binAmt);
     }
 
     ~FFT() {
@@ -122,7 +124,7 @@ struct FFT{
     //move is ok for the potential of placing these in vectors
     FFT(FFT&& other) noexcept : in(other.in), out(other.out), p(other.p),
                                 placement(other.placement), n(other.n),
-                                isPerceptual(other.isPerceptual),
+                                binAmt(other.binAmt), isPerceptual(other.isPerceptual),
                                 isWindowed(other.isWindowed), isDB(other.isDB),
                                 isSingleSided(other.isSingleSided),
                                 perceptualSlope(other.perceptualSlope),
@@ -144,6 +146,7 @@ struct FFT{
             p = other.p;
             placement = other.placement;
             n = other.n;
+            binAmt = other.binAmt;
             isPerceptual = other.isPerceptual;
             isWindowed = other.isWindowed;
             isDB = other.isDB;
@@ -174,9 +177,12 @@ struct FFT{
         return placement;
     }
 
+    uint32_t getTotalBins() {
+        return binAmt;
+    }
+
     //return first index and amount of bins used in spectral analysis
     std::vector<uint32_t> getAudibleRange(uint32_t sr) {
-        const int binAmt = n / 2 + 1;
         const float binMult = (float)sr / (float) n;
         bool firstAudibleSet = false;
         std::vector<uint32_t> res = {0, 0};
@@ -210,20 +216,20 @@ struct FFT{
 private:
     void fillWindowingTable() {
         //fill table with hann window scalars
-        for (int i = 0; i < n; ++i) {
+        for (uint32_t i = 0; i < n; ++i) {
             auto cos2 = std::cos(2 * i * PI / (n - 1));
             windowingTable[i] = 0.5f - 0.5f * cos2;
         }
 
         //get sum for normalize
         float sum = 0.0f;
-        for (int i = 0; i < n; ++i) {
+        for (uint32_t i = 0; i < n; ++i) {
             sum += windowingTable[i];
         }
 
         //normalize
         auto factor = (float)n / sum;
-        for (int i = 0; i < n; ++i) {
+        for (uint32_t i = 0; i < n; ++i) {
             windowingTable[i] *= factor;
         }
     }
@@ -235,12 +241,11 @@ private:
         const float scale = scaleNumerator / (float)n;
         const float tiltExponent = (isPerceptual) ? perceptualSlope / 6.0206f : 0.0f;
         const float binMult = (float)sr / (float)n;
-        const int binAmt = n / 2 + 1;
         bool firstAudibleSet = false;
         bool lastAudibleSet = false;
 
         scalarTable[0] = scale / 2.0f;
-        for (int i = 1; i < binAmt - 1; ++i) {
+        for (uint32_t i = 1; i < binAmt - 1; ++i) {
             float binFreq = (float)i * binMult;
             float tilt = std::pow(binFreq / 1000.0f, tiltExponent);
             scalarTable[i] = tilt * scale;
@@ -251,14 +256,13 @@ private:
     }
 
     void multiplyWithWindowingTable() {
-        for (int i = 0; i < n; ++i) {
+        for (uint32_t i = 0; i < n; ++i) {
             in[i] *= windowingTable[i];
         }
     }
 
     void convertToMag() {
-        const int binAmt = n / 2 + 1;
-        for (int i = 0; i < binAmt; ++i) {
+        for (uint32_t i = 0; i < binAmt; ++i) {
             float real = out[i][0];
             float imag = out[i][1];
             float mag = std::sqrt(real * real + imag * imag);
@@ -267,16 +271,14 @@ private:
     }
 
     void multiplyWithScalarTable() {
-        const int binAmt = n / 2 + 1;
-        for (int i = 0; i < binAmt; ++i) {
+        for (uint32_t i = 0; i < binAmt; ++i) {
             placement[i] *= scalarTable[i];
         }
     }
 
     void convertToDB() {
         const float min_mag = 1e-12f;
-        const int binAmt = n / 2 + 1;
-        for (int i = 0; i < binAmt; ++i) {
+        for (uint32_t i = 0; i < binAmt; ++i) {
             float mag = std::max(placement[i], min_mag);
             mag = 20.0f * std::log10(mag);
             placement[i] = std::max(mag, -120.0f);
@@ -298,7 +300,8 @@ private:
     bool isDB;
     bool isSingleSided;
     float perceptualSlope;
-    int n;
+    uint32_t n;
+    uint32_t binAmt;
     //size: n * sizeof(float)
     std::vector<float> windowingTable;
     //size: (n / 2 + 1) * sizeof(float)
