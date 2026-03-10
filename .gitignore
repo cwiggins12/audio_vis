@@ -1,8 +1,6 @@
 /build
 /.cache
 sesh
-notes.txt
-fft_log.csv
 miniaudio.h
 compile_commands.json
 oldTestMain.txt
