@@ -2,49 +2,50 @@
 
 #include "smooth_value.h"
 #include "audio.h"
-#include <cstdint>
+#include "audio_spec.h"
 
-//for right now the fft_size is static, if I see any demand for a change I'll debate it
-//it would be really expensive for very little gain that I know of
-struct AudioSpec {
-    //TODO: these all need comments to explain how they can affect the data and why
-    uint32_t hopAmt;
-    uint32_t smoothSize;
-
-    bool getsPeakHolds;
-    bool isPeakMono;
-    bool isRMSMono;
-    bool getsFFTHolds;
-
-    bool isPerceptual;
-    bool isHannWindowed;
-    bool isDB;
-    bool isSingleSided;
-
-    float slope;
-};
+static constexpr float MIN_FREQ = 20.0f;
+static constexpr float MID_FREQ = 1000.0f;
+static constexpr float SWAP_FREQ = 2000.0f;
+static constexpr float MAX_FREQ = 20000.0f;
+static constexpr float MIN_DB = -96.0f;
 
 class AVBridge {
+public:
     AVBridge(Audio& a, AudioSpec& spec) : audio(a), currSpec(spec) {}
-    AVBridge(Audio& a, uint32_t hopAmt, uint32_t smoothSize, bool peakHolds, 
+/*
+    AVBridge(Audio& a, uint32_t hopAmt, uint32_t smoothSize, bool isWindowDepenedent, bool useSmoothing, bool useAudibleSize, bool peakHolds, 
              bool peakMono, bool rmsMono, bool fftHolds, bool isPerceptual, 
              bool isHannWindowed, bool isDB, bool isSingleSided, float slope)
              : audio(a) {
-        currSpec = {hopAmt, smoothSize, peakHolds, peakMono, rmsMono, fftHolds,
+        currSpec = {hopAmt, smoothSize, isWindowDepenedent, useSmoothing, useAudibleSize, peakHolds, peakMono, rmsMono, fftHolds,
                     isPerceptual, isHannWindowed, isDB, isSingleSided, slope};
     }
+*/
     ~AVBridge() {}
     AVBridge(const AVBridge&) = delete;
     AVBridge& operator=(const AVBridge&) = delete;
     AVBridge(AVBridge&&) = delete;
     AVBridge& operator=(AVBridge&&) = delete;
 
-    void init() {
-        
+    bool init(uint32_t deviceFrameRate) {
+        if (!audio.init(currSpec)) {
+            return false;
+        }
+
+        frameRate = deviceFrameRate;
+        binAmt = audio.getFFTSize() / 2 + 1;
+        channels = audio.getNumChannels();
+        sampleRate = audio.getSampleRate();
+        audibleRange.resize(2);
+
+        swap(currSpec);
+
+        return true;
     }
 
     void nextFrame() {
-        rmsPeakPerChannel.advanceAllAsym();
+        smoothPeakRMS.advanceAllAsym();
         smoothFFT.advanceAllAsym();
     }
 
@@ -52,8 +53,8 @@ class AVBridge {
         return smoothFFT.getCurrents();
     }
 
-    const float* getRMSPeakPtr() {
-        return rmsPeakPerChannel.getCurrents();
+    const float* getPeakRMSPtr() {
+        return smoothPeakRMS.getCurrents();
     }
 
     void resize(size_t newSize) {
@@ -64,8 +65,20 @@ class AVBridge {
         //firstWindowAccumulated = false;
     }
 
-    void swapSpec(AudioSpec& newSpec) {
-        
+    void swapSpec(AudioSpec& newSpec, uint32_t deviceFrameRate) {
+        audio.swapSpec(newSpec);
+        swap(newSpec);
+    }
+
+    uint32_t getFFTGPUSize() {
+        return fftGPUSize * sizeof(float);
+    }
+
+    uint32_t getPeakRMSGPUSize() {
+        uint32_t size = 0;
+        size += (currSpec.isPeakMono) ? 1 : channels;
+        size += (currSpec.isRMSMono) ? 1 : channels;
+        return size * sizeof(float);
     }
 
     void formatData() {
@@ -73,6 +86,42 @@ class AVBridge {
     }
 
 private:
+    void swap(AudioSpec& newSpec) {
+        audibleRange = audio.getAudibleRange();
+        if (newSpec.arbitrarySize == 0 && !newSpec.useAudibleSize) {
+            fftGPUSize = binAmt;
+        }
+        else if (newSpec.arbitrarySize == 0 && newSpec.useAudibleSize) {
+            fftGPUSize = audibleRange[1];
+        }
+        else {
+            fftGPUSize = newSpec.arbitrarySize;
+            setSmoothIndexFreqs(fftGPUSize);
+        }
+        smoothFFT.resize(fftGPUSize);
+        smoothPeakRMS.resize(channels);
+
+        if (currSpec.useFFTSmoothing) {
+            smoothFFT.reset(0);
+            smoothFFT.setAsym(1,1);
+        }
+        else {
+            smoothFFT.reset(frameRate);
+            smoothFFT.setAsym(currSpec.fftAtk, currSpec.fftRls);
+        }
+
+        if (currSpec.usePeakRMSSmoothing) {
+            smoothPeakRMS.reset(0);
+            smoothPeakRMS.setAsym(1,1);
+        }
+        else {
+            smoothPeakRMS.reset(frameRate);
+            smoothPeakRMS.setAsym(currSpec.fftAtk, currSpec.fftRls);
+        }
+
+        audio.resetAccumulator();
+    }
+
     //sets arbitrary size smoothAoS and finds midpoint for the below smoothing algo
     void setSmoothIndexFreqs(size_t size) {
         smoothIndexFreqs.resize(size);
@@ -115,12 +164,12 @@ private:
     //get low end interp using surrounding bins, since they are sparse here
     float getLowFreqSmoothedValue(int i, const float* fftOut) {
         float centerBinFloat = smoothIndexFreqs[i];
-        int bin1 = (int)centerBinFloat;
+        uint32_t bin1 = (int)centerBinFloat;
         float fraction = centerBinFloat - bin1; 
 
-        int bin0 = std::max(0, bin1 - 1);
-        int bin2 = std::min(binAmt - 1, bin1 + 1);
-        int bin3 = std::min(binAmt, bin1 + 2);
+        uint32_t bin0 = (bin1 == 0) ? 0 : bin1 - 1;
+        uint32_t bin2 = std::min(binAmt - 1, bin1 + 1);
+        uint32_t bin3 = std::min(binAmt, bin1 + 2);
 
         float y0 = fftOut[bin0];
         float y1 = fftOut[bin1];
@@ -160,8 +209,8 @@ private:
     void binToSmooth() {
         const float* fftPtr = audio.getFFTPtr();
         float* smooth = smoothFFT.getTargets();
-        for (int i = 0; i < audibleSize; ++i) {
-            smooth[i] = fftPtr[i + firstAudibleIndex];
+        for (int i = 0; i < audibleRange[1]; ++i) {
+            smooth[i] = fftPtr[i + audibleRange[0]];
         }
     }
 
@@ -179,25 +228,23 @@ private:
     Audio& audio;
     AudioSpec currSpec;
 
-    SmoothArraySoA rmsPeakPerChannel;
+    SmoothArraySoA smoothPeakRMS;
+    //TODO: these need renaming pls
     SmoothArraySoA smoothFFT;
     std::vector<float> smoothIndexFreqs;
-
-    //const uint32_t fftOrder;
-
-    bool firstWindowAccumulated = false;
 
     uint32_t fftSize = 0;
     uint32_t hopSize = 0;
     uint32_t hopAmt = 0;
-    int binAmt = 0;
+    uint32_t binAmt = 0;
 
     uint32_t channels = 0;
     uint32_t sampleRate = 0;
+    uint32_t frameRate = 0;
 
-    uint32_t firstAudibleIndex = 0;
-    uint32_t audibleSize = 0;
+    std::vector<uint32_t> audibleRange; 
     size_t smoothFFTSize;
     uint32_t swapIndex = 0;
+    uint32_t fftGPUSize = 0;
 };
 

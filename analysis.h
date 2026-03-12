@@ -181,7 +181,7 @@ struct FFT{
         return binAmt;
     }
 
-    //return first index and amount of bins used in spectral analysis
+    //return first index then amount of bins used in spectral analysis
     std::vector<uint32_t> getAudibleRange(uint32_t sr) {
         const float binMult = (float)sr / (float) n;
         bool firstAudibleSet = false;

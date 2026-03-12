@@ -2,7 +2,7 @@
 
 #include "audio.h"
 #include "shader.h"
-#include "render_bridge.h"
+#include "av_bridge.h"
 #include <SDL3/SDL.h>
 
 //in dire need of some helpers once things start getting settled
@@ -53,12 +53,14 @@ int main() {
     //std::cout << "GLSL Version: " << 
     //              glGetString(GL_SHADING_LANGUAGE_VERSION) << std::endl;
 
-    const int hop_amt  = 2;
-    const int fft_order = 12;
+    int hop_amt  = 2;
+    int fft_order = 12;
     //10px area around outside(x2), 10 to split meter area, 5 to split meters, 
     //20 per meter, and 5 to split those meters
     uint32_t fftOutSize = w;
+    AudioSpec spec;
     Audio audio(fft_order);
+    AVBridge bridge(audio, spec);
 
     //my assumtion of passing fps to audio on init 
     //being cheap, easy, and consistent is not looking good here
@@ -66,16 +68,14 @@ int main() {
     SDL_DisplayID displayID = SDL_GetDisplayForWindow(window);
     const SDL_DisplayMode* mode = SDL_GetCurrentDisplayMode(displayID);
     if (mode) displayHz = (int)mode->refresh_rate;
-    if (!audio.init(displayHz)) {
+
+    if (bridge.init(displayHz)) {
         std::cerr << "Audio initialization failed \n";
         SDL_GL_DestroyContext(glContext);
         SDL_DestroyWindow(window);
         SDL_Quit();
         return -1;
     }
-
-    const uint32_t numChannels = audio.getNumChannels();
-    const uint32_t fftGpuOut = (fftOutSize == 0) ? audio.getAudibleSize() : fftOutSize;
 
     GLuint vao;
     glGenVertexArrays(1, &vao);
@@ -91,13 +91,13 @@ int main() {
 
     //SSBO 0: peak/rms - numChannels * 2 floats, tightly packed with std430
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbos[0]);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, numChannels * 2 * sizeof(float), 
+    glBufferData(GL_SHADER_STORAGE_BUFFER, bridge.getPeakRMSGPUSize(), 
                  nullptr, GL_DYNAMIC_DRAW);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbos[0]);
 
     //SSBO 1: FFT bins - audibleSize floats, tightly packed with std430
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbos[1]);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, fftGpuOut * sizeof(float), 
+    glBufferData(GL_SHADER_STORAGE_BUFFER, bridge.getFFTGPUSize(), 
                  nullptr, GL_DYNAMIC_DRAW);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, ssbos[1]);
 
@@ -124,7 +124,8 @@ int main() {
                     //look into a better way to resize this pls
                     //maybe when a customization struct comes in for shader switching
                     //have a variable scalar here
-                    audio.resize(w);
+                    bridge.resize(w);
+                    //audio.resize(w);
                     break;
             }
         }
@@ -134,24 +135,24 @@ int main() {
 
         if (audio.canAnalyze()) {
             audio.analyze();
+            bridge.formatData();
         }
-        audio.nextFrame();
+        bridge.nextFrame();
 
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbos[0]);
         glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, 
-                        numChannels * 2 * sizeof(float), audio.getRMSPeakPtr());
+                        bridge.getPeakRMSGPUSize(), bridge.getPeakRMSPtr());
 
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbos[1]);
         glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, 
-                        fftGpuOut * sizeof(float), audio.getSmoothFFTPtr());
+                        bridge.getFFTGPUSize(), bridge.getSmoothFFTPtr());
 
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
-
 
         shader.use();
         float t = SDL_GetTicks() / 1000.0f;
         glUniform1f(timeLoc, t);
-        glUniform1i(numBinsLoc, fftGpuOut);
+        glUniform1i(numBinsLoc, bridge.getFFTGPUSize());
         glDrawArrays(GL_TRIANGLES, 0, 3);
         //this blocks until next vblank and makes the loop fire once per device frame
         SDL_GL_SwapWindow(window);
@@ -163,7 +164,7 @@ int main() {
     SDL_DestroyWindow(window);
     SDL_Quit();
 
-    printf("Stopped. :)\n");
+    //printf("Stopped. :)\n");
     return 0;
 }
 
