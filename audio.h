@@ -23,8 +23,7 @@ public:
     //if smoothSize is 0, it will make a smoothValue array of audible bin size
     //and will only directly place bins in array
     //if set to an output number, it will smooth based on that size and spencySmooth() 
-    Audio(uint32_t hops, uint32_t fft_o, size_t smoothSize = 0) : 
-          hopAmt(hops), fftOrder(fft_o), smoothFFTSize(smoothSize) {}
+    Audio(uint32_t fft_o) : fftOrder(fft_o) {}
 	~Audio() {}
     //no moves, no copies
 	Audio(const Audio&) = delete;
@@ -263,14 +262,14 @@ private:
     SmoothArraySoA smoothFFT;
     std::vector<float> pixelBinIndices;
 
-    const uint32_t hopAmt;
     const uint32_t fftOrder;
 
     bool firstWindowAccumulated = false;
 
     uint32_t fftSize = 0;
     uint32_t hopSize = 0;
-
+    uint32_t hopAmt = 0;
+    
     uint32_t channels = 0;
     uint32_t sampleRate = 0;
 

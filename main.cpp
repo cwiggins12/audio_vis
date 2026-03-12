@@ -58,7 +58,7 @@ int main() {
     //10px area around outside(x2), 10 to split meter area, 5 to split meters, 
     //20 per meter, and 5 to split those meters
     uint32_t fftOutSize = w;
-    Audio audio(hop_amt, fft_order, fftOutSize);
+    Audio audio(fft_order);
 
     //my assumtion of passing fps to audio on init 
     //being cheap, easy, and consistent is not looking good here
