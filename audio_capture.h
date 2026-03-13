@@ -211,6 +211,7 @@ public:
 
 	void resetAccumulator() {
 		framesAccumulated.store(0);
+		readIndex.store(writeIndex.load());
 	}
 
 	void moveAccumulator(uint32_t amt) {

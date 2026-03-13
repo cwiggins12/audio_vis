@@ -53,15 +53,6 @@ int main() {
     //std::cout << "GLSL Version: " << 
     //              glGetString(GL_SHADING_LANGUAGE_VERSION) << std::endl;
 
-    int hop_amt  = 2;
-    int fft_order = 12;
-    //10px area around outside(x2), 10 to split meter area, 5 to split meters, 
-    //20 per meter, and 5 to split those meters
-    uint32_t fftOutSize = w;
-    AudioSpec spec;
-    Audio audio(fft_order);
-    AVBridge bridge(audio, spec);
-
     //my assumtion of passing fps to audio on init 
     //being cheap, easy, and consistent is not looking good here
     int displayHz = 60; //fallback :(
@@ -69,13 +60,21 @@ int main() {
     const SDL_DisplayMode* mode = SDL_GetCurrentDisplayMode(displayID);
     if (mode) displayHz = (int)mode->refresh_rate;
 
-    if (bridge.init(displayHz)) {
+    const int hop_amt  = 2;
+    const int fft_order = 12;
+
+    AudioSpec spec;
+    Audio audio(fft_order);
+    AVBridge bridge(audio, spec);
+
+    if (audio.init(spec)) {
         std::cerr << "Audio initialization failed \n";
         SDL_GL_DestroyContext(glContext);
         SDL_DestroyWindow(window);
         SDL_Quit();
         return -1;
     }
+    bridge.init(displayHz);
 
     GLuint vao;
     glGenVertexArrays(1, &vao);
@@ -124,8 +123,8 @@ int main() {
                     //look into a better way to resize this pls
                     //maybe when a customization struct comes in for shader switching
                     //have a variable scalar here
-                    bridge.resize(w);
-                    //audio.resize(w);
+                    bridge.resize(w, h);
+                    audio.resize(w, h);
                     break;
             }
         }
@@ -145,7 +144,7 @@ int main() {
 
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbos[1]);
         glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, 
-                        bridge.getFFTGPUSize(), bridge.getSmoothFFTPtr());
+                        bridge.getFFTGPUSize(), bridge.getGPUFFTPtr());
 
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 

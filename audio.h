@@ -57,41 +57,66 @@ public:
     }
 
     void analyze() {
-        // --- Peak & RMS ---
-        float *buff = capture.getRawBufferPointer();
         uint32_t start = capture.getWindowStartFromWrite(fftSize);
-        uint32_t size = capture.getBufferSizeInSamples();
-        for (int ch = 0; ch < channels; ++ch) {
-            peak[ch].getPeakFromRingBuffer(buff, fftSize, ch, channels, start, size);
-            rms[ch].getRMSFromRingBuffer(buff, fftSize, ch, channels, start, size);
-            /*
-            rmsPeakPerChannel.setTargetVal(ch * 2, rms[ch].pop());
-            rmsPeakPerChannel.setTargetVal(ch * 2 + 1, peak[ch].pop());
-            */
+        capture.getMonoSummedWindow(fft->getInputBuffer(), fftSize, start);
+
+        const bool peakMono = isPeakMono;
+        const bool rmsMono = isRMSMono;
+        // --- Peak & RMS ---
+        if (peakMono) {
+            peak[0].getPeakFromMonoSummedBlock(fft->getInputBuffer(), fftSize);
+        }
+        if (rmsMono) {
+            rms[0].getRMSFromMonoSummedBlock(fft->getInputBuffer(), fftSize);
+        }
+        if (!peakMono || !rmsMono) {
+            float *buff = capture.getRawBufferPointer();
+            uint32_t size = capture.getBufferSizeInSamples();
+            if (!peakMono) {
+                for (int ch = 0; ch < channels; ++ch) {
+                    peak[ch].getPeakFromRingBuffer(buff, fftSize, ch, channels, start, size);
+                }
+            }
+            if (!rmsMono) {
+                for (int ch = 0; ch < channels; ++ch) {
+                    rms[ch].getRMSFromRingBuffer(buff, fftSize, ch, channels, start, size);
+                }
+            }
         }
 
         // --- FFT ---
-        capture.getMonoSummedWindow(fft->getInputBuffer(), fftSize, start);
         fft->runFFT();
-/*
-        if (smoothFFTSize != 0) {
-            spencySmooth();
-        }
-        else {
-            binToSmooth();
-        }
-*/
+
         // --- Update Ring Buffer Indices ---
         capture.setReadIndexForwardByFrames(hopSize, start);
         capture.moveAccumulator(hopSize);
     }
 
     void swapSpec(AudioSpec& spec) {
+        capture.resetAccumulator();
+        if (isPeakMono != spec.isPeakMono) {
+            for (int ch = 0; ch < channels; ++ch) {
+                popPeak(ch);
+            }
+            isPeakMono = spec.isPeakMono;
+        }
+        if (isRMSMono != spec.isRMSMono) {
+            for (int ch = 0; ch < channels; ++ch) {
+                popRMS(ch);
+            }
+            isRMSMono = spec.isRMSMono;
+        }
+        fft->swapSpec(spec.isPerceptual, spec.isHannWindowed, 
+                      spec.isSingleSided, spec.slope, sampleRate);
+    }
 
+    void resize(int w, int h) {
+        
     }
 
     void resetAccumulator() {
         capture.resetAccumulator();
+        firstWindowAccumulated = false;
     }
 
     uint32_t getNumChannels() {
@@ -106,8 +131,8 @@ public:
         return fftSize;
     }
 
-    std::vector<uint32_t> getAudibleRange() {
-        return fft->getAudibleRange(sampleRate);
+    void getAudibleRange(uint32_t* start, uint32_t* size) {
+        fft->getAudibleRange(sampleRate, start, size);
     }
 
     //if bypassing smoothedValue array, and want output buffer
@@ -115,8 +140,17 @@ public:
         return fft->getOutputBuffer();
     }
 
+    float popPeak(int ch) {
+        return peak[ch].pop();
+    }
+
+    float popRMS(int ch) {
+        return rms[ch].pop();
+    }
+
 private:
     AudioCapture capture;
+
     std::unique_ptr<RMS[]> rms;
     std::unique_ptr<Peak[]> peak;
     std::unique_ptr<FFT> fft;
@@ -130,4 +164,17 @@ private:
 
     uint32_t channels = 0;
     uint32_t sampleRate = 0;
+
+    //spec given/current values
+    //fft configs
+    bool isPerceptual = true;
+    bool isHannWindowed = true;
+    bool isDB = true;
+    bool isSingleSided = true;
+    float slope = 4.5;
+    bool getsFFTHolds = true;
+    //peak/rms configs
+    bool getsPeakHolds = true;
+    bool isPeakMono = false;
+    bool isRMSMono = false;
 };

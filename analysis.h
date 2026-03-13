@@ -31,6 +31,17 @@ struct Peak {
         update(peakValue);
     }
 
+    void getPeakFromMonoSummedBlock(const float* block, const int numSamples) {
+        float peakValue = 0.0f;
+        for (int i = 0; i < numSamples; ++i) {
+            float absSample = std::abs(block[i]);
+            if (absSample > peakValue) {
+                peakValue = absSample;
+            }
+        }
+        update(peakValue);
+    }
+
     void getPeakFromRingBuffer(const float* buffer, const int numSamples, 
                                const int channelNum, const int channelAmount, 
                                const int start, const int buffSize) {
@@ -40,6 +51,25 @@ struct Peak {
             float absSample = std::abs(buffer[idx]);
             if (absSample > peakValue) {
                 peakValue = absSample;
+            }
+        }
+        update(peakValue);
+    }
+
+    void getMonoSummedPeakFromRingBuffer(const float* buffer, const int numSamples,
+                                 const int channelAmount, const int start, 
+                                 const int buffSize) {
+        float peakValue = 0.0f;
+        for (int i = 0; i < numSamples * channelAmount; i += channelAmount) {
+            float frameSum = 0.0f;
+            for (int ch = 0; ch < channelAmount; ++ch) {
+                int idx = (i + ch + start) % buffSize;
+                frameSum += buffer[idx];
+            }
+            frameSum /= channelAmount;
+            float absFrame = std::abs(frameSum);
+            if (absFrame > peakValue) {
+                peakValue = absFrame;
             }
         }
         update(peakValue);
@@ -77,6 +107,16 @@ struct RMS {
         value.store(rmsValue);
     }
 
+    void getRMSFromMonoSummedBlock(const float* block, const int numSamples) {
+        float rmsValue = 0.0f;
+        for (int i = 0; i < numSamples; ++i) {
+            rmsValue += block[i] * block[i];
+        }
+        rmsValue /= numSamples;
+        rmsValue = std::sqrt(rmsValue);
+        value.store(rmsValue);
+    }
+
     void getRMSFromRingBuffer(const float* buffer, const int numSamples, 
                               const int channelNum, const int channelAmount, 
                               const int start, const int buffSize) {
@@ -84,6 +124,24 @@ struct RMS {
         for (int i = channelNum; i < numSamples * channelAmount; i += channelAmount) {
             int idx = (i + start) % buffSize;
             rmsValue += buffer[idx] * buffer[idx];
+        }
+        rmsValue /= numSamples;
+        rmsValue = std::sqrt(rmsValue);
+        value.store(rmsValue);
+    }
+
+    void getRMSFromMonoSummedRingBuffer(const float* buffer, const int numSamples, 
+                                        const int channelAmount, const int start,
+                                        const int buffSize) {
+        float rmsValue = 0.0f;
+        for (int i = 0; i < numSamples * channelAmount; i += channelAmount) {
+            float frameSum = 0.0f;
+            for (int ch = 0; ch < channelAmount; ++ch) {
+                int idx = (i + ch + start) % buffSize;
+                frameSum += buffer[idx];
+            }
+            frameSum /= channelAmount;
+            rmsValue += frameSum * frameSum;
         }
         rmsValue /= numSamples;
         rmsValue = std::sqrt(rmsValue);
@@ -182,23 +240,36 @@ struct FFT{
     }
 
     //return first index then amount of bins used in spectral analysis
-    std::vector<uint32_t> getAudibleRange(uint32_t sr) {
+    void getAudibleRange(uint32_t sr, uint32_t* start, uint32_t* size) {
         const float binMult = (float)sr / (float) n;
         bool firstAudibleSet = false;
-        std::vector<uint32_t> res = {0, 0};
 
         for (int i = 0; i < binAmt; ++i) {
             float binFreq = (float)i * binMult;
             if (!firstAudibleSet && binFreq >= 20.0f) {
-                res[0] = i;
+                *start = i;
                 firstAudibleSet = true;
             }
             if (binFreq > 20000.0f) {
-                res[1] = i - res[0];
+                *size = i - *start;
                 break;
             }
         }
-        return res;
+    }
+
+    void swapSpec(bool isPer, bool isWin, bool isSS, float slope, uint32_t sr) {
+        //any change other than isDec & isWin will cause a recompute of the scalar table,
+        //isDec and isWin only change future processing cost, unless windowing table hasn't been filled yet
+        if (isPer != isPerceptual || isSS != isSingleSided || slope != perceptualSlope) {
+            isPerceptual = isPer;
+            isSingleSided = isSS;
+            perceptualSlope = slope;
+            fillScalarTable(sr);
+        }
+        if (isWin && !windowTableFilled) {
+            fillWindowingTable();
+        }
+
     }
 
     void runFFT() {
@@ -232,6 +303,7 @@ private:
         for (uint32_t i = 0; i < n; ++i) {
             windowingTable[i] *= factor;
         }
+        windowTableFilled = true;
     }
 
     void fillScalarTable(uint32_t sr) {
@@ -277,11 +349,12 @@ private:
     }
 
     void convertToDB() {
+        //not sure if the min_mag clamp is necessary now
         const float min_mag = 1e-12f;
         for (uint32_t i = 0; i < binAmt; ++i) {
             float mag = std::max(placement[i], min_mag);
             mag = 20.0f * std::log10(mag);
-            placement[i] = std::max(mag, -120.0f);
+            placement[i] = std::max(mag, -96.0f);
         }
     }
 
@@ -295,6 +368,7 @@ private:
     //pointer to overwrite complexes after conversions
     float *placement;
     fftwf_plan p;
+    bool windowTableFilled = false;
     bool isPerceptual;
     bool isWindowed;
     bool isDB;

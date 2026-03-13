@@ -3,71 +3,79 @@
 #include "smooth_value.h"
 #include "audio.h"
 #include "audio_spec.h"
+#include <cstdint>
 
 static constexpr float MIN_FREQ = 20.0f;
 static constexpr float MID_FREQ = 1000.0f;
 static constexpr float SWAP_FREQ = 2000.0f;
 static constexpr float MAX_FREQ = 20000.0f;
 static constexpr float MIN_DB = -96.0f;
+//NOTE: initial window settings here for now, will move once things are up and running
+static constexpr float INIT_WIDTH = 1280.0f;
+static constexpr float INIT_HEIGHT = 720.0f;
 
 class AVBridge {
 public:
     AVBridge(Audio& a, AudioSpec& spec) : audio(a), currSpec(spec) {}
-/*
-    AVBridge(Audio& a, uint32_t hopAmt, uint32_t smoothSize, bool isWindowDepenedent, bool useSmoothing, bool useAudibleSize, bool peakHolds, 
-             bool peakMono, bool rmsMono, bool fftHolds, bool isPerceptual, 
-             bool isHannWindowed, bool isDB, bool isSingleSided, float slope)
-             : audio(a) {
-        currSpec = {hopAmt, smoothSize, isWindowDepenedent, useSmoothing, useAudibleSize, peakHolds, peakMono, rmsMono, fftHolds,
-                    isPerceptual, isHannWindowed, isDB, isSingleSided, slope};
-    }
-*/
     ~AVBridge() {}
     AVBridge(const AVBridge&) = delete;
     AVBridge& operator=(const AVBridge&) = delete;
     AVBridge(AVBridge&&) = delete;
     AVBridge& operator=(AVBridge&&) = delete;
 
-    bool init(uint32_t deviceFrameRate) {
-        if (!audio.init(currSpec)) {
-            return false;
-        }
+    void init(uint32_t deviceFrameRate) {
 
         frameRate = deviceFrameRate;
         binAmt = audio.getFFTSize() / 2 + 1;
         channels = audio.getNumChannels();
         sampleRate = audio.getSampleRate();
-        audibleRange.resize(2);
 
         swap(currSpec);
-
-        return true;
     }
 
     void nextFrame() {
-        smoothPeakRMS.advanceAllAsym();
-        smoothFFT.advanceAllAsym();
+        //TODO: would adding if/else here for calls where smoothing is disabled call next over asym
+        gpuPeakRMS.advanceAllAsym();
+        gpuFFT.advanceAllAsym();
     }
 
-    const float* getSmoothFFTPtr() {
-        return smoothFFT.getCurrents();
+    const float* getGPUFFTPtr() {
+        return gpuFFT.getCurrents();
     }
 
     const float* getPeakRMSPtr() {
-        return smoothPeakRMS.getCurrents();
+        return gpuPeakRMS.getCurrents();
     }
 
-    void resize(size_t newSize) {
-        setSmoothIndexFreqs(newSize);
-        smoothFFTSize = newSize;
-        smoothFFT.resize(newSize);
-        //either separate call to Audio or call it here
-        //firstWindowAccumulated = false;
+    void resize(int w, int h) {
+        //NOTE: this could be a race on different threading(if this becomes a callback, etc.)
+        //keep in line in sdl event loop
+        if (currSpec.isSizeWidthDependent && currSpec.isSizeHeightDependent) {
+            //TODO: wtf should I do here :(
+        }
+        else if (currSpec.isSizeWidthDependent) {
+            w *= widthScalar;
+            setIndexFreqs(w);
+            gpuFFTSize = w;
+            gpuFFT.resize(w);
+            gpuFFT.setAllCurrentAndTargets(0.0f);
+            gpuPeakRMS.setAllCurrentAndTargets(0.0f);
+        }
+        else if (currSpec.isSizeHeightDependent) {
+            h *= heightScalar;
+            setIndexFreqs(h);
+            gpuFFTSize = h;
+            gpuFFT.resize(h);
+            gpuFFT.setAllCurrentAndTargets(0.0f);
+            gpuPeakRMS.setAllCurrentAndTargets(0.0f);
+        }
     }
 
-    void swapSpec(AudioSpec& newSpec, uint32_t deviceFrameRate) {
-        audio.swapSpec(newSpec);
+    void swapSpec(AudioSpec& newSpec) {
         swap(newSpec);
+        currSpec = newSpec;
+        gpuFFT.setAllCurrentAndTargets(0.0f);
+        gpuPeakRMS.setAllCurrentAndTargets(0.0f);
     }
 
     uint32_t getFFTGPUSize() {
@@ -82,54 +90,110 @@ public:
     }
 
     void formatData() {
+        //I know this looks pretty nasty, but its the best I could get it to look at and its clear.
+        //The logic is just nasty to make this work
+        const bool peakMono = currSpec.isPeakMono;
+        const bool rmsMono = currSpec.isRMSMono;
 
+        gpuPeakRMS.setTargetVal(0, audio.popPeak(0));
+        gpuPeakRMS.setTargetVal(1, audio.popRMS(0));
+
+        if (!peakMono) {
+            const int offset = 2;
+            const int stride = rmsMono ? 1 : 2;
+            for (int ch = 1; ch < channels; ++ch) {
+                gpuPeakRMS.setTargetVal(offset + (ch - 1) * stride, audio.popPeak(ch));
+            }
+        }
+
+        if (!rmsMono) {
+            const int offset = peakMono ? 2 : 3;
+            const int stride = peakMono ? 1 : 2;
+            for (int ch = 1; ch < channels; ++ch) {
+                gpuPeakRMS.setTargetVal(offset + (ch - 1) * stride, audio.popRMS(ch));
+            }
+        }
+
+        if (currSpec.arbitrarySize == 0) {
+            audibleBinPlacement();
+        }
+        else if (currSpec.useFFTSmoothing) {
+            linearPlacement();
+        }
+        else {
+            fullBinPlacement();
+        }
     }
 
 private:
     void swap(AudioSpec& newSpec) {
-        audibleRange = audio.getAudibleRange();
+        if (newSpec.isSizeWidthDependent && newSpec.isSizeHeightDependent) {
+            //TODO: figure how tf to get the factor to affect both in a way thats usable
+            widthScalar = INIT_WIDTH / gpuFFTSize;
+            heightScalar = INIT_HEIGHT / gpuFFTSize;
+        }
+        else if (newSpec.isSizeWidthDependent) {
+            widthScalar = INIT_WIDTH / gpuFFTSize;
+
+        }
+        else if (newSpec.isSizeHeightDependent) {
+            heightScalar = INIT_HEIGHT / gpuFFTSize;
+        }
+
+        audio.getAudibleRange(&audibleStart, &audibleSize);
         if (newSpec.arbitrarySize == 0 && !newSpec.useAudibleSize) {
             fftGPUSize = binAmt;
         }
         else if (newSpec.arbitrarySize == 0 && newSpec.useAudibleSize) {
-            fftGPUSize = audibleRange[1];
+            fftGPUSize = audibleSize;
         }
         else {
-            fftGPUSize = newSpec.arbitrarySize;
-            setSmoothIndexFreqs(fftGPUSize);
+            const bool h = newSpec.isSizeHeightDependent && currentHeight != INIT_HEIGHT;
+            const bool w = newSpec.isSizeWidthDependent && currentWidth != INIT_WIDTH;
+            if (h && w) {
+                //TODO: figure out this too pls.....
+            }
+            else if (h) {
+                fftGPUSize = newSpec.arbitrarySize * heightScalar;
+            }
+            else if (w) {
+                fftGPUSize = newSpec.arbitrarySize * widthScalar;
+            }
+            else {
+                fftGPUSize = newSpec.arbitrarySize;
+            }
+            setIndexFreqs(fftGPUSize);
         }
-        smoothFFT.resize(fftGPUSize);
-        smoothPeakRMS.resize(channels);
+        gpuFFT.resize(fftGPUSize);
+        gpuPeakRMS.resize(channels);
 
-        if (currSpec.useFFTSmoothing) {
-            smoothFFT.reset(0);
-            smoothFFT.setAsym(1,1);
+        if (newSpec.useFFTSmoothing) {
+            gpuFFT.reset(0);
+            gpuFFT.setAsym(1,1);
         }
         else {
-            smoothFFT.reset(frameRate);
-            smoothFFT.setAsym(currSpec.fftAtk, currSpec.fftRls);
+            gpuFFT.reset(frameRate);
+            gpuFFT.setAsym(newSpec.fftAtk, newSpec.fftRls);
         }
 
-        if (currSpec.usePeakRMSSmoothing) {
-            smoothPeakRMS.reset(0);
-            smoothPeakRMS.setAsym(1,1);
+        if (newSpec.usePeakRMSSmoothing) {
+            gpuPeakRMS.reset(0);
+            gpuPeakRMS.setAsym(1,1);
         }
         else {
-            smoothPeakRMS.reset(frameRate);
-            smoothPeakRMS.setAsym(currSpec.fftAtk, currSpec.fftRls);
+            gpuPeakRMS.reset(frameRate);
+            gpuPeakRMS.setAsym(newSpec.fftAtk, newSpec.fftRls);
         }
-
-        audio.resetAccumulator();
     }
 
-    //sets arbitrary size smoothAoS and finds midpoint for the below smoothing algo
-    void setSmoothIndexFreqs(size_t size) {
-        smoothIndexFreqs.resize(size);
+    //sets arbitrary size smoothAoS and finds midpoint for the below bin collating algo
+    void setIndexFreqs(uint32_t size) {
+        indexFreqs.resize(size);
         float swapFreq = 0.0f; //needs math to find swapFreq
         bool swapIndexFound = false;
         const float scale = (float)fftSize / (float)sampleRate;
 
-        for (int i = 0; i < size; ++i) {
+        for (uint32_t i = 0; i < size; ++i) {
             float norm = (float)i / (float)(size - 1);
             float freq = MIN_FREQ * std::pow(MAX_FREQ / MIN_FREQ, norm);
             if (!swapIndexFound && freq > swapFreq) {
@@ -138,32 +202,32 @@ private:
             }
             float binIndexFloat = freq * scale;
 
-            smoothIndexFreqs[i] = std::min(std::max(binIndexFloat, 0.0f), (float)binAmt);
+            indexFreqs[i] = std::min(std::max(binIndexFloat, 0.0f), (float)binAmt);
         }
     }
 
-    //smoothing based on arbitrary size for the purpose of per pixel smoothing
+    //gpuing based on arbitrary size for the purpose of per pixel gpuing
     //choose a freq as midpoint in const expr above, then cubic interp up to that point
-    //will get non overlapping rms of each bucket after midpoint, places in smooth as dB
-    void spencySmooth() {
+    //will get non overlapping rms of each bucket after midpoint, places in gpu as dB
+    void linearPlacement() {
         const float* fftOut = audio.getFFTPtr();
         //now that swap index is saved, this can be two loops, easier to vectorize for comp(or by hand if need arises)
-        for (int i = 0; i < smoothFFTSize; ++i) {
+        for (int i = 0; i < gpuFFTSize; ++i) {
             float dB;
 
             if (i < swapIndex) {
-                dB = getLowFreqSmoothedValue(i, fftOut);
+                dB = getLowFreqValue(i, fftOut);
             }
             else {
-                dB = getHighFreqSmoothedValues(i, fftOut);
+                dB = getHighFreqValues(i, fftOut);
             }
-            smoothFFT.setTargetVal(i, dB);
+            gpuFFT.setTargetVal(i, dB);
         }
     }
 
     //get low end interp using surrounding bins, since they are sparse here
-    float getLowFreqSmoothedValue(int i, const float* fftOut) {
-        float centerBinFloat = smoothIndexFreqs[i];
+    float getLowFreqValue(int i, const float* fftOut) {
+        float centerBinFloat = indexFreqs[i];
         uint32_t bin1 = (int)centerBinFloat;
         float fraction = centerBinFloat - bin1; 
 
@@ -180,9 +244,9 @@ private:
     }
 
     //basically, gets rms of bounds from last bucket + 1 to current
-    float getHighFreqSmoothedValues(int idx, const float* fftOut) {
-        int lowB = (int)smoothIndexFreqs[idx - 1] + 1;
-        int highB = (int)smoothIndexFreqs[idx];
+    float getHighFreqValues(int idx, const float* fftOut) {
+        int lowB = (int)indexFreqs[idx - 1] + 1;
+        int highB = (int)indexFreqs[idx];
 
         float sumSq = 0.0f;
         for (int i = lowB; i <= highB && i < fftSize; ++i) {
@@ -193,7 +257,7 @@ private:
         return gainToDB(rms, MIN_DB);
     }
 
-    //pixel smoothing low end helper to cubic interpolate
+    //pixel gpuing low end helper to cubic interpolate
     float cubicInterp(float y0, float y1, float y2, float y3, float mu) {
         //Catmull-Rom spline interpolation
         float mu2 = mu * mu;
@@ -205,12 +269,20 @@ private:
         return a0 * mu * mu2 + a1 * mu2 + a2 * mu + a3;
     }
 
-    //if not using pixel smoothing array, this is the bin only alternative
-    void binToSmooth() {
+    //if not using pixel gpuing array, this is the bin only alternative
+    void audibleBinPlacement() {
         const float* fftPtr = audio.getFFTPtr();
-        float* smooth = smoothFFT.getTargets();
-        for (int i = 0; i < audibleRange[1]; ++i) {
-            smooth[i] = fftPtr[i + audibleRange[0]];
+        float* gpu = gpuFFT.getTargets();
+        for (uint32_t i = 0; i < audibleSize; ++i) {
+            gpu[i] = fftPtr[i + audibleStart];
+        }
+    }
+
+    void fullBinPlacement() {
+        const float* fftPtr = audio.getFFTPtr();
+        float* gpu = gpuFFT.getTargets();
+        for (uint32_t i = 0; i < binAmt; ++i) {
+            gpu[i] = fftPtr[i];
         }
     }
 
@@ -228,10 +300,9 @@ private:
     Audio& audio;
     AudioSpec currSpec;
 
-    SmoothArraySoA smoothPeakRMS;
-    //TODO: these need renaming pls
-    SmoothArraySoA smoothFFT;
-    std::vector<float> smoothIndexFreqs;
+    SmoothArraySoA gpuPeakRMS;
+    SmoothArraySoA gpuFFT;
+    std::vector<float> indexFreqs;
 
     uint32_t fftSize = 0;
     uint32_t hopSize = 0;
@@ -242,9 +313,17 @@ private:
     uint32_t sampleRate = 0;
     uint32_t frameRate = 0;
 
-    std::vector<uint32_t> audibleRange; 
-    size_t smoothFFTSize;
+    uint32_t audibleStart = 0;
+    uint32_t audibleSize = 0;
+
+    uint32_t gpuFFTSize;
     uint32_t swapIndex = 0;
+
     uint32_t fftGPUSize = 0;
+
+    int currentWidth = 0;
+    int currentHeight = 0;
+    float widthScalar = 0.0f;
+    float heightScalar = 0.0f;
 };
 
