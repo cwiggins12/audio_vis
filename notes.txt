@@ -1,6 +1,6 @@
-renderBridge: handle holds, handle height & width case, handle getting peak and rms in mag
-full sweep and test with all new additions
-then move on to next phase
+renderBridge: handle height & width case?!?!?!?!?!?!, 
+add rule of 3s to smooth and hold classes
+full sweep and test with all new additions, then move on to next phase
 
 NEXT PHASE:
 glsl folder to house all glsl files
@@ -9,6 +9,13 @@ just have it be a monolith static inline function that generates the AudioSpecs 
 Shader switching logic(this is gonna basically be bugfixing of the above class)
 Dynamically (either compile time or on boot) know shader amount to allow looping through them
 add key presses to events to switch through these
+
+fully cleanup directories
+
+NEXT PHASE:
+Make some fun abstract shaders
+Make as high quality of a spectrum analyser with peak and rms
+try and pull off mel-spectrograms as well
 
 optional and cleanup before 1.0.0:
 should the AudioSpec contain fft_size and hopAmt, and should they be changed by it? :(

@@ -13,25 +13,28 @@ struct AudioSpec {
     uint32_t fftRls = 1;
     uint32_t rmsPeakAtk = 5;
     uint32_t rmsPeakRls = 1;
+    float peakRMSHoldTime = 0.0f;
+    float fftHoldTime = 0.0f;
 
     //if height and width both affect arbitrary size and you want a different scale
     //of effect from height and width. 
     //Values > 1 emphasize height, and < 1 emphasize width more by the percent away from 1
     float hwFactor = 1.0f;
 
-    //if using smooth size, does it resize with window width in scale
+    //if using arbitrary size, does it resize with window width in scale
     bool isSizeWidthDependent = true;
     bool isSizeHeightDependent = false;
     //want smoothing for fft ouput?
     bool useFFTSmoothing = true;
     //want fft output limited to only audible bins?
     bool useAudibleSize = false;
+
     //smooth rms/peak output?
     bool usePeakRMSSmoothing = true;
-
     bool isRMSdB = true;
     bool isPeakdB = true;
-    bool getsPeakHolds = true;
+
+    bool getsPeakRMSHolds = true;
     bool isPeakMono = false;
     bool isRMSMono = false;
     bool getsFFTHolds = true;

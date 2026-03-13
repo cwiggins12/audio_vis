@@ -1,5 +1,6 @@
 #pragma once
 
+#include "float_holds.h"
 #include "smooth_value.h"
 #include "audio.h"
 #include "audio_spec.h"
@@ -29,7 +30,8 @@ public:
         binAmt = audio.getFFTSize() / 2 + 1;
         channels = audio.getNumChannels();
         sampleRate = audio.getSampleRate();
-
+        fftHolds.resize(0, MIN_DB);
+        peakRMSHolds.resize(0, MIN_DB);
         swap(currSpec);
     }
 
@@ -37,6 +39,8 @@ public:
         //TODO: would adding if/else here for calls where smoothing is disabled call next over asym
         gpuPeakRMS.advanceAllAsym();
         gpuFFT.advanceAllAsym();
+        fftHolds.countdownAll();
+        peakRMSHolds.countdownAll();
     }
 
     const float* getGPUFFTPtr() {
@@ -58,24 +62,30 @@ public:
             setIndexFreqs(w);
             gpuFFTSize = w;
             gpuFFT.resize(w);
-            gpuFFT.setAllCurrentAndTargets(0.0f);
+            if (currSpec.getsFFTHolds) {
+                float minVal = (currSpec.isFFTdB) ? MIN_DB : 0.0f;
+                fftHolds.resize(w, minVal);
+            }
             gpuPeakRMS.setAllCurrentAndTargets(0.0f);
+            peakRMSHolds.clear(MIN_DB);
         }
         else if (currSpec.isSizeHeightDependent) {
             h *= heightScalar;
             setIndexFreqs(h);
             gpuFFTSize = h;
             gpuFFT.resize(h);
-            gpuFFT.setAllCurrentAndTargets(0.0f);
+            if (currSpec.getsFFTHolds) {
+                float minVal = (currSpec.isFFTdB) ? MIN_DB : 0.0f;
+                fftHolds.resize(h, minVal);
+            }
             gpuPeakRMS.setAllCurrentAndTargets(0.0f);
+            peakRMSHolds.clear(MIN_DB);
         }
     }
 
     void swapSpec(AudioSpec& newSpec) {
         swap(newSpec);
         currSpec = newSpec;
-        gpuFFT.setAllCurrentAndTargets(0.0f);
-        gpuPeakRMS.setAllCurrentAndTargets(0.0f);
     }
 
     uint32_t getFFTGPUSize() {
@@ -94,15 +104,26 @@ public:
         //The logic is just nasty to make this work
         const bool peakMono = currSpec.isPeakMono;
         const bool rmsMono = currSpec.isRMSMono;
+        const bool getPRHolds = currSpec.getsPeakRMSHolds;
 
-        gpuPeakRMS.setTargetVal(0, audio.popPeak(0));
-        gpuPeakRMS.setTargetVal(1, audio.popRMS(0));
+        float peak = popPeak(0);
+        gpuPeakRMS.setTargetVal(0, peak);
+        float rms = popRMS(0);
+        gpuPeakRMS.setTargetVal(1, popRMS(0));
+        if (getPRHolds) {
+            peakRMSHolds.compareValAtIndex(0, peak);
+            peakRMSHolds.compareValAtIndex(1, rms);
+        }
 
         if (!peakMono) {
             const int offset = 2;
             const int stride = rmsMono ? 1 : 2;
             for (int ch = 1; ch < channels; ++ch) {
-                gpuPeakRMS.setTargetVal(offset + (ch - 1) * stride, audio.popPeak(ch));
+                peak = popPeak(ch);
+                gpuPeakRMS.setTargetVal(offset + (ch - 1) * stride, peak);
+                if (getPRHolds) {
+                    peakRMSHolds.compareValAtIndex(ch, peak);
+                }
             }
         }
 
@@ -110,23 +131,40 @@ public:
             const int offset = peakMono ? 2 : 3;
             const int stride = peakMono ? 1 : 2;
             for (int ch = 1; ch < channels; ++ch) {
-                gpuPeakRMS.setTargetVal(offset + (ch - 1) * stride, audio.popRMS(ch));
+                rms = popRMS(ch);
+                gpuPeakRMS.setTargetVal(offset + (ch - 1) * stride, rms);
+                if (getPRHolds) {
+                    peakRMSHolds.compareValAtIndex(ch, rms);
+                }
             }
         }
 
-        if (currSpec.arbitrarySize == 0) {
+        if (currSpec.useAudibleSize) {
             audibleBinPlacement();
         }
-        else if (currSpec.useFFTSmoothing) {
-            linearPlacement();
+        else if (currSpec.arbitrarySize == 0) {
+            fullBinPlacement();
         }
         else {
-            fullBinPlacement();
+            linearPlacement();
+        }
+        for (int i = 0; i < fftGPUSize; ++i) {
+            fftHolds.compareValAtIndex(i, gpuFFT.getTargetVal(i));
         }
     }
 
 private:
     void swap(AudioSpec& newSpec) {
+        uint32_t peakRMSSize = 0;
+        peakRMSSize += (newSpec.isPeakMono) ? 1 : channels;
+        peakRMSSize += (newSpec.isRMSMono) ? 1 : channels;
+
+        if (newSpec.getsPeakRMSHolds) {
+            peakRMSHolds.reset(frameRate, newSpec.peakRMSHoldTime);
+            peakRMSHolds.resize(peakRMSSize, MIN_DB);
+        }
+        gpuPeakRMS.resize(peakRMSSize);
+
         if (newSpec.isSizeWidthDependent && newSpec.isSizeHeightDependent) {
             //TODO: figure how tf to get the factor to affect both in a way thats usable
             widthScalar = INIT_WIDTH / gpuFFTSize;
@@ -165,8 +203,11 @@ private:
             setIndexFreqs(fftGPUSize);
         }
         gpuFFT.resize(fftGPUSize);
-        gpuPeakRMS.resize(channels);
 
+        if (newSpec.getsFFTHolds) {
+            fftHolds.reset(frameRate, newSpec.fftHoldTime);
+            fftHolds.resize(fftGPUSize, MIN_DB);
+        }
         if (newSpec.useFFTSmoothing) {
             gpuFFT.reset(0);
             gpuFFT.setAsym(1,1);
@@ -212,16 +253,22 @@ private:
     void linearPlacement() {
         const float* fftOut = audio.getFFTPtr();
         //now that swap index is saved, this can be two loops, easier to vectorize for comp(or by hand if need arises)
-        for (int i = 0; i < gpuFFTSize; ++i) {
-            float dB;
-
-            if (i < swapIndex) {
-                dB = getLowFreqValue(i, fftOut);
+        //TODO: look for a better way to handle isDB being false
+        if (currSpec.isFFTdB) {
+            for (int i = 0; i < swapIndex; ++i) {
+                gpuFFT.setTargetVal(i, getLowFreqValue(i, fftOut));
             }
-            else {
-                dB = getHighFreqValues(i, fftOut);
+            for (int i = swapIndex; i < gpuFFTSize; ++i) {
+                gpuFFT.setTargetVal(i, getHighFreqValueDB(i, fftOut));
             }
-            gpuFFT.setTargetVal(i, dB);
+        }
+        else {
+            for (int i = 0; i < swapIndex; ++i) {
+                gpuFFT.setTargetVal(i, dBToGain(getLowFreqValue(i, fftOut), MIN_DB));
+            }
+            for (int i = swapIndex; i < gpuFFTSize; ++i) {
+                gpuFFT.setTargetVal(i, getHighFreqValueGain(i, fftOut));
+            }
         }
     }
 
@@ -244,7 +291,7 @@ private:
     }
 
     //basically, gets rms of bounds from last bucket + 1 to current
-    float getHighFreqValues(int idx, const float* fftOut) {
+    float getHighFreqValueDB(int idx, const float* fftOut) {
         int lowB = (int)indexFreqs[idx - 1] + 1;
         int highB = (int)indexFreqs[idx];
 
@@ -255,6 +302,20 @@ private:
         }
         float rms = std::sqrt(sumSq / (highB - lowB + 1));
         return gainToDB(rms, MIN_DB);
+    }
+
+    //expects gain and returns gain
+    float getHighFreqValueGain(int idx, const float* fftOut) {
+        int lowB = (int)indexFreqs[idx - 1] + 1;
+        int highB = (int)indexFreqs[idx];
+
+        float sumSq = 0.0f;
+        for (int i = lowB; i <= highB && i < fftSize; ++i) {
+            float mag = fftOut[i];
+            sumSq += mag * mag;
+        }
+        float rms = std::sqrt(sumSq / (highB - lowB + 1));
+        return rms;
     }
 
     //pixel gpuing low end helper to cubic interpolate
@@ -286,9 +347,25 @@ private:
         }
     }
 
+    float popPeak(int ch) {
+        float p = audio.popPeak(ch);
+        if (currSpec.isPeakdB) {
+            p = gainToDB(p, MIN_DB);
+        }
+        return p;
+    }
+
+    float popRMS(int ch) {
+        float r = audio.popRMS(ch);
+        if (currSpec.isRMSdB) {
+            r = gainToDB(r, MIN_DB);
+        }
+        return r;
+    }
+
     //float to float gain/mag to dB helper
-    float gainToDB(float mag, float minDB) {
-        return std::max(minDB, 20.0f * std::log10(mag));
+    float gainToDB(float gain, float minDB) {
+        return std::max(minDB, 20.0f * std::log10(gain));
     }
 
     //float to float db to gain/mag helper
@@ -303,6 +380,8 @@ private:
     SmoothArraySoA gpuPeakRMS;
     SmoothArraySoA gpuFFT;
     std::vector<float> indexFreqs;
+    HoldArray fftHolds;
+    HoldArray peakRMSHolds;
 
     uint32_t fftSize = 0;
     uint32_t hopSize = 0;

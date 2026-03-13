@@ -257,7 +257,7 @@ struct FFT{
         }
     }
 
-    void swapSpec(bool isPer, bool isWin, bool isSS, float slope, uint32_t sr) {
+    void swapSpec(bool isPer, bool isWin, bool isDec, bool isSS, float slope, uint32_t sr) {
         //any change other than isDec & isWin will cause a recompute of the scalar table,
         //isDec and isWin only change future processing cost, unless windowing table hasn't been filled yet
         if (isPer != isPerceptual || isSS != isSingleSided || slope != perceptualSlope) {
@@ -269,7 +269,9 @@ struct FFT{
         if (isWin && !windowTableFilled) {
             fillWindowingTable();
         }
-
+        //since arbitrarily sized output ops need dB as input, its cheaper to convert after those,
+        //sent bool is set accordingly in audio.swapSpec()
+        isDB = isDec;
     }
 
     void runFFT() {
@@ -349,11 +351,8 @@ private:
     }
 
     void convertToDB() {
-        //not sure if the min_mag clamp is necessary now
-        const float min_mag = 1e-12f;
         for (uint32_t i = 0; i < binAmt; ++i) {
-            float mag = std::max(placement[i], min_mag);
-            mag = 20.0f * std::log10(mag);
+            float mag = 20.0f * std::log10(placement[i]);
             placement[i] = std::max(mag, -96.0f);
         }
     }

@@ -36,7 +36,8 @@ public:
         peak = std::make_unique<Peak[]>(channels);
         rms = std::make_unique<RMS[]>(channels);
 
-        fft = std::make_unique<FFT>(fftSize, spec.isPerceptual, spec.isHannWindowed, spec.isDB, spec.isSingleSided, spec.slope);
+
+        fft = std::make_unique<FFT>(fftSize, spec.isPerceptual, spec.isHannWindowed, spec.isFFTdB, spec.isSingleSided, spec.slope);
         fft->initFFT(sampleRate);
 
         return true;
@@ -106,7 +107,9 @@ public:
             }
             isRMSMono = spec.isRMSMono;
         }
-        fft->swapSpec(spec.isPerceptual, spec.isHannWindowed, 
+        //set this way to account for arb sized array being more efficient to just get db the convert after sizing
+        bool deeb = (spec.arbitrarySize != 0 && !spec.useAudibleSize) ? true : spec.isFFTdB;
+        fft->swapSpec(spec.isPerceptual, spec.isHannWindowed, deeb,
                       spec.isSingleSided, spec.slope, sampleRate);
     }
 
