@@ -2,6 +2,15 @@
 
 #include <cstdint>
 
+//current gripes: 
+//arbitrarySize is a bad name, 
+//hopAmt shouldn't be here unless fftSize is here, which would be a nightmare
+//atk and rls values need a clear explanation or need to be changed
+//slope is not a descriptive enough name
+//
+//data that needs to be passed aside from this is channel count and, 
+//when not using the customFFTSize, the bin amt they are getting passed
+
 //for right now the fft_size is static, if I see any demand for a change I'll debate it
 //it would be really expensive for very little gain that I know of
 struct AudioSpec {
@@ -9,17 +18,15 @@ struct AudioSpec {
 
     uint32_t hopAmt = 4;
     uint32_t arbitrarySize = 1000;
-    uint32_t fftAtk = 5;
-    uint32_t fftRls = 1;
-    uint32_t rmsPeakAtk = 5;
-    uint32_t rmsPeakRls = 1;
+    uint32_t fftAtk = 20;
+    uint32_t fftRls = 5;
+    uint32_t rmsPeakAtk = 20;
+    uint32_t rmsPeakRls = 5;
     float peakRMSHoldTime = 1.0f;
     float fftHoldTime = 1.0f;
 
-    //if height and width both affect arbitrary size and you want a different scale
-    //of effect from height and width. 
-    //Values > 1 emphasize height, and < 1 emphasize width more by the percent away from 1
-    float hwFactor = 1.0f;
+    float hFactor = 1.0f;
+    float wFactor = 1.0f;
 
     //if using arbitrary size, does it resize with window width in scale
     bool isSizeWidthDependent = true;
@@ -31,19 +38,16 @@ struct AudioSpec {
 
     //smooth rms/peak output?
     bool usePeakRMSSmoothing = true;
-    bool isRMSdB = true;
-    bool isPeakdB = true;
-
+    bool isPeakRMSdB = true;
     bool getsPeakRMSHolds = true;
-    bool isPeakMono = false;
-    bool isRMSMono = false;
-    bool getsFFTHolds = true;
+    bool isPeakRMSMono = false;
 
+    bool getsFFTHolds = true;
     bool isPerceptual = true;
     bool isHannWindowed = true;
     bool isFFTdB = true;
-    bool isSingleSided = true;
+
 //need something to account for both height and width dependencies, a factor? 2 scalars? idk
-    float slope = 4.5;
+    float perceptualSlopeDegrees = 4.5;
 };
 

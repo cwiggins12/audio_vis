@@ -1,7 +1,8 @@
 #pragma once
 
 #include "audio_capture.h"
-#include "analysis.h"
+#include "peak_rms.h"
+#include "fft.h"
 #include "audio_spec.h"
 #include <cstdint>
 #include <memory>
@@ -36,9 +37,8 @@ public:
 
         peak = std::make_unique<Peak[]>(channels);
         rms = std::make_unique<RMS[]>(channels);
-
-
-        fft = std::make_unique<FFT>(fftSize, spec.isPerceptual, spec.isHannWindowed, spec.isFFTdB, spec.isSingleSided, spec.slope);
+        fft = std::make_unique<FFT>(fftSize, spec.isPerceptual, spec.isHannWindowed, 
+                                    spec.isFFTdB, true, spec.perceptualSlopeDegrees);
         fft->initFFT(sampleRate);
 
         return true;
@@ -62,56 +62,40 @@ public:
         uint32_t start = capture.getWindowStartFromWrite(fftSize);
         capture.getMonoSummedWindow(fft->getInputBuffer(), fftSize, start);
 
-        const bool peakMono = isPeakMono;
-        const bool rmsMono = isRMSMono;
-        // --- Peak & RMS ---
-        if (peakMono) {
-            peak[0].getPeakFromMonoSummedBlock(fft->getInputBuffer(), fftSize);
+        if (isPeakRMSMono) {
+            float* buf = fft->getInputBuffer();
+            peak[0].getPeakFromMonoSummedBlock(buf, fftSize);
+            rms[0].getRMSFromMonoSummedBlock(buf, fftSize);
         }
-        if (rmsMono) {
-            rms[0].getRMSFromMonoSummedBlock(fft->getInputBuffer(), fftSize);
-        }
-        if (!peakMono || !rmsMono) {
-            float *buff = capture.getRawBufferPointer();
+        else {
+            float *buf = capture.getRawBufferPointer();
             uint32_t size = capture.getBufferSizeInSamples();
-            if (!peakMono) {
-                for (int ch = 0; ch < channels; ++ch) {
-                    peak[ch].getPeakFromRingBuffer(buff, fftSize, ch, channels, start, size);
-                }
-            }
-            if (!rmsMono) {
-                for (int ch = 0; ch < channels; ++ch) {
-                    rms[ch].getRMSFromRingBuffer(buff, fftSize, ch, channels, start, size);
-                }
+            for (int ch = 0; ch < channels; ++ch) {
+                peak[ch].getPeakFromRingBuffer(buf, fftSize, ch, channels, start, size);
+                rms[ch].getRMSFromRingBuffer(buf, fftSize, ch, channels, start, size);
             }
         }
 
-        // --- FFT ---
         fft->runFFT();
 
-        // --- Update Ring Buffer Indices ---
         capture.setReadIndexForwardByFrames(hopSize, start);
         capture.moveAccumulator(hopSize);
     }
 
     void swapSpec(AudioSpec& spec) {
         capture.resetAccumulator();
-        if (isPeakMono != spec.isPeakMono) {
-            for (int ch = 0; ch < channels; ++ch) {
-                popPeak(ch);
-            }
-            isPeakMono = spec.isPeakMono;
+        for (int ch = 0; ch < channels; ++ch) {
+            popPeak(ch);
+            popRMS(ch);
         }
-        if (isRMSMono != spec.isRMSMono) {
-            for (int ch = 0; ch < channels; ++ch) {
-                popRMS(ch);
-            }
-            isRMSMono = spec.isRMSMono;
-        }
-        //set this way to account for arb sized array being more efficient to just get db the convert after sizing
-        bool deeb = (spec.arbitrarySize != 0 && !spec.useAudibleSize) ? true : spec.isFFTdB;
-        fft->swapSpec(spec.isPerceptual, spec.isHannWindowed, deeb,
-                      spec.isSingleSided, spec.slope, sampleRate);
+        isPeakRMSMono = spec.isPeakRMSMono;
+
+        //set this way to account for arb sized array being more efficient to
+        //just get db the convert after sizing
+        bool db = (spec.arbitrarySize != 0 && !spec.useAudibleSize) 
+                   ? true : spec.isFFTdB;
+        fft->swapSpec(spec.isPerceptual, spec.isHannWindowed, db,
+                      spec.perceptualSlopeDegrees, sampleRate);
     }
 
     void resize(int w, int h) {
@@ -178,7 +162,6 @@ private:
     float slope = 4.5;
     bool getsFFTHolds = true;
     //peak/rms configs
-    bool getsPeakHolds = true;
-    bool isPeakMono = false;
-    bool isRMSMono = false;
+    bool getsPeakRMSHolds = true;
+    bool isPeakRMSMono = false;
 };

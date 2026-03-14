@@ -1,156 +1,11 @@
 #pragma once
 
-#include <atomic>
 #include <cmath>
 #include <cstdint>
 #include <vector>
 #include <fftw3.h>
 
 static constexpr float PI = 3.14159265358979323846f;
-
-//peak measurement per channel
-struct Peak {
-    float pop() {
-        return value.exchange(0.0f);
-    }
-
-    float peek() {
-        return value.load();
-    }
-
-    //only called in process block per channel. gets peak and calls update per block
-    void getPeakFromBlock(const float* block, const int numSamples, 
-                          const int channelNum, const int channelAmount) {
-        float peakValue = 0.0f;
-        for (int i = channelNum; i < numSamples * channelAmount; i += channelAmount) {
-            float absSample = std::abs(block[i]);
-            if (absSample > peakValue) {
-                peakValue = absSample;
-            }
-        }
-        update(peakValue);
-    }
-
-    void getPeakFromMonoSummedBlock(const float* block, const int numSamples) {
-        float peakValue = 0.0f;
-        for (int i = 0; i < numSamples; ++i) {
-            float absSample = std::abs(block[i]);
-            if (absSample > peakValue) {
-                peakValue = absSample;
-            }
-        }
-        update(peakValue);
-    }
-
-    void getPeakFromRingBuffer(const float* buffer, const int numSamples, 
-                               const int channelNum, const int channelAmount, 
-                               const int start, const int buffSize) {
-        float peakValue = 0.0f;
-        for (int i = channelNum; i < numSamples * channelAmount; i += channelAmount) {
-            int idx = (i + start) % buffSize;
-            float absSample = std::abs(buffer[idx]);
-            if (absSample > peakValue) {
-                peakValue = absSample;
-            }
-        }
-        update(peakValue);
-    }
-
-    void getMonoSummedPeakFromRingBuffer(const float* buffer, const int numSamples,
-                                 const int channelAmount, const int start, 
-                                 const int buffSize) {
-        float peakValue = 0.0f;
-        for (int i = 0; i < numSamples * channelAmount; i += channelAmount) {
-            float frameSum = 0.0f;
-            for (int ch = 0; ch < channelAmount; ++ch) {
-                int idx = (i + ch + start) % buffSize;
-                frameSum += buffer[idx];
-            }
-            frameSum /= channelAmount;
-            float absFrame = std::abs(frameSum);
-            if (absFrame > peakValue) {
-                peakValue = absFrame;
-            }
-        }
-        update(peakValue);
-    }
-
-private:
-    std::atomic<float> value{ 0.0f };
-    //write peak from block to value
-    void update(float newValue) {
-        auto oldValue = value.load(std::memory_order_relaxed);
-        while (newValue > oldValue && 
-               !value.compare_exchange_weak(oldValue, newValue, 
-               std::memory_order_relaxed, std::memory_order_relaxed));
-    }
-};
-
-//rms reading per channel
-struct RMS {
-    float pop() {
-        return value.exchange(0.0f);
-    }
-
-    float peek() {
-        return value.load();
-    }
-
-    void getRMSFromBlock(const float* block, const int numSamples, 
-                         const int channelNum, const int channelAmount) {
-        float rmsValue = 0.0f;
-        for (int i = channelNum; i < numSamples * channelAmount; i += channelAmount) {
-            rmsValue += block[i] * block[i];
-        }
-        rmsValue /= numSamples;
-        rmsValue = std::sqrt(rmsValue);
-        value.store(rmsValue);
-    }
-
-    void getRMSFromMonoSummedBlock(const float* block, const int numSamples) {
-        float rmsValue = 0.0f;
-        for (int i = 0; i < numSamples; ++i) {
-            rmsValue += block[i] * block[i];
-        }
-        rmsValue /= numSamples;
-        rmsValue = std::sqrt(rmsValue);
-        value.store(rmsValue);
-    }
-
-    void getRMSFromRingBuffer(const float* buffer, const int numSamples, 
-                              const int channelNum, const int channelAmount, 
-                              const int start, const int buffSize) {
-        float rmsValue = 0.0f;
-        for (int i = channelNum; i < numSamples * channelAmount; i += channelAmount) {
-            int idx = (i + start) % buffSize;
-            rmsValue += buffer[idx] * buffer[idx];
-        }
-        rmsValue /= numSamples;
-        rmsValue = std::sqrt(rmsValue);
-        value.store(rmsValue);
-    }
-
-    void getRMSFromMonoSummedRingBuffer(const float* buffer, const int numSamples, 
-                                        const int channelAmount, const int start,
-                                        const int buffSize) {
-        float rmsValue = 0.0f;
-        for (int i = 0; i < numSamples * channelAmount; i += channelAmount) {
-            float frameSum = 0.0f;
-            for (int ch = 0; ch < channelAmount; ++ch) {
-                int idx = (i + ch + start) % buffSize;
-                frameSum += buffer[idx];
-            }
-            frameSum /= channelAmount;
-            rmsValue += frameSum * frameSum;
-        }
-        rmsValue /= numSamples;
-        rmsValue = std::sqrt(rmsValue);
-        value.store(rmsValue);
-    }
-
-private:
-    std::atomic<float> value{ 0.0f };
-};
 
 struct FFT{
     FFT(int N, bool per = true, bool win = true, 
@@ -257,19 +112,21 @@ struct FFT{
         }
     }
 
-    void swapSpec(bool isPer, bool isWin, bool isDec, bool isSS, float slope, uint32_t sr) {
-        //any change other than isDec & isWin will cause a recompute of the scalar table,
-        //isDec and isWin only change future processing cost, unless windowing table hasn't been filled yet
-        if (isPer != isPerceptual || isSS != isSingleSided || slope != perceptualSlope) {
+    void swapSpec(bool isPer, bool isWin, bool isDec, float slope, uint32_t sr) {
+        //any change other than isDec & isWin will cause 
+        //a recompute of the scalar table,
+        //isDec and isWin only change future processing cost, 
+        //unless windowing table hasn't been filled yet
+        if (isPer != isPerceptual || slope != perceptualSlope) {
             isPerceptual = isPer;
-            isSingleSided = isSS;
             perceptualSlope = slope;
             fillScalarTable(sr);
         }
         if (isWin && !windowTableFilled) {
             fillWindowingTable();
         }
-        //since arbitrarily sized output ops need dB as input, its cheaper to convert after those,
+        //since arbitrarily sized output ops need dB as input, 
+        //its cheaper to convert after those,
         //sent bool is set accordingly in audio.swapSpec()
         isDB = isDec;
     }

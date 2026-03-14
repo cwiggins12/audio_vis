@@ -4,79 +4,6 @@
 #include <vector>
 #include <cmath>
 
-//based on juce LinearSmoothedValue, be careful on multi thread use.
-//best practice is to have 1 thread set targets, and another thread get currents
-//don't use this for frequency smoothing and make sure to call setup before use
-struct LinearSmoothVal {
-    float getCurrentVal() {
-        return current;
-    }
-
-    float getTargetVal() {
-        return target;
-    }
-
-    bool isSmoothing() {
-        return steps_remaining > 0;
-    }
-
-    void setCurrentAndTargetVal(float val) {
-        current = val;
-        target = val;
-        steps_remaining = 0;
-        increment = 0.0f;
-    }
-
-    void setCurrentToTargetVal() {
-        current = target;
-        steps_remaining = 0;
-        increment = 0.0f;
-    }
-    //expects pass of max_steps kept in parent array
-    void setTargetVal(float val, int steps) {
-        if (target == val) {
-            return;
-        }
-        if (steps <= 0) {
-            setCurrentAndTargetVal(val);
-            return;
-        }
-        target = val;
-        steps_remaining = steps;
-        increment = (target - current) / steps_remaining;
-    }
-
-    float getNextVal() {
-        if (!isSmoothing()) {
-            return target;
-        }
-        --steps_remaining;
-        if (isSmoothing()) {
-            current += increment;
-        }
-        else {
-            current = target;
-        }
-        return current;
-    }
-
-    float getSkipVal(uint32_t amtToSkip) {
-        if (amtToSkip >= steps_remaining) {
-            setCurrentAndTargetVal(target);
-            return target;
-        }
-        current += increment * (float) amtToSkip;
-        steps_remaining -= amtToSkip;
-        return current;
-    }
-
-private:
-    float target = 0.0f;
-    float current = 0.0f;
-    float increment = 0.0f;
-    int steps_remaining = 0;
-};
-
 // SoA layout version of SmoothArray for direct GPU buffer access.
 // Same threading rules apply - 1 thread sets targets, 1 thread advances/reads.
 // Primary advantage over SmoothArray is current.data() can be handed directly
@@ -101,51 +28,43 @@ struct SmoothArraySoA {
     }
 
     // Copy constructor
-    SmoothArraySoA(const SmoothArraySoA& other)
-        : current(other.current)
-        , target(other.target)
-        , increment(other.increment)
-        , steps_remaining(other.steps_remaining)
-        , max_steps(other.max_steps)
-        , attack_steps(other.attack_steps)
-        , release_steps(other.release_steps)
-    {}
+    SmoothArraySoA(const SmoothArraySoA& other) : current(other.current), 
+                   target(other.target), increment(other.increment), 
+                   steps_remaining(other.steps_remaining), max_steps(other.max_steps),
+                   attack_steps(other.attack_steps), release_steps(other.release_steps) {}
 
     // Copy assignment
     SmoothArraySoA& operator=(const SmoothArraySoA& other) {
         if (this != &other) {
-            current         = other.current;
-            target          = other.target;
-            increment       = other.increment;
+            current = other.current;
+            target = other.target;
+            increment = other.increment;
             steps_remaining = other.steps_remaining;
-            max_steps       = other.max_steps;
-            attack_steps    = other.attack_steps;
-            release_steps   = other.release_steps;
+            max_steps = other.max_steps;
+            attack_steps = other.attack_steps;
+            release_steps = other.release_steps;
         }
         return *this;
     }
 
     // Move constructor
-    SmoothArraySoA(SmoothArraySoA&& other) noexcept
-        : current(std::move(other.current))
-        , target(std::move(other.target))
-        , increment(std::move(other.increment))
-        , steps_remaining(std::move(other.steps_remaining))
-        , max_steps(other.max_steps)
-        , attack_steps(other.attack_steps)
-        , release_steps(other.release_steps)
-    {}
+    SmoothArraySoA(SmoothArraySoA&& other) noexcept : current(std::move(other.current)),
+                   target(std::move(other.target)), 
+                   increment(std::move(other.increment)), 
+                   steps_remaining(std::move(other.steps_remaining)), 
+                   max_steps(other.max_steps), attack_steps(other.attack_steps),
+                   release_steps(other.release_steps) {}
 
     // Move assignment
     SmoothArraySoA& operator=(SmoothArraySoA&& other) noexcept {
         if (this != &other) {
-            current         = std::move(other.current);
-            target          = std::move(other.target);
-            increment       = std::move(other.increment);
+            current = std::move(other.current);
+            target = std::move(other.target);
+            increment = std::move(other.increment);
             steps_remaining = std::move(other.steps_remaining);
-            max_steps       = other.max_steps;
-            attack_steps    = other.attack_steps;
-            release_steps   = other.release_steps;
+            max_steps = other.max_steps;
+            attack_steps = other.attack_steps;
+            release_steps = other.release_steps;
         }
         return *this;
     }
@@ -280,6 +199,80 @@ private:
     uint32_t release_steps = 1;
 };
 
+
+//based on juce LinearSmoothedValue, be careful on multi thread use.
+//best practice is to have 1 thread set targets, and another thread get currents
+//don't use this for frequency smoothing and make sure to call setup before use
+struct LinearSmoothVal {
+    float getCurrentVal() {
+        return current;
+    }
+
+    float getTargetVal() {
+        return target;
+    }
+
+    bool isSmoothing() {
+        return steps_remaining > 0;
+    }
+
+    void setCurrentAndTargetVal(float val) {
+        current = val;
+        target = val;
+        steps_remaining = 0;
+        increment = 0.0f;
+    }
+
+    void setCurrentToTargetVal() {
+        current = target;
+        steps_remaining = 0;
+        increment = 0.0f;
+    }
+    //expects pass of max_steps kept in parent array
+    void setTargetVal(float val, int steps) {
+        if (target == val) {
+            return;
+        }
+        if (steps <= 0) {
+            setCurrentAndTargetVal(val);
+            return;
+        }
+        target = val;
+        steps_remaining = steps;
+        increment = (target - current) / steps_remaining;
+    }
+
+    float getNextVal() {
+        if (!isSmoothing()) {
+            return target;
+        }
+        --steps_remaining;
+        if (isSmoothing()) {
+            current += increment;
+        }
+        else {
+            current = target;
+        }
+        return current;
+    }
+
+    float getSkipVal(uint32_t amtToSkip) {
+        if (amtToSkip >= steps_remaining) {
+            setCurrentAndTargetVal(target);
+            return target;
+        }
+        current += increment * (float) amtToSkip;
+        steps_remaining -= amtToSkip;
+        return current;
+    }
+
+private:
+    float target = 0.0f;
+    float current = 0.0f;
+    float increment = 0.0f;
+    int steps_remaining = 0;
+};
+
 //this version is still here for reference or use on another project, but
 //due to my specific use case here, its not being used
 //array of LinearSmoothValues, but with a shared setup. 
@@ -316,9 +309,9 @@ struct SmoothArray {
     // Copy assignment
     SmoothArray& operator=(const SmoothArray& other) {
         if (this != &other) {
-            arr           = other.arr;
-            max_steps     = other.max_steps;
-            attack_steps  = other.attack_steps;
+            arr = other.arr;
+            max_steps = other.max_steps;
+            attack_steps = other.attack_steps;
             release_steps = other.release_steps;
         }
         return *this;
@@ -332,9 +325,9 @@ struct SmoothArray {
     // Move assignment
     SmoothArray& operator=(SmoothArray&& other) noexcept {
         if (this != &other) {
-            arr           = std::move(other.arr);
-            max_steps     = other.max_steps;
-            attack_steps  = other.attack_steps;
+            arr = std::move(other.arr);
+            max_steps = other.max_steps;
+            attack_steps = other.attack_steps;
             release_steps = other.release_steps;
         }
         return *this;

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "float_holds.h"
+#include "hold_value.h"
 #include "smooth_value.h"
 #include "audio.h"
 #include "audio_spec.h"
@@ -25,13 +25,10 @@ public:
     AVBridge& operator=(AVBridge&&) = delete;
 
     void init(uint32_t deviceFrameRate) {
-
         frameRate = deviceFrameRate;
         binAmt = audio.getFFTSize() / 2 + 1;
         channels = audio.getNumChannels();
         sampleRate = audio.getSampleRate();
-        fftHolds.resize(0, MIN_DB);
-        peakRMSHolds.resize(0, MIN_DB);
         swap(currSpec);
     }
 
@@ -60,8 +57,6 @@ public:
     }
 
     void resize(int w, int h) {
-        //NOTE: this could be a race on different threading(if this becomes a callback, etc.)
-        //keep in line in sdl event loop
         if (currSpec.isSizeWidthDependent && currSpec.isSizeHeightDependent) {
             //TODO: wtf should I do here :(
         }
@@ -72,10 +67,10 @@ public:
             gpuFFT.resize(w);
             if (currSpec.getsFFTHolds) {
                 float minVal = (currSpec.isFFTdB) ? MIN_DB : 0.0f;
-                fftHolds.resize(w, minVal);
+                fftHolds.resize(w);
             }
             gpuPeakRMS.setAllCurrentAndTargets(0.0f);
-            peakRMSHolds.clear(MIN_DB);
+            peakRMSHolds.clear();
         }
         else if (currSpec.isSizeHeightDependent) {
             h *= heightScalar;
@@ -84,10 +79,10 @@ public:
             gpuFFT.resize(h);
             if (currSpec.getsFFTHolds) {
                 float minVal = (currSpec.isFFTdB) ? MIN_DB : 0.0f;
-                fftHolds.resize(h, minVal);
+                fftHolds.resize(h);
             }
             gpuPeakRMS.setAllCurrentAndTargets(0.0f);
-            peakRMSHolds.clear(MIN_DB);
+            peakRMSHolds.clear();
         }
     }
 
@@ -101,50 +96,46 @@ public:
     }
 
     uint32_t getPeakRMSGPUSize() {
-        uint32_t size = 0;
-        size += (currSpec.isPeakMono) ? 1 : channels;
-        size += (currSpec.isRMSMono) ? 1 : channels;
+        uint32_t size = (currSpec.isPeakRMSMono) ? 2 : channels * 2;
         return size * sizeof(float);
     }
 
     //pls refactor
     void formatData() {
-        //I know this looks pretty nasty, but its the best I could get it to look at and its clear.
-        //The logic is just nasty to make this work
-        const bool peakMono = currSpec.isPeakMono;
-        const bool rmsMono = currSpec.isRMSMono;
+        //make peak/rms a helper pls
+        const bool prMono = currSpec.isPeakRMSMono;
         const bool getPRHolds = currSpec.getsPeakRMSHolds;
+        const bool isPRdB = currSpec.isPeakRMSdB;
 
-        float peak = popPeak(0);
-        gpuPeakRMS.setTargetVal(0, peak);
-        float rms = popRMS(0);
-        gpuPeakRMS.setTargetVal(1, popRMS(0));
+        float peak = audio.popPeak(0);
+        float rms = audio.popRMS(0);
+        if (isPRdB) {
+            peak = gainToDB(peak, MIN_DB);
+            rms = gainToDB(rms, MIN_DB);
+        }
         if (getPRHolds) {
             peakRMSHolds.compareValAtIndex(0, peak);
             peakRMSHolds.compareValAtIndex(1, rms);
         }
+        gpuPeakRMS.setTargetVal(0, peak);
+        gpuPeakRMS.setTargetVal(1, rms);
 
-        if (!peakMono) {
-            const int offset = 2;
-            const int stride = rmsMono ? 1 : 2;
+        if (!prMono) {
             for (int ch = 1; ch < channels; ++ch) {
-                peak = popPeak(ch);
-                gpuPeakRMS.setTargetVal(offset + (ch - 1) * stride, peak);
-                if (getPRHolds) {
-                    peakRMSHolds.compareValAtIndex(ch, peak);
+                peak = audio.popPeak(ch);
+                rms = audio.popRMS(ch);
+                int pInd = ch * 2;
+                int rInd = ch * 2 + 1;
+                if (isPRdB) {
+                    peak = gainToDB(peak, MIN_DB);
+                    rms = gainToDB(rms, MIN_DB);
                 }
-            }
-        }
-
-        if (!rmsMono) {
-            const int offset = peakMono ? 2 : 3;
-            const int stride = peakMono ? 1 : 2;
-            for (int ch = 1; ch < channels; ++ch) {
-                rms = popRMS(ch);
-                gpuPeakRMS.setTargetVal(offset + (ch - 1) * stride, rms);
                 if (getPRHolds) {
-                    peakRMSHolds.compareValAtIndex(ch, rms);
+                    peakRMSHolds.compareValAtIndex(pInd, peak);
+                    peakRMSHolds.compareValAtIndex(rInd, rms);
                 }
+                gpuPeakRMS.setTargetVal(pInd, peak);
+                gpuPeakRMS.setTargetVal(rInd, rms);
             }
         }
 
@@ -164,13 +155,12 @@ public:
 
 private:
     void swap(AudioSpec& newSpec) {
-        uint32_t peakRMSSize = 0;
-        peakRMSSize += (newSpec.isPeakMono) ? 1 : channels;
-        peakRMSSize += (newSpec.isRMSMono) ? 1 : channels;
+        uint32_t peakRMSSize = (newSpec.isPeakRMSMono) ? 2 : channels * 2;
 
         if (newSpec.getsPeakRMSHolds) {
-            peakRMSHolds.reset(frameRate, newSpec.peakRMSHoldTime);
-            peakRMSHolds.resize(peakRMSSize, MIN_DB);
+            float min = newSpec.isPeakRMSdB ? MIN_DB : 0.0f;
+            peakRMSHolds.reset(frameRate, newSpec.peakRMSHoldTime, 0.975f, min);
+            peakRMSHolds.resize(peakRMSSize);
         }
         gpuPeakRMS.resize(peakRMSSize);
 
@@ -214,10 +204,11 @@ private:
         gpuFFT.resize(fftGPUSize);
 
         if (newSpec.getsFFTHolds) {
-            fftHolds.reset(frameRate, newSpec.fftHoldTime);
-            fftHolds.resize(fftGPUSize, MIN_DB);
+            float min = newSpec.isFFTdB ? MIN_DB : 0.0f;
+            fftHolds.reset(frameRate, newSpec.fftHoldTime, min);
+            fftHolds.resize(fftGPUSize);
         }
-        if (newSpec.useFFTSmoothing) {
+        if (!newSpec.useFFTSmoothing) {
             gpuFFT.reset(0);
             gpuFFT.setAsym(1,1);
         }
@@ -226,7 +217,7 @@ private:
             gpuFFT.setAsym(newSpec.fftAtk, newSpec.fftRls);
         }
 
-        if (newSpec.usePeakRMSSmoothing) {
+        if (!newSpec.usePeakRMSSmoothing) {
             gpuPeakRMS.reset(0);
             gpuPeakRMS.setAsym(1,1);
         }
@@ -356,22 +347,6 @@ private:
         }
     }
 
-    float popPeak(int ch) {
-        float p = audio.popPeak(ch);
-        if (currSpec.isPeakdB) {
-            p = gainToDB(p, MIN_DB);
-        }
-        return p;
-    }
-
-    float popRMS(int ch) {
-        float r = audio.popRMS(ch);
-        if (currSpec.isRMSdB) {
-            r = gainToDB(r, MIN_DB);
-        }
-        return r;
-    }
-
     //float to float gain/mag to dB helper
     float gainToDB(float gain, float minDB) {
         return std::max(minDB, 20.0f * std::log10(gain));
@@ -388,9 +363,10 @@ private:
 
     SmoothArraySoA gpuPeakRMS;
     SmoothArraySoA gpuFFT;
-    std::vector<float> indexFreqs;
     HoldArray fftHolds;
     HoldArray peakRMSHolds;
+
+    std::vector<float> indexFreqs;
 
     uint32_t fftSize = 0;
     uint32_t hopSize = 0;
