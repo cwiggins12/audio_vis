@@ -67,7 +67,7 @@ int main() {
     Audio audio(fft_order);
     AVBridge bridge(audio, spec);
 
-    if (audio.init(spec)) {
+    if (!audio.init(spec)) {
         std::cerr << "Audio initialization failed \n";
         SDL_GL_DestroyContext(glContext);
         SDL_DestroyWindow(window);
@@ -83,22 +83,34 @@ int main() {
     Shader shader(vertexSrc, fragmentSrc);
     GLint timeLoc = glGetUniformLocation(shader.id, "time");
 
-    GLuint ssbos[2];
-    glGenBuffers(2, ssbos);
+    GLuint ssbos[4];
+    glGenBuffers(4, ssbos);
 
     GLint numBinsLoc = glGetUniformLocation(shader.id, "numBins");
 
-    //SSBO 0: peak/rms - numChannels * 2 floats, tightly packed with std430
+    //SSBO 0: peak/rms
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbos[0]);
     glBufferData(GL_SHADER_STORAGE_BUFFER, bridge.getPeakRMSGPUSize(), 
                  nullptr, GL_DYNAMIC_DRAW);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbos[0]);
 
-    //SSBO 1: FFT bins - audibleSize floats, tightly packed with std430
+    //SSBO 1: FFT bins
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbos[1]);
     glBufferData(GL_SHADER_STORAGE_BUFFER, bridge.getFFTGPUSize(), 
                  nullptr, GL_DYNAMIC_DRAW);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, ssbos[1]);
+
+    //SSBO 2: peak/rms holds
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbos[2]);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, bridge.getPeakRMSGPUSize(),
+                 nullptr, GL_DYNAMIC_DRAW);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, ssbos[2]);
+
+    //SSBO 3: FFT holds
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbos[3]);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, bridge.getFFTGPUSize(),
+                 nullptr, GL_DYNAMIC_DRAW);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, ssbos[3]);
 
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
@@ -146,18 +158,27 @@ int main() {
         glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, 
                         bridge.getFFTGPUSize(), bridge.getGPUFFTPtr());
 
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbos[2]);
+        glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, 
+                        bridge.getPeakRMSGPUSize(), bridge.getPRHoldPtr());
+
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbos[3]);
+        glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, 
+                        bridge.getFFTGPUSize(), bridge.getFFTHoldPtr());
+
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
         shader.use();
         float t = SDL_GetTicks() / 1000.0f;
         glUniform1f(timeLoc, t);
-        glUniform1i(numBinsLoc, bridge.getFFTGPUSize());
+        glUniform1i(numBinsLoc, bridge.getFFTGPUSize() / sizeof(float));
         glDrawArrays(GL_TRIANGLES, 0, 3);
+
         //this blocks until next vblank and makes the loop fire once per device frame
         SDL_GL_SwapWindow(window);
     }
 
-    glDeleteBuffers(2, ssbos);
+    glDeleteBuffers(4, ssbos);
     glDeleteVertexArrays(1, &vao);
     SDL_GL_DestroyContext(glContext);
     SDL_DestroyWindow(window);

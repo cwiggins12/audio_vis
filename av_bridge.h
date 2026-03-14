@@ -51,6 +51,14 @@ public:
         return gpuPeakRMS.getCurrents();
     }
 
+    const float* getFFTHoldPtr() {
+        return fftHolds.getValuePtr();
+    }
+
+    const float* getPRHoldPtr() {
+        return peakRMSHolds.getValuePtr();
+    }
+
     void resize(int w, int h) {
         //NOTE: this could be a race on different threading(if this becomes a callback, etc.)
         //keep in line in sdl event loop
@@ -99,6 +107,7 @@ public:
         return size * sizeof(float);
     }
 
+    //pls refactor
     void formatData() {
         //I know this looks pretty nasty, but its the best I could get it to look at and its clear.
         //The logic is just nasty to make this work

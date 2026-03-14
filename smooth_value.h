@@ -100,6 +100,58 @@ struct SmoothArraySoA {
         setAsym(up, down);
     }
 
+    // Copy constructor
+    SmoothArraySoA(const SmoothArraySoA& other)
+        : current(other.current)
+        , target(other.target)
+        , increment(other.increment)
+        , steps_remaining(other.steps_remaining)
+        , max_steps(other.max_steps)
+        , attack_steps(other.attack_steps)
+        , release_steps(other.release_steps)
+    {}
+
+    // Copy assignment
+    SmoothArraySoA& operator=(const SmoothArraySoA& other) {
+        if (this != &other) {
+            current         = other.current;
+            target          = other.target;
+            increment       = other.increment;
+            steps_remaining = other.steps_remaining;
+            max_steps       = other.max_steps;
+            attack_steps    = other.attack_steps;
+            release_steps   = other.release_steps;
+        }
+        return *this;
+    }
+
+    // Move constructor
+    SmoothArraySoA(SmoothArraySoA&& other) noexcept
+        : current(std::move(other.current))
+        , target(std::move(other.target))
+        , increment(std::move(other.increment))
+        , steps_remaining(std::move(other.steps_remaining))
+        , max_steps(other.max_steps)
+        , attack_steps(other.attack_steps)
+        , release_steps(other.release_steps)
+    {}
+
+    // Move assignment
+    SmoothArraySoA& operator=(SmoothArraySoA&& other) noexcept {
+        if (this != &other) {
+            current         = std::move(other.current);
+            target          = std::move(other.target);
+            increment       = std::move(other.increment);
+            steps_remaining = std::move(other.steps_remaining);
+            max_steps       = other.max_steps;
+            attack_steps    = other.attack_steps;
+            release_steps   = other.release_steps;
+        }
+        return *this;
+    }
+
+    ~SmoothArraySoA() = default;
+
     void resize(size_t newSize) {
         current.resize(newSize, 0.0f);
         target.resize(newSize, 0.0f);
@@ -257,6 +309,39 @@ struct SmoothArray {
         setAsym(atk, rls);
     }
 
+    // Copy constructor
+    SmoothArray(const SmoothArray& other) : arr(other.arr), max_steps(other.max_steps), 
+                attack_steps(other.attack_steps), release_steps(other.release_steps) {}
+
+    // Copy assignment
+    SmoothArray& operator=(const SmoothArray& other) {
+        if (this != &other) {
+            arr           = other.arr;
+            max_steps     = other.max_steps;
+            attack_steps  = other.attack_steps;
+            release_steps = other.release_steps;
+        }
+        return *this;
+    }
+
+    // Move constructor
+    SmoothArray(SmoothArray&& other) noexcept : arr(std::move(other.arr)), 
+                max_steps(other.max_steps), attack_steps(other.attack_steps), 
+                release_steps(other.release_steps) {}
+
+    // Move assignment
+    SmoothArray& operator=(SmoothArray&& other) noexcept {
+        if (this != &other) {
+            arr           = std::move(other.arr);
+            max_steps     = other.max_steps;
+            attack_steps  = other.attack_steps;
+            release_steps = other.release_steps;
+        }
+        return *this;
+    }
+
+    ~SmoothArray() = default;
+
     //direct setting max_steps
     void setup(int steps) {
         max_steps = steps;
@@ -296,7 +381,7 @@ struct SmoothArray {
 private:
     std::vector<LinearSmoothVal> arr;
     int max_steps = 0;
-    uint32_t attack_steps;
-    uint32_t release_steps;
+    uint32_t attack_steps = 1;
+    uint32_t release_steps = 1;
 };
 

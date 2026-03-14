@@ -5,6 +5,7 @@
 #include "audio_spec.h"
 #include <cstdint>
 #include <memory>
+#include <iostream>
 
 class Audio {
 public:
@@ -25,8 +26,8 @@ public:
         hopSize = fftSize / spec.hopAmt;
         const int frameAmount = fftSize * 2;
 
-        if (capture.init(frameAmount) == false) {
-            printf("Failed to initialize AudioCapture. \n");
+        if (!capture.init(frameAmount)) {
+            std::cerr << "Failed to initialize AudioCapture." << std::endl;
             return false;
         }
 

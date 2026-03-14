@@ -21,6 +21,40 @@ public:
         linearDropScalar = scalar;
     }
 
+    // Copy constructor
+    HoldArray(const HoldArray& other) : values(other.values), 
+              countdowns(other.countdowns), maxSteps(other.maxSteps), 
+              linearDropScalar(other.linearDropScalar) {}
+
+    // Copy assignment
+    HoldArray& operator=(const HoldArray& other) {
+        if (this != &other) {
+            values           = other.values;
+            countdowns       = other.countdowns;
+            maxSteps         = other.maxSteps;
+            linearDropScalar = other.linearDropScalar;
+        }
+        return *this;
+    }
+
+    // Move constructor
+    HoldArray(HoldArray&& other) noexcept : values(std::move(other.values)), 
+              countdowns(std::move(other.countdowns)), maxSteps(other.maxSteps), 
+              linearDropScalar(other.linearDropScalar) {}
+
+    // Move assignment
+    HoldArray& operator=(HoldArray&& other) noexcept {
+        if (this != &other) {
+            values           = std::move(other.values);
+            countdowns       = std::move(other.countdowns);
+            maxSteps         = other.maxSteps;
+            linearDropScalar = other.linearDropScalar;
+        }
+        return *this;
+    }
+
+    ~HoldArray() = default;
+
     void resize(size_t newSize, float minValue) {
         values.resize(newSize, minValue);
         countdowns.resize(newSize, maxSteps);
@@ -58,6 +92,10 @@ public:
             values[i] = minVal;
             countdowns[i] = maxSteps;
         }
+    }
+
+    float* getValuePtr() {
+        return values.data();
     }
 
 private:

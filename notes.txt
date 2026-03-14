@@ -1,6 +1,4 @@
-renderBridge: handle height & width case?!?!?!?!?!?!, 
-add rule of 3s to smooth and hold classes
-full sweep and test with all new additions, then move on to next phase
+full shader to test with all new additions, then move on to next phase
 
 NEXT PHASE:
 glsl folder to house all glsl files
@@ -10,6 +8,8 @@ Shader switching logic(this is gonna basically be bugfixing of the above class)
 Dynamically (either compile time or on boot) know shader amount to allow looping through them
 add key presses to events to switch through these
 
+need compilation function to assert proper configurations in AudioSpec
+
 fully cleanup directories
 
 NEXT PHASE:
@@ -18,6 +18,7 @@ Make as high quality of a spectrum analyser with peak and rms
 try and pull off mel-spectrograms as well
 
 optional and cleanup before 1.0.0:
+handle height & width case?!?!?!?!?!?!
 should the AudioSpec contain fft_size and hopAmt, and should they be changed by it? :(
 could rms and peak work in the callback by passing the static func to capture on init?
 make list all devices functionality and allow for monitor substring to be var that can be replaced on cmdline?
@@ -33,4 +34,4 @@ av_bridge. Massive changes to audio.h, main.cpp, analysis.h, and a bit to captur
 
 avBridge contains control over the gpu arrays to send and how they are formatted, all of which can be dynamically adjusted by the AudioSpect struct that is meant to be paired with each fragment shader. 
 
-AudioSpec allows for dynamic changes to these variables according to the fragment shader creators needs: an arbitrary size that will give a non noisy response curve, smoothing over time with variable attack and release for fft, rms and peak, the full fft output, the fft's audible bin output only, peak holds, fft bin holds, mono for peak and rms, values in db or magnitudes on all analysis output, single sided for fft, hann windowing for fft, perceptual slope for fft at any chosen float, along with handling with and height dependencies for the fft output for the user on window resizes.
+AudioSpec allows for dynamic changes to these variables according to the fragment shader creators needs: an arbitrary size that will give a non noisy response curve, smoothing over time with variable attack and release for fft, rms and peak, the full fft output, the fft's audible bin output only, peak holds, fft bin holds, mono for peak and rms, values in db or magnitudes on all analysis output, single sided for fft, hann windowing for fft, perceptual slope for fft at any chosen float, along with handling width and height dependencies for the fft output for the user on window resizes.

@@ -13,8 +13,8 @@ struct AudioSpec {
     uint32_t fftRls = 1;
     uint32_t rmsPeakAtk = 5;
     uint32_t rmsPeakRls = 1;
-    float peakRMSHoldTime = 0.0f;
-    float fftHoldTime = 0.0f;
+    float peakRMSHoldTime = 1.0f;
+    float fftHoldTime = 1.0f;
 
     //if height and width both affect arbitrary size and you want a different scale
     //of effect from height and width. 
