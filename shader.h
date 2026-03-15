@@ -67,48 +67,6 @@ void main() {
     gl_Position = vec4(pos, 0.0, 1.0);
 }
 )";
-/*
-inline const char* fragmentSrc = R"(#version 310 es
-precision highp float;
-
-in vec2 uv;
-out vec4 FragColor;
-
-uniform float time;
-uniform int numBins;
-
-layout(std430, binding = 0) readonly buffer PeakRMS {
-    float peakRmsData[];
-};
-
-layout(std430, binding = 1) readonly buffer FFTBins {
-    float fftData[];
-};
-
-void main() {
-    //map uv.x to a bin index
-    int binIndex = int(uv.x * float(numBins));
-    binIndex = clamp(binIndex, 0, numBins - 1);
-
-    float db = fftData[binIndex];
-
-    //normalize -96..0 to 0..1
-    float normalized =(db + 96.0) / 96.0;
-    normalized = clamp(normalized, 0.0, 1.0);
-
-    //draw bar - 1.0 if uv.y is below the bar height, 0.0 otherwise
-    float bar = step(uv.y, normalized);
-
-    //color: gradient from blue at bottom to cyan at top
-    vec3 color = mix(vec3(0.0, 0.2, 0.8), vec3(0.0, 1.0, 0.9), uv.y) * bar;
-
-    //dark background where there's no bar
-    color += vec3(0.05, 0.07, 0.12) * (1.0 - bar);
-
-    FragColor = vec4(color, 1.0);
-}
-)";
-*/
 
 inline const char* fragmentSrc = R"(
 #version 310 es
@@ -240,7 +198,7 @@ void main() {
     FragColor = color;
 }
 )";
-//glsl logic I need: 
+//glsl logic:
 //guaranteed 2 channels for this test shader
 //x = space->fft->space->l-meter->half-space->r-meter->space
 //fft = 1000, 2x meter = 70(35 peak, 35 rms), space = 40, half-space = 20

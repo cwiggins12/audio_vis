@@ -1,9 +1,5 @@
-need math to find swap value on linear placement mode
-smooth_value: steps need another pass to make the interface suck less
-hold value: just make resize and reset a single function
-look more into peak/rms process and see if it would benefit by just putting it all in db at the end somehow?
-
-full shader to test with all new additions, then move on to next phase
+rework swap logic to account for refactor
+audio & bridge resize fixes: swap freq, accumulator reset, get h & w scalars, mult them
 
 NEXT PHASE:
 glsl folder to house all glsl files

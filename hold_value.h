@@ -5,21 +5,22 @@
 #include <cmath>
 
 //need equivalent maths for handling dB values with the linear scalar
+//if you go with default construction, you must reset, or you'll have a bad time
 class HoldArray {
 public:
     HoldArray() = default;
 
-    HoldArray(uint32_t sampleRate, float rampLengthInSeconds, size_t size,
-              float scalar, float min) {
-        reset(rampLengthInSeconds, sampleRate, min);
+    HoldArray(uint32_t sampleRate, float rampLengthInSecs, size_t size, 
+              float scalar, bool isDB) {
+        resetConfig(sampleRate, rampLengthInSecs, scalar, isDB);
         resize(size);
-        linearDropScalar = scalar;
+        resetVals();
     }
 
-    HoldArray(uint32_t steps, size_t size, float scalar, float min) {
-        reset(steps, scalar, min);
+    HoldArray(uint32_t steps, size_t size, float scalar, bool isDB) {
+        resetConfig(steps, scalar, isDB);
         resize(size);
-        linearDropScalar = scalar;
+        resetVals();
     }
 
     // Copy constructor
@@ -58,26 +59,35 @@ public:
 
     ~HoldArray() = default;
 
+    void reset(uint32_t sampleRate, float rampLengthInSecs, float scalar, 
+                  bool isDB, size_t newSize) {
+        resetConfig(sampleRate, rampLengthInSecs, scalar, isDB);
+        resize(newSize);
+    }
+
+    void reset(int steps, float scalar, bool isDB, size_t newSize) {
+        resetConfig(steps, scalar, isDB);
+        resize(newSize);
+    }
+
     void resize(size_t newSize) {
-        values.resize(newSize, minValue);
-        countdowns.resize(newSize, maxSteps);
-    }
-
-    void reset(int steps, float scalar, float min) {
-        maxSteps = steps;
-        minValue = min;
-        linearDropScalar = scalar;
-    }
-
-    void reset(uint32_t sampleRate, float rampLengthInSeconds,
-               float scalar, float min) {
-        reset((int)std::floor(rampLengthInSeconds * (float)sampleRate), scalar, min);
+        values.resize(newSize);
+        countdowns.resize(newSize);
+        resetVals();
     }
 
     void compareValAtIndex(uint32_t i, float val) {
         if (values[i] <= val) {
             values[i] = val;
             countdowns[i] = maxSteps;
+        }
+    }
+
+    //doesn't bounds check, better be sure sizes are the same
+    void compareValsToArray(const float* arr, float val) {
+        int n = values.size();
+        for (int i = 0; i < n; ++i) {
+            compareValAtIndex(i, arr[i]);
         }
     }
 
@@ -100,17 +110,10 @@ public:
         }
     }
 
-    void clear() {
-        int n = values.size();
-        for (int i = 0; i < n; ++i) {
-            values[i] = minValue;
-            countdowns[i] = maxSteps;
-        }
-    }
-
-    void setMinValBasedOnSpecBool(bool isDB) {
-        //will fix l8r. h8 the magic nums
-        minValue = (isDB) ? -96.0f : 0.0f;
+    //use this to reset values without resizing or resetting
+    void resetVals() {
+        std::fill(values.begin(), values.end(), minValue);
+        std::fill(countdowns.begin(), countdowns.end(), maxSteps);
     }
 
     float* getValuePtr() {
@@ -118,6 +121,18 @@ public:
     }
 
 private:
+    void resetConfig(int steps, float scalar, bool isDB) {
+        maxSteps = steps;
+        minValue = (isDB) ? -96.0f : 0.0f;
+        linearDropScalar = scalar;
+    }
+
+    void resetConfig(uint32_t sampleRate, float rampLengthInSecs,
+                     float scalar, bool isDB) {
+        resetConfig((int)std::floor(rampLengthInSecs * (float)sampleRate), 
+                     scalar, isDB);
+    }
+
     std::vector<float> values;
     std::vector<int> countdowns;
 

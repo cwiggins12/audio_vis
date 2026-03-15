@@ -4,34 +4,34 @@
 #include <vector>
 #include <cmath>
 
-// SoA layout version of SmoothArray for direct GPU buffer access.
-// Same threading rules apply - 1 thread sets targets, 1 thread advances/reads.
-// Primary advantage over SmoothArray is current.data() can be handed directly
-// to OpenGL (glTexSubImage1D, SSBO, etc.) with no copy or temp buffer needed.
-// Tradeoff is loss of [i] operator ergonomics - all calls go through the struct.
+// SoA layout version of SmoothArray for direct GPU buffer access
+//if using default, call reset. If needing separated config calls,
+//call setAsym(), resize()
 struct SmoothArraySoA {
     //left for use as a member variable, but make sure to 
-    //run resize(), setup(), and setAsym() ASAP or all hell breaks loose
+    //run reset() ASAP or all hell breaks loose
     SmoothArraySoA() = default;
 
-    SmoothArraySoA(uint32_t sampleRate, float rampLengthInSeconds, size_t size,
-                   uint32_t up = 1, uint32_t down = 1) {
+    SmoothArraySoA(uint32_t sampleRate, float rampLengthInSecs, size_t size,
+                   float atkSecs = -1.0f, float rlsSecs = -1.0f) {
+        atkSecs = (atkSecs < 0.0f) ? rampLengthInSecs : atkSecs;
+        rlsSecs = (rlsSecs < 0.0f) ? rampLengthInSecs : rlsSecs;
+        setAsym(sampleRate, atkSecs, rlsSecs);
         resize(size);
-        reset(rampLengthInSeconds, sampleRate);
-        setAsym(up, down);
     }
 
-    SmoothArraySoA(int steps, size_t size, uint32_t up = 1, uint32_t down = 1) {
+    SmoothArraySoA(int steps, size_t size, int atk = -1, int rls = -1) {
+        atk = (atk < 0) ? steps : atk;
+        rls = (rls < 0) ? steps : rls;
+        setAsym(atk, rls);
         resize(size);
-        reset(steps);
-        setAsym(up, down);
     }
 
     // Copy constructor
     SmoothArraySoA(const SmoothArraySoA& other) : current(other.current), 
                    target(other.target), increment(other.increment), 
-                   steps_remaining(other.steps_remaining), max_steps(other.max_steps),
-                   attack_steps(other.attack_steps), release_steps(other.release_steps) {}
+                   stepsRemaining(other.stepsRemaining),atkSteps(other.atkSteps), 
+                   rlsSteps(other.rlsSteps), minVal(other.minVal) {}
 
     // Copy assignment
     SmoothArraySoA& operator=(const SmoothArraySoA& other) {
@@ -39,21 +39,21 @@ struct SmoothArraySoA {
             current = other.current;
             target = other.target;
             increment = other.increment;
-            steps_remaining = other.steps_remaining;
-            max_steps = other.max_steps;
-            attack_steps = other.attack_steps;
-            release_steps = other.release_steps;
+            stepsRemaining = other.stepsRemaining;
+            atkSteps = other.atkSteps;
+            rlsSteps = other.rlsSteps;
+            minVal = other.minVal;
         }
         return *this;
     }
 
     // Move constructor
     SmoothArraySoA(SmoothArraySoA&& other) noexcept : current(std::move(other.current)),
-                   target(std::move(other.target)), 
+                   target(std::move(other.target)),
                    increment(std::move(other.increment)), 
-                   steps_remaining(std::move(other.steps_remaining)), 
-                   max_steps(other.max_steps), attack_steps(other.attack_steps),
-                   release_steps(other.release_steps) {}
+                   stepsRemaining(std::move(other.stepsRemaining)), 
+                   atkSteps(other.atkSteps), rlsSteps(other.rlsSteps),
+                   minVal(other.minVal) {}
 
     // Move assignment
     SmoothArraySoA& operator=(SmoothArraySoA&& other) noexcept {
@@ -61,34 +61,53 @@ struct SmoothArraySoA {
             current = std::move(other.current);
             target = std::move(other.target);
             increment = std::move(other.increment);
-            steps_remaining = std::move(other.steps_remaining);
-            max_steps = other.max_steps;
-            attack_steps = other.attack_steps;
-            release_steps = other.release_steps;
+            stepsRemaining = std::move(other.stepsRemaining);
+            atkSteps = other.atkSteps;
+            rlsSteps = other.rlsSteps;
+            minVal = other.minVal;
         }
         return *this;
     }
 
     ~SmoothArraySoA() = default;
 
+    void reset(uint32_t sampleRate, float rampLengthInSecs, float atkSecs, 
+               float rlsSecs, size_t newSize, float min = 0.0f) {
+        setAsym(sampleRate, atkSecs, rlsSecs);
+        resize(newSize, min);
+    }
+
+    void reset(uint32_t steps, int atk, int rls, 
+               size_t newSize, float min = 0.0f) {
+        setAsym(atk, rls);
+        resize(newSize, min);
+    }
+
+    void setAsym(uint32_t sampleRate, float atkSecs, float rlsSecs) {
+        atkSteps = (int)std::floor(atkSecs * (float)sampleRate);
+        rlsSteps = (int)std::floor(rlsSecs * (float)sampleRate);
+    }
+
+    void setAsym(int atk, int rls) {
+        atkSteps = atk;
+        rlsSteps = rls;
+    }
+
     void resize(size_t newSize) {
-        current.resize(newSize, 0.0f);
-        target.resize(newSize, 0.0f);
-        increment.resize(newSize, 0.0f);
-        steps_remaining.resize(newSize, 0);
+        current.resize(newSize);
+        target.resize(newSize);
+        increment.resize(newSize);
+        stepsRemaining.resize(newSize);
+        resetAllVals();
     }
 
-    void reset(int steps) {
-        max_steps = steps;
-    }
-
-    void reset(uint32_t sampleRate, float rampLengthInSeconds) {
-        reset((int)std::floor(rampLengthInSeconds * (float)sampleRate));
-    }
-
-    void setAsym(uint32_t atk, uint32_t rls) {
-        attack_steps = atk;
-        release_steps = rls;
+    void resize(size_t newSize, float newMin) {
+        minVal = newMin;
+        current.resize(newSize);
+        target.resize(newSize);
+        increment.resize(newSize);
+        stepsRemaining.resize(newSize);
+        resetAllVals();
     }
 
     //single index setters
@@ -96,36 +115,38 @@ struct SmoothArraySoA {
     void setCurrentAndTargetVal(size_t i, float val) {
         current[i] = val;
         target[i] = val;
-        steps_remaining[i] = 0;
+        stepsRemaining[i] = 0;
         increment[i] = 0.0f;
     }
 
     void setCurrentToTargetVal(size_t i) {
-        current[i]         = target[i];
-        steps_remaining[i] = 0;
-        increment[i]       = 0.0f;
+        current[i] = target[i];
+        stepsRemaining[i] = 0;
+        increment[i] = 0.0f;
     }
 
+    //fix pls
     void setTargetVal(size_t i, float val) {
         if (target[i] == val) return;
-        if (max_steps <= 0) {
+        target[i] = val;
+        int steps = (val > current[i]) ? atkSteps : rlsSteps;
+        if (steps <= 0) {
             setCurrentAndTargetVal(i, val);
             return;
         }
-        target[i] = val;
-        steps_remaining[i] = max_steps;
-        increment[i] = (target[i] - current[i]) / max_steps;
+        stepsRemaining[i] = steps;
+        increment[i] = (val - current[i]) / (float)steps;
     }
 
     //single index getters
 
     float getCurrentVal(size_t i) const { return current[i]; }
     float getTargetVal(size_t i)  const { return target[i];  }
-    bool  isSmoothing(size_t i)   const { return steps_remaining[i] > 0; }
+    bool  isSmoothing(size_t i)   const { return stepsRemaining[i] > 0; }
 
     float getNextVal(size_t i) {
         if (!isSmoothing(i)) return target[i];
-        --steps_remaining[i];
+        --stepsRemaining[i];
         if (isSmoothing(i)) {
             current[i] += increment[i];
         }
@@ -135,38 +156,11 @@ struct SmoothArraySoA {
         return current[i];
     }
 
-    //use when you've called setAsym with non-default values, 
-    //otherwise just use getNextVal
-    float getAsymVal(size_t i) {
-        if (current[i] < target[i]) {
-            return skipVal(i, attack_steps);
-        }
-        else {
-            return skipVal(i, release_steps);
-        }
-    }
-
-    float skipVal(size_t i, uint32_t amtToSkip) {
-        if (amtToSkip >= steps_remaining[i]) {
-            setCurrentAndTargetVal(i, target[i]);
-            return target[i];
-        }
-        current[i] += increment[i] * (float)amtToSkip;
-        steps_remaining[i] -= (int)amtToSkip;
-        return current[i];
-    }
-
     //bulk ops
 
     void advanceAll() {
         for (size_t i = 0; i < current.size(); i++) {
             getNextVal(i);
-        }
-    }
-
-    void advanceAllAsym() {
-        for (size_t i = 0; i < current.size(); i++) {
-            getAsymVal(i);
         }
     }
 
@@ -189,14 +183,21 @@ struct SmoothArraySoA {
     size_t size()               const { return current.size(); }
 
 private:
+    void resetAllVals() {
+        std::fill(current.begin(), current.end(), minVal);
+        std::fill(target.begin(), target.end(), minVal);
+        std::fill(increment.begin(), increment.end(), 0.0f);
+        std::fill(stepsRemaining.begin(), stepsRemaining.end(), 0);
+    }
+
     std::vector<float> current;
     std::vector<float> target;
     std::vector<float> increment;
-    std::vector<int>   steps_remaining;
+    std::vector<int>   stepsRemaining;
 
-    uint32_t max_steps = 0;
-    uint32_t attack_steps = 1;
-    uint32_t release_steps = 1;
+    int atkSteps = 0;
+    int rlsSteps = 0;
+    float minVal = 0.0f;
 };
 
 
@@ -273,6 +274,7 @@ private:
     int steps_remaining = 0;
 };
 
+//need to refactor this to match the logic of the SoA version
 //this version is still here for reference or use on another project, but
 //due to my specific use case here, its not being used
 //array of LinearSmoothValues, but with a shared setup. 

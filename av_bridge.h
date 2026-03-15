@@ -6,11 +6,12 @@
 #include "audio_spec.h"
 #include <cstdint>
 
+//probably want to put these in a globals.h at some point
 static constexpr float MIN_FREQ = 20.0f;
 static constexpr float MID_FREQ = 1000.0f;
-static constexpr float SWAP_FREQ = 2000.0f;
 static constexpr float MAX_FREQ = 20000.0f;
 static constexpr float MIN_DB = -96.0f;
+
 //NOTE: initial window settings here for now, will move once things are up and running
 static constexpr float INIT_WIDTH = 1280.0f;
 static constexpr float INIT_HEIGHT = 720.0f;
@@ -34,8 +35,8 @@ public:
 
     void nextFrame() {
         //TODO: would adding if/else here for calls where smoothing is disabled call next over asym
-        gpuPeakRMS.advanceAllAsym();
-        gpuFFT.advanceAllAsym();
+        gpuPeakRMS.advanceAll();
+        gpuFFT.advanceAll();
         fftHolds.countdownAll();
         peakRMSHolds.countdownAll();
     }
@@ -58,9 +59,10 @@ public:
 
     void resize(int w, int h) {
         if (currSpec.isSizeWidthDependent && currSpec.isSizeHeightDependent) {
-            //TODO: wtf should I do here :(
+            //TODO: 
         }
         else if (currSpec.isSizeWidthDependent) {
+            /*
             w *= widthScalar;
             setIndexFreqs(w);
             gpuFFTSize = w;
@@ -71,8 +73,10 @@ public:
             }
             gpuPeakRMS.setAllCurrentAndTargets(0.0f);
             peakRMSHolds.clear();
+            */
         }
         else if (currSpec.isSizeHeightDependent) {
+            /*
             h *= heightScalar;
             setIndexFreqs(h);
             gpuFFTSize = h;
@@ -83,6 +87,7 @@ public:
             }
             gpuPeakRMS.setAllCurrentAndTargets(0.0f);
             peakRMSHolds.clear();
+            */
         }
     }
 
@@ -156,6 +161,7 @@ public:
     }
 
 private:
+    //pls refactor
     void swap(AudioSpec& newSpec) {
         fftSize = audio.getFFTSize();
 
@@ -163,10 +169,10 @@ private:
 
         if (newSpec.getsPeakRMSHolds) {
             float min = newSpec.isPeakRMSdB ? MIN_DB : 0.0f;
-            peakRMSHolds.reset(frameRate, newSpec.peakRMSHoldTime, 0.975f, min);
-            peakRMSHolds.resize(peakRMSSize);
+            //peakRMSHolds.reset(frameRate, newSpec.peakRMSHoldTime, 0.975f, min);
+            //peakRMSHolds.resize(peakRMSSize);
         }
-        gpuPeakRMS.resize(peakRMSSize);
+        //gpuPeakRMS.resize(peakRMSSize);
 
         if (newSpec.isSizeWidthDependent && newSpec.isSizeHeightDependent) {
             //TODO: figure how tf to get the factor to affect both in a way thats usable
@@ -205,38 +211,40 @@ private:
             }
             setIndexFreqs(gpuFFTSize);
         }
-        gpuFFT.resize(gpuFFTSize);
+        //gpuFFT.resize(gpuFFTSize);
 
         if (newSpec.getsFFTHolds) {
             float min = newSpec.isFFTdB ? MIN_DB : 0.0f;
-            fftHolds.reset(frameRate, newSpec.fftHoldTime, 0.975f, min);
-            fftHolds.resize(gpuFFTSize);
+            //fftHolds.reset(frameRate, newSpec.fftHoldTime, 0.975f, min);
+            //fftHolds.resize(gpuFFTSize);
         }
         if (!newSpec.useFFTSmoothing) {
-            gpuFFT.reset(0);
-            gpuFFT.setAsym(1,1);
+            //gpuFFT.reset(0);
+            //gpuFFT.setAsym(1,1);
         }
         else {
-            gpuFFT.reset(frameRate);
-            gpuFFT.setAsym(newSpec.fftAtk, newSpec.fftRls);
+            //gpuFFT.reset(frameRate);
+            //gpuFFT.setAsym(newSpec.fftAtk, newSpec.fftRls);
         }
 
         if (!newSpec.usePeakRMSSmoothing) {
-            gpuPeakRMS.reset(0);
-            gpuPeakRMS.setAsym(1,1);
+            //gpuPeakRMS.reset(0);
+            //gpuPeakRMS.setAsym(1,1);
         }
         else {
-            gpuPeakRMS.reset(frameRate);
-            gpuPeakRMS.setAsym(newSpec.fftAtk, newSpec.fftRls);
+            //gpuPeakRMS.reset(frameRate);
+            //gpuPeakRMS.setAsym(newSpec.fftAtk, newSpec.fftRls);
         }
     }
 
     //sets arbitrary size smoothAoS and finds midpoint for the below bin collating algo
     void setIndexFreqs(uint32_t size) {
         indexFreqs.resize(size);
-        float swapFreq = 1000; //needs math to find swapFreq
-        bool swapIndexFound = false;
         const float scale = (float)fftSize / (float)sampleRate;
+        if (!swapFreqSet) {
+            setSwapFreq(scale);
+        }
+        bool swapIndexFound = false;
 
         for (uint32_t i = 0; i < size; ++i) {
             float norm = (float)i / (float)(size - 1);
@@ -249,6 +257,14 @@ private:
 
             indexFreqs[i] = std::min(std::max(binIndexFloat, 0.0f), (float)binAmt);
         }
+    }
+
+    void setSwapFreq(const float binWidth) {
+        const float logRatio = std::log(MAX_FREQ / MIN_FREQ);
+        swapFreq = binWidth * (float)(indexFreqs.size() - 1) / logRatio;
+        swapFreq = std::min(std::max(swapFreq, MIN_FREQ), MAX_FREQ);
+        std::cout << "Swap Freq: " << swapFreq << std::endl;
+        swapFreqSet = true;
     }
 
     //gpuing based on arbitrary size for the purpose of per pixel gpuing
@@ -391,5 +407,8 @@ private:
     int currentHeight = 0;
     float widthScalar = 0.0f;
     float heightScalar = 0.0f;
+
+    float swapFreq = 0.0f;
+    bool swapFreqSet = false;
 };
 

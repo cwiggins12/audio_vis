@@ -17,7 +17,6 @@ void dynBind(size_t size, GLuint b, const float* ptr) {
     glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, size, ptr);
 }
 
-//in dire need of some helpers once things start getting settled
 int main() {
     if (!SDL_Init(SDL_INIT_VIDEO)) {
         std::cerr << "SDL_Init failed: " << SDL_GetError() << std::endl;
@@ -65,14 +64,11 @@ int main() {
     //std::cout << "GLSL Version: " << 
     //              glGetString(GL_SHADING_LANGUAGE_VERSION) << std::endl;
 
-    //my assumtion of passing fps to audio on init 
-    //being cheap, easy, and consistent is not looking good here
     int displayHz = 60; //fallback :(
     SDL_DisplayID displayID = SDL_GetDisplayForWindow(window);
     const SDL_DisplayMode* mode = SDL_GetCurrentDisplayMode(displayID);
     if (mode) displayHz = (int)mode->refresh_rate;
 
-    const int hop_amt  = 2;
     const int fft_order = 12;
 
     AudioSpec spec;
@@ -99,32 +95,6 @@ int main() {
     glGenBuffers(4, ssbos);
 
     GLint numBinsLoc = glGetUniformLocation(shader.id, "numBins");
-
-/*
-    //SSBO 0: peak/rms
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbos[0]);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, bridge.getPeakRMSGPUSize(), 
-                 nullptr, GL_DYNAMIC_DRAW);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbos[0]);
-
-    //SSBO 1: FFT bins
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbos[1]);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, bridge.getFFTGPUSize(), 
-                 nullptr, GL_DYNAMIC_DRAW);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, ssbos[1]);
-
-    //SSBO 2: peak/rms holds
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbos[2]);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, bridge.getPeakRMSGPUSize(),
-                 nullptr, GL_DYNAMIC_DRAW);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, ssbos[2]);
-
-    //SSBO 3: FFT holds
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbos[3]);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, bridge.getFFTGPUSize(),
-                 nullptr, GL_DYNAMIC_DRAW);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, ssbos[3]);
-*/
 
     bindSSBO(0, bridge.getPeakRMSGPUSize(), ssbos[0]);
     bindSSBO(1, bridge.getFFTGPUSize(), ssbos[1]);
@@ -169,23 +139,6 @@ int main() {
         }
         bridge.nextFrame();
 
-/*
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbos[0]);
-        glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, 
-                        bridge.getPeakRMSGPUSize(), bridge.getPeakRMSPtr());
-
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbos[1]);
-        glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, 
-                        bridge.getFFTGPUSize(), bridge.getGPUFFTPtr());
-
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbos[2]);
-        glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, 
-                        bridge.getPeakRMSGPUSize(), bridge.getPRHoldPtr());
-
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbos[3]);
-        glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, 
-                        bridge.getFFTGPUSize(), bridge.getFFTHoldPtr());
-*/
         size_t prSize = bridge.getPeakRMSGPUSize();
         size_t fftSize = bridge.getFFTGPUSize();
 
