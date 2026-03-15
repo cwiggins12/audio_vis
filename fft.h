@@ -132,7 +132,7 @@ struct FFT{
     }
 
     void runFFT() {
-        if (isWindowed) {
+        if (isWindowed && windowTableFilled) {
             multiplyWithWindowingTable();
         }
         fftwf_execute(p);

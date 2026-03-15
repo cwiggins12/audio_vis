@@ -5,6 +5,18 @@
 #include "av_bridge.h"
 #include <SDL3/SDL.h>
 
+void bindSSBO(int i, size_t size, GLuint b) {
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, b);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, size, 
+                 nullptr, GL_DYNAMIC_DRAW);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, i, b);
+}
+
+void dynBind(size_t size, GLuint b, const float* ptr) {
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, b);
+    glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, size, ptr);
+}
+
 //in dire need of some helpers once things start getting settled
 int main() {
     if (!SDL_Init(SDL_INIT_VIDEO)) {
@@ -88,6 +100,7 @@ int main() {
 
     GLint numBinsLoc = glGetUniformLocation(shader.id, "numBins");
 
+/*
     //SSBO 0: peak/rms
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbos[0]);
     glBufferData(GL_SHADER_STORAGE_BUFFER, bridge.getPeakRMSGPUSize(), 
@@ -111,6 +124,12 @@ int main() {
     glBufferData(GL_SHADER_STORAGE_BUFFER, bridge.getFFTGPUSize(),
                  nullptr, GL_DYNAMIC_DRAW);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, ssbos[3]);
+*/
+
+    bindSSBO(0, bridge.getPeakRMSGPUSize(), ssbos[0]);
+    bindSSBO(1, bridge.getFFTGPUSize(), ssbos[1]);
+    bindSSBO(2, bridge.getPeakRMSGPUSize(), ssbos[2]);
+    bindSSBO(3, bridge.getFFTGPUSize(), ssbos[3]);
 
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
@@ -150,6 +169,7 @@ int main() {
         }
         bridge.nextFrame();
 
+/*
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbos[0]);
         glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, 
                         bridge.getPeakRMSGPUSize(), bridge.getPeakRMSPtr());
@@ -165,6 +185,14 @@ int main() {
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbos[3]);
         glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, 
                         bridge.getFFTGPUSize(), bridge.getFFTHoldPtr());
+*/
+        size_t prSize = bridge.getPeakRMSGPUSize();
+        size_t fftSize = bridge.getFFTGPUSize();
+
+        dynBind(prSize, ssbos[0], bridge.getPeakRMSPtr());
+        dynBind(fftSize, ssbos[1], bridge.getFFTPtr());
+        dynBind(prSize, ssbos[2], bridge.getPeakRMSHoldPtr());
+        dynBind(fftSize, ssbos[3], bridge.getFFTHoldPtr());
 
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 

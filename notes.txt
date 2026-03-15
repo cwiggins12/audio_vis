@@ -1,14 +1,9 @@
-fft output is broken and I almost guarantee its that I fucked up the scalars/dB logic
-make fft holds follow the pattern of the peak/rms holds
-rename analysis.h to peak_rms.h
-rename float_holds.h to hold_value.h to match smoothvalue
+need math to find swap value on linear placement mode
+smooth_value: steps need another pass to make the interface suck less
+hold value: just make resize and reset a single function
+look more into peak/rms process and see if it would benefit by just putting it all in db at the end somehow?
 
 full shader to test with all new additions, then move on to next phase
-
-Peak/RMS: GOOD
-Peak/RMS Hold: GOOD
-FFT: 
-FFT Hold: 
 
 NEXT PHASE:
 glsl folder to house all glsl files

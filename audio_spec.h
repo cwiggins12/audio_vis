@@ -16,7 +16,7 @@
 struct AudioSpec {
     //TODO: these all need comments to explain how they can affect the data and why
 
-    uint32_t hopAmt = 4;
+    uint32_t hopAmt = 2;
     uint32_t arbitrarySize = 1000;
     uint32_t fftAtk = 20;
     uint32_t fftRls = 5;
@@ -29,7 +29,7 @@ struct AudioSpec {
     float wFactor = 1.0f;
 
     //if using arbitrary size, does it resize with window width in scale
-    bool isSizeWidthDependent = true;
+    bool isSizeWidthDependent = false;
     bool isSizeHeightDependent = false;
     //want smoothing for fft ouput?
     bool useFFTSmoothing = true;

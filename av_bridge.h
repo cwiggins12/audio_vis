@@ -40,7 +40,7 @@ public:
         peakRMSHolds.countdownAll();
     }
 
-    const float* getGPUFFTPtr() {
+    const float* getFFTPtr() {
         return gpuFFT.getCurrents();
     }
 
@@ -52,7 +52,7 @@ public:
         return fftHolds.getValuePtr();
     }
 
-    const float* getPRHoldPtr() {
+    const float* getPeakRMSHoldPtr() {
         return peakRMSHolds.getValuePtr();
     }
 
@@ -91,12 +91,12 @@ public:
         currSpec = newSpec;
     }
 
-    uint32_t getFFTGPUSize() {
-        return fftGPUSize * sizeof(float);
+    size_t getFFTGPUSize() {
+        return gpuFFTSize * sizeof(float);
     }
 
-    uint32_t getPeakRMSGPUSize() {
-        uint32_t size = (currSpec.isPeakRMSMono) ? 2 : channels * 2;
+    size_t getPeakRMSGPUSize() {
+        size_t size = (currSpec.isPeakRMSMono) ? 2 : channels * 2;
         return size * sizeof(float);
     }
 
@@ -148,13 +148,17 @@ public:
         else {
             linearPlacement();
         }
-        for (int i = 0; i < fftGPUSize; ++i) {
-            fftHolds.compareValAtIndex(i, gpuFFT.getTargetVal(i));
+        if (currSpec.getsFFTHolds) {
+            for (int i = 0; i < gpuFFTSize; ++i) {
+                fftHolds.compareValAtIndex(i, gpuFFT.getCurrentVal(i));
+            }
         }
     }
 
 private:
     void swap(AudioSpec& newSpec) {
+        fftSize = audio.getFFTSize();
+
         uint32_t peakRMSSize = (newSpec.isPeakRMSMono) ? 2 : channels * 2;
 
         if (newSpec.getsPeakRMSHolds) {
@@ -179,10 +183,10 @@ private:
 
         audio.getAudibleRange(&audibleStart, &audibleSize);
         if (newSpec.arbitrarySize == 0 && !newSpec.useAudibleSize) {
-            fftGPUSize = binAmt;
+            gpuFFTSize = binAmt;
         }
         else if (newSpec.arbitrarySize == 0 && newSpec.useAudibleSize) {
-            fftGPUSize = audibleSize;
+            gpuFFTSize = audibleSize;
         }
         else {
             const bool h = newSpec.isSizeHeightDependent && currentHeight != INIT_HEIGHT;
@@ -191,22 +195,22 @@ private:
                 //TODO: figure out this too pls.....
             }
             else if (h) {
-                fftGPUSize = newSpec.arbitrarySize * heightScalar;
+                gpuFFTSize = newSpec.arbitrarySize * heightScalar;
             }
             else if (w) {
-                fftGPUSize = newSpec.arbitrarySize * widthScalar;
+                gpuFFTSize = newSpec.arbitrarySize * widthScalar;
             }
             else {
-                fftGPUSize = newSpec.arbitrarySize;
+                gpuFFTSize = newSpec.arbitrarySize;
             }
-            setIndexFreqs(fftGPUSize);
+            setIndexFreqs(gpuFFTSize);
         }
-        gpuFFT.resize(fftGPUSize);
+        gpuFFT.resize(gpuFFTSize);
 
         if (newSpec.getsFFTHolds) {
             float min = newSpec.isFFTdB ? MIN_DB : 0.0f;
-            fftHolds.reset(frameRate, newSpec.fftHoldTime, min);
-            fftHolds.resize(fftGPUSize);
+            fftHolds.reset(frameRate, newSpec.fftHoldTime, 0.975f, min);
+            fftHolds.resize(gpuFFTSize);
         }
         if (!newSpec.useFFTSmoothing) {
             gpuFFT.reset(0);
@@ -230,7 +234,7 @@ private:
     //sets arbitrary size smoothAoS and finds midpoint for the below bin collating algo
     void setIndexFreqs(uint32_t size) {
         indexFreqs.resize(size);
-        float swapFreq = 0.0f; //needs math to find swapFreq
+        float swapFreq = 1000; //needs math to find swapFreq
         bool swapIndexFound = false;
         const float scale = (float)fftSize / (float)sampleRate;
 
@@ -280,7 +284,7 @@ private:
 
         uint32_t bin0 = (bin1 == 0) ? 0 : bin1 - 1;
         uint32_t bin2 = std::min(binAmt - 1, bin1 + 1);
-        uint32_t bin3 = std::min(binAmt, bin1 + 2);
+        uint32_t bin3 = std::min(binAmt - 1, bin1 + 2);
 
         float y0 = fftOut[bin0];
         float y1 = fftOut[bin1];
@@ -318,7 +322,7 @@ private:
         return rms;
     }
 
-    //pixel gpuing low end helper to cubic interpolate
+    //fft gpu low end helper to cubic interpolate
     float cubicInterp(float y0, float y1, float y2, float y3, float mu) {
         //Catmull-Rom spline interpolation
         float mu2 = mu * mu;
@@ -380,10 +384,8 @@ private:
     uint32_t audibleStart = 0;
     uint32_t audibleSize = 0;
 
-    uint32_t gpuFFTSize;
+    uint32_t gpuFFTSize = 0;
     uint32_t swapIndex = 0;
-
-    uint32_t fftGPUSize = 0;
 
     int currentWidth = 0;
     int currentHeight = 0;

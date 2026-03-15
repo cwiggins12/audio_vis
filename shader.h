@@ -116,7 +116,6 @@ precision highp float;
 in vec2 uv;
 out vec4 FragColor;
 uniform float time;
-uniform int numBins;
 layout(std430, binding = 0) readonly buffer PeakRMS {
     float peakRmsData[];
 };
@@ -130,112 +129,90 @@ layout(std430, binding = 3) readonly buffer FFTHolds {
     float fftHolds[];
 };
 
-// --- Constants ---
 const float W = 1280.0;
 const float H = 720.0;
 
-// X layout
-const float SP  = 40.0;   // full space
-const float HSP = 20.0;   // half space
-const float FFT_W = 1000.0;
-const float MTR_W = 70.0; // total meter width (35 peak + 35 rms)
+const float SP       = 40.0;
+const float HSP      = 20.0;
+const float FFT_W    = 1000.0;
 const float HALF_MTR = 35.0;
+const float MEAS_H   = 640.0;
+const float HOLD_H   = 4.0;
 
-// Y layout
-const float MEAS_H  = 640.0;
-const float HOLD_H  = 4.0;
-
-// dB range
 const float DB_MIN = -96.0;
 const float DB_MAX =  0.0;
-
-// Outline thickness in pixels
 const float OUTLINE = 2.0;
 
-// Colors
-const vec4 COL_FFT   = vec4(0.0, 1.0, 0.0, 1.0);
-const vec4 COL_PEAK  = vec4(1.0, 1.0, 0.0, 1.0);
-const vec4 COL_RMS   = vec4(1.0, 0.0, 0.0, 1.0);
-const vec4 COL_HOLD  = vec4(1.0, 1.0, 1.0, 1.0);
-const vec4 COL_OUT   = vec4(1.0, 1.0, 1.0, 1.0);
-const vec4 COL_BG    = vec4(0.0, 0.0, 0.0, 1.0);
+const vec4 COL_FFT  = vec4(0.0, 1.0, 0.0, 1.0);
+const vec4 COL_PEAK = vec4(1.0, 1.0, 0.0, 1.0);
+const vec4 COL_RMS  = vec4(1.0, 0.0, 0.0, 1.0);
+const vec4 COL_HOLD = vec4(1.0, 1.0, 1.0, 1.0);
+const vec4 COL_OUT  = vec4(1.0, 1.0, 1.0, 1.0);
+const vec4 COL_BG   = vec4(0.0, 0.0, 0.0, 1.0);
 
-// X region starts (pixel coords)
-// [0      ] space
-// [40     ] FFT
-// [1040   ] space
-// [1080   ] L peak meter
-// [1115   ] L rms meter
-// [1150   ] half-space
-// [1170   ] R peak meter
-// [1205   ] R rms meter
-// [1240   ] space
-// [1280   ] end
+const float FFT_X0   = SP;
+const float FFT_X1   = SP + FFT_W;
+const float LPEAK_X0 = FFT_X1 + SP;
+const float LPEAK_X1 = LPEAK_X0 + HALF_MTR;
+const float LRMS_X0  = LPEAK_X1;
+const float LRMS_X1  = LRMS_X0 + HALF_MTR;
+const float RPEAK_X0 = LRMS_X1 + HSP;
+const float RPEAK_X1 = RPEAK_X0 + HALF_MTR;
+const float RRMS_X0  = RPEAK_X1;
+const float RRMS_X1  = RRMS_X0 + HALF_MTR;
 
-const float FFT_X0   = SP;                              // 40
-const float FFT_X1   = SP + FFT_W;                     // 1040
-const float LPEAK_X0 = FFT_X1 + SP;                    // 1080
-const float LPEAK_X1 = LPEAK_X0 + HALF_MTR;            // 1115
-const float LRMS_X0  = LPEAK_X1;                       // 1115
-const float LRMS_X1  = LRMS_X0 + HALF_MTR;            // 1150
-const float RPEAK_X0 = LRMS_X1 + HSP;                  // 1170
-const float RPEAK_X1 = RPEAK_X0 + HALF_MTR;            // 1205
-const float RRMS_X0  = RPEAK_X1;                       // 1205
-const float RRMS_X1  = RRMS_X0 + HALF_MTR;            // 1240
-
-// Y region (pixel coords, 0 = bottom)
-const float MEAS_Y0  = SP;               // 40
-const float MEAS_Y1  = SP + MEAS_H;     // 680
+const float MEAS_Y0 = SP;
+const float MEAS_Y1 = SP + MEAS_H;
 
 float dbToT(float db) {
     return clamp((db - DB_MIN) / (DB_MAX - DB_MIN), 0.0, 1.0);
 }
 
-// Returns true if px is within [lo, hi) on one axis
 bool inRange(float px, float lo, float hi) {
     return px >= lo && px < hi;
 }
 
-// Check outline: returns true if pixel is within `thick` px of the rect edge
-bool isOutline(float px, float py, float x0, float x1, float y0, float y1, float thick) {
-    bool insideX = inRange(px, x0, x1);
-    bool insideY = inRange(py, y0, y1);
-    if (!insideX || !insideY) return false;
-    return px < x0 + thick || px >= x1 - thick ||
-           py < y0 + thick || py >= y1 - thick;
+void drawMeter(float localX, float localY, float fillDb, float holdDb,
+               float width, vec4 fillCol, inout vec4 color) {
+    float innerH = MEAS_H - 2.0 * OUTLINE;
+    if (localX < OUTLINE || localX >= width - OUTLINE ||
+        localY < OUTLINE || localY >= MEAS_H - OUTLINE) {
+        color = COL_OUT;
+    } else {
+        float innerY = localY - OUTLINE;
+        float fillT  = dbToT(fillDb) * innerH;
+        float holdT  = dbToT(holdDb) * innerH;
+        if (innerY >= holdT - HOLD_H && innerY < holdT) {
+            color = COL_HOLD;
+        } else if (innerY < fillT) {
+            color = fillCol;
+        }
+    }
 }
 
 void main() {
-    // Pixel coordinates, Y=0 at bottom
     float px = uv.x * W;
     float py = uv.y * H;
 
     vec4 color = COL_BG;
 
-    // ------------------------------------------------------------------ FFT
+    // FFT
     if (inRange(px, FFT_X0, FFT_X1) && inRange(py, MEAS_Y0, MEAS_Y1)) {
         float localX = px - FFT_X0;
-        float innerW = FFT_W - 2.0 * OUTLINE;
-        float innerH = MEAS_H - 2.0 * OUTLINE;
-        float innerX = localX - OUTLINE;
         float localY = py - MEAS_Y0;
-        float innerY = localY - OUTLINE;
+        float innerH = MEAS_H - 2.0 * OUTLINE;
 
-        // Outline check
         if (localX < OUTLINE || localX >= FFT_W - OUTLINE ||
             localY < OUTLINE || localY >= MEAS_H - OUTLINE) {
             color = COL_OUT;
         } else {
-            // Which bin does this x pixel map to?
-            int bin = int(innerX / innerW * float(numBins));
-            bin = clamp(bin, 0, numBins - 1);
+            int bin = int(localX - OUTLINE);
+            float innerY = localY - OUTLINE;
+            float fftDb  = fftData[bin];
+            float holdDb = fftHolds[bin];
+            float fftT   = dbToT(fftDb)  * innerH;
+            float holdT  = dbToT(holdDb) * innerH;
 
-            float fftDb   = fftData[bin];
-            float holdDb  = fftHolds[bin];
-            float fftT    = dbToT(fftDb)  * innerH;
-            float holdT   = dbToT(holdDb) * innerH;
-
-            // Hold bar (4 px tall, drawn on top)
             if (innerY >= holdT - HOLD_H && innerY < holdT) {
                 color = COL_HOLD;
             } else if (innerY < fftT) {
@@ -244,94 +221,21 @@ void main() {
         }
     }
 
-    // -------------------------------------------------------- Helper macro
-    // We'll write a function for a vertical bar meter to avoid repetition
-    // Params: buffer index for peak/rms or direct value, holds index
-    // We handle each of the 4 meters (Lpeak, Lrms, Rpeak, Rrms) inline.
+    // L Peak
+    if (inRange(px, LPEAK_X0, LPEAK_X1) && inRange(py, MEAS_Y0, MEAS_Y1))
+        drawMeter(px - LPEAK_X0, py - MEAS_Y0, peakRmsData[0], prHolds[0], HALF_MTR, COL_PEAK, color);
 
-    // ---- L Peak meter ----
-    if (inRange(px, LPEAK_X0, LPEAK_X1) && inRange(py, MEAS_Y0, MEAS_Y1)) {
-        float localX = px - LPEAK_X0;
-        float localY = py - MEAS_Y0;
-        float innerH = MEAS_H - 2.0 * OUTLINE;
+    // L RMS
+    if (inRange(px, LRMS_X0, LRMS_X1) && inRange(py, MEAS_Y0, MEAS_Y1))
+        drawMeter(px - LRMS_X0, py - MEAS_Y0, peakRmsData[1], prHolds[1], HALF_MTR, COL_RMS, color);
 
-        if (localX < OUTLINE || localX >= HALF_MTR - OUTLINE ||
-            localY < OUTLINE || localY >= MEAS_H - OUTLINE) {
-            color = COL_OUT;
-        } else {
-            float innerY  = localY - OUTLINE;
-            float fillT   = dbToT(peakRmsData[0]) * innerH;
-            float holdT   = dbToT(prHolds[0])     * innerH;
-            if (innerY >= holdT - HOLD_H && innerY < holdT) {
-                color = COL_HOLD;
-            } else if (innerY < fillT) {
-                color = COL_PEAK;
-            }
-        }
-    }
+    // R Peak
+    if (inRange(px, RPEAK_X0, RPEAK_X1) && inRange(py, MEAS_Y0, MEAS_Y1))
+        drawMeter(px - RPEAK_X0, py - MEAS_Y0, peakRmsData[2], prHolds[2], HALF_MTR, COL_PEAK, color);
 
-    // ---- L RMS meter ----
-    if (inRange(px, LRMS_X0, LRMS_X1) && inRange(py, MEAS_Y0, MEAS_Y1)) {
-        float localX = px - LRMS_X0;
-        float localY = py - MEAS_Y0;
-        float innerH = MEAS_H - 2.0 * OUTLINE;
-
-        if (localX < OUTLINE || localX >= HALF_MTR - OUTLINE ||
-            localY < OUTLINE || localY >= MEAS_H - OUTLINE) {
-            color = COL_OUT;
-        } else {
-            float innerY  = localY - OUTLINE;
-            float fillT   = dbToT(peakRmsData[1]) * innerH;
-            float holdT   = dbToT(prHolds[1])     * innerH;
-            if (innerY >= holdT - HOLD_H && innerY < holdT) {
-                color = COL_HOLD;
-            } else if (innerY < fillT) {
-                color = COL_RMS;
-            }
-        }
-    }
-
-    // ---- R Peak meter ----
-    if (inRange(px, RPEAK_X0, RPEAK_X1) && inRange(py, MEAS_Y0, MEAS_Y1)) {
-        float localX = px - RPEAK_X0;
-        float localY = py - MEAS_Y0;
-        float innerH = MEAS_H - 2.0 * OUTLINE;
-
-        if (localX < OUTLINE || localX >= HALF_MTR - OUTLINE ||
-            localY < OUTLINE || localY >= MEAS_H - OUTLINE) {
-            color = COL_OUT;
-        } else {
-            float innerY  = localY - OUTLINE;
-            float fillT   = dbToT(peakRmsData[2]) * innerH;
-            float holdT   = dbToT(prHolds[2])     * innerH;
-            if (innerY >= holdT - HOLD_H && innerY < holdT) {
-                color = COL_HOLD;
-            } else if (innerY < fillT) {
-                color = COL_PEAK;
-            }
-        }
-    }
-
-    // ---- R RMS meter ----
-    if (inRange(px, RRMS_X0, RRMS_X1) && inRange(py, MEAS_Y0, MEAS_Y1)) {
-        float localX = px - RRMS_X0;
-        float localY = py - MEAS_Y0;
-        float innerH = MEAS_H - 2.0 * OUTLINE;
-
-        if (localX < OUTLINE || localX >= HALF_MTR - OUTLINE ||
-            localY < OUTLINE || localY >= MEAS_H - OUTLINE) {
-            color = COL_OUT;
-        } else {
-            float innerY  = localY - OUTLINE;
-            float fillT   = dbToT(peakRmsData[3]) * innerH;
-            float holdT   = dbToT(prHolds[3])     * innerH;
-            if (innerY >= holdT - HOLD_H && innerY < holdT) {
-                color = COL_HOLD;
-            } else if (innerY < fillT) {
-                color = COL_RMS;
-            }
-        }
-    }
+    // R RMS
+    if (inRange(px, RRMS_X0, RRMS_X1) && inRange(py, MEAS_Y0, MEAS_Y1))
+        drawMeter(px - RRMS_X0, py - MEAS_Y0, peakRmsData[3], prHolds[3], HALF_MTR, COL_RMS, color);
 
     FragColor = color;
 }

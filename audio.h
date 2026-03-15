@@ -112,7 +112,7 @@ public:
     }
 
     uint32_t getSampleRate() {
-        return sampleRate;    
+        return sampleRate;
     }
 
     uint32_t getFFTSize () {

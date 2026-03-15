@@ -75,7 +75,7 @@ public:
     }
 
     void compareValAtIndex(uint32_t i, float val) {
-        if (values[i] < val) {
+        if (values[i] <= val) {
             values[i] = val;
             countdowns[i] = maxSteps;
         }
@@ -89,7 +89,7 @@ public:
             float val = values[i] - minValue;
             val *= linearDropScalar;
             val += minValue;
-            values[i] = std::max(val, values[i]);
+            values[i] = val;
         }
     }
 
