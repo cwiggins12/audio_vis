@@ -72,7 +72,7 @@ struct SmoothArraySoA {
     ~SmoothArraySoA() = default;
 
     void reset(uint32_t sampleRate, float rampLengthInSecs, float atkSecs, 
-               float rlsSecs, size_t newSize, float min = 0.0f) {
+               float rlsSecs, size_t newSize, float min) {
         setAsym(sampleRate, atkSecs, rlsSecs);
         resize(newSize, min);
     }

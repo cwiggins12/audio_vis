@@ -1,4 +1,3 @@
-rework swap logic to account for refactor
 audio & bridge resize fixes: swap freq, accumulator reset, get h & w scalars, mult them
 
 NEXT PHASE:

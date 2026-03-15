@@ -60,9 +60,8 @@ int main() {
     //ties gl frames to device fps
     SDL_GL_SetSwapInterval(1);
 
-    //std::cout << "GL Version: " << glGetString(GL_VERSION) << std::endl;
-    //std::cout << "GLSL Version: " << 
-    //              glGetString(GL_SHADING_LANGUAGE_VERSION) << std::endl;
+    std::cout << "GL Version: " << glGetString(GL_VERSION) << std::endl;
+    std::cout << "GLSL Version: " << glGetString(GL_SHADING_LANGUAGE_VERSION) << std::endl;
 
     int displayHz = 60; //fallback :(
     SDL_DisplayID displayID = SDL_GetDisplayForWindow(window);
@@ -90,11 +89,11 @@ int main() {
 
     Shader shader(vertexSrc, fragmentSrc);
     GLint timeLoc = glGetUniformLocation(shader.id, "time");
+    GLint numBinsLoc = glGetUniformLocation(shader.id, "numBins");
+    GLint channelsLoc = glGetUniformLocation(shader.id, "channelAmt");
 
     GLuint ssbos[4];
     glGenBuffers(4, ssbos);
-
-    GLint numBinsLoc = glGetUniformLocation(shader.id, "numBins");
 
     bindSSBO(0, bridge.getPeakRMSGPUSize(), ssbos[0]);
     bindSSBO(1, bridge.getFFTGPUSize(), ssbos[1]);
@@ -121,11 +120,7 @@ int main() {
                     w = event.window.data1;
                     h = event.window.data2;
                     glViewport(0, 0, w, h);
-                    //look into a better way to resize this pls
-                    //maybe when a customization struct comes in for shader switching
-                    //have a variable scalar here
                     bridge.resize(w, h);
-                    audio.resize(w, h);
                     break;
             }
         }
@@ -153,6 +148,7 @@ int main() {
         float t = SDL_GetTicks() / 1000.0f;
         glUniform1f(timeLoc, t);
         glUniform1i(numBinsLoc, bridge.getFFTGPUSize() / sizeof(float));
+        glUniform1i(channelsLoc, sizeof(int));
         glDrawArrays(GL_TRIANGLES, 0, 3);
 
         //this blocks until next vblank and makes the loop fire once per device frame
@@ -165,7 +161,6 @@ int main() {
     SDL_DestroyWindow(window);
     SDL_Quit();
 
-    //printf("Stopped. :)\n");
     return 0;
 }
 
