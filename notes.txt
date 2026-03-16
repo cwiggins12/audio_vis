@@ -1,4 +1,5 @@
 quality and windowing check
+need resizeable version of current shader :(
 
 NEXT PHASE:
 glsl folder to house all glsl files
@@ -14,8 +15,7 @@ fully cleanup directories
 handle height & width case in AudioSpec
 
 NEXT PHASE:
-Make some fun abstract shaders
-Make high quality spectrum analyser with peak and rms
+Make fun, abstract test shaders
 try and pull off mel-spectrograms as well
 
 FINAL PHASE:
@@ -23,7 +23,7 @@ need more robust resizing?
 make list all devices functionality and allow for monitor substring to be var that can be replaced on cmdline?
 give another command line function to check that vars will keep up with callback at 30 & 60 FPS? (or set fft_size according to fps?) this will be a big deal if they become dynamic
 set all prints to a log.txt file
-REFACTOR LIKE CRAZY
+look for refactoring oppurtunities
 need Mesa's V3DV driver for this to work on a pi
 trim all but what is used from miniaudio.h at the very end of development
 need hella more documentation

@@ -1,7 +1,7 @@
 /build
 /.cache
+/unused
 sesh
 miniaudio.h
 compile_commands.json
-oldTestMain.txt
 

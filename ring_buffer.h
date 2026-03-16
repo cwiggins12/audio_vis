@@ -54,7 +54,6 @@ public:
 	void getMonoSummedWindow(float* out, ma_uint32 frameAmt, uint32_t passedWrite = 0) {
 		uint32_t localWrite = (passedWrite == 0) ? writeIndex.load() : passedWrite;
 		uint32_t start = 0;
-		ma_uint32 channels = channels;
 		frameAmt *= channels;
 
 		if (frameAmt > localWrite) {
@@ -137,6 +136,7 @@ public:
 
 private:
 	std::vector<float> buffer;
-    int bufferSize = 0;
-    int channels = 2;
+    ma_uint32 bufferSize = 0;
+    ma_uint32 channels = 2;
 };
+
