@@ -90,7 +90,9 @@ int main() {
     Shader shader(vertexSrc, fragmentSrc);
     GLint timeLoc = glGetUniformLocation(shader.id, "time");
     GLint numBinsLoc = glGetUniformLocation(shader.id, "numBins");
-    GLint channelsLoc = glGetUniformLocation(shader.id, "channelAmt");
+    GLint channelsLoc = glGetUniformLocation(shader.id, "numChannels");
+    GLfloat windowHLoc = glGetUniformLocation(shader.id, "H");
+    GLfloat windowWLoc = glGetUniformLocation(shader.id, "W");
 
     GLuint ssbos[4];
     glGenBuffers(4, ssbos);
@@ -149,6 +151,8 @@ int main() {
         glUniform1f(timeLoc, t);
         glUniform1i(numBinsLoc, bridge.getFFTGPUSize() / sizeof(float));
         glUniform1i(channelsLoc, audio.getNumChannels());
+        glUniform1f(windowHLoc, h);
+        glUniform1f(windowWLoc, w);
         glDrawArrays(GL_TRIANGLES, 0, 3);
 
         //this blocks until next vblank and makes the loop fire once per device frame
