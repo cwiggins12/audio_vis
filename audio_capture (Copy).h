@@ -1,6 +1,8 @@
 #pragma once
 
-#include "ring_buffer.h"
+#include "miniaudio.h"
+#include <vector>
+#include <atomic>
 #include <cstring>
 #include <cstdio>
 
@@ -8,7 +10,7 @@ class AudioCapture {
 public:
 	//This class utilizes miniaudio capture device, houses a ring buffer of its capture, and only needs to know sample size
 	//THIS CLASS REQUIRES YOU TO PULL SAMPLES FAST ENOUGH. IF YOU DON'T IT WILL OVERLAP AND ERRORS WILL OCCUR.
-	AudioCapture() {}
+	AudioCapture() : writeIndex(0), readIndex(0) {}
 
 	~AudioCapture() {
 		shutdown();
@@ -75,7 +77,7 @@ public:
 		//* channel amount to only require sample amount 
 		//(frame amount in miniaudio terms)
 		bufferSize = size * device.capture.channels;
-		buffer.init(bufferSize, device.capture.channels);
+		buffer.resize(bufferSize);
 
 		if (ma_device_start(&device) != MA_SUCCESS) {
 			return false;
@@ -89,26 +91,90 @@ public:
 	//if you would like for this to be considered as a read for your read index, 
 	//call setReadIndexForwardByFrames
 	void getWindow(float* out, ma_uint32 frameAmt, uint32_t passedWrite = 0) {
-		buffer.getWindow(out, frameAmt, passedWrite);
-	}
+		uint32_t localWrite = (passedWrite == 0) ? writeIndex.load() : passedWrite;
+		ma_uint32 start = 0;
+		frameAmt *= device.capture.channels;
+		
+		if (frameAmt > localWrite) {
+			start = localWrite - frameAmt + bufferSize;
+		}
+		else {
+			start = localWrite - frameAmt;
+		}
 
-	void getMonoSummedWindow(float* out, ma_uint32 frameAmt, uint32_t passedWrite = 0) {
-		buffer.getMonoSummedWindow(out, frameAmt, passedWrite);
-	}
-
-	int pop(float* out, ma_uint32 maxFrames, uint32_t passedWrite = 0) {
-		return buffer.pop(out, maxFrames, passedWrite);
-	}
-
-	void setReadIndexForwardByFrames(uint32_t i, uint32_t passedWrite = 0) {
-		if (!buffer.setReadIndexForwardByFrames(i, passedWrite)) {
-			printf("setReadIndexForwardByFrames(): given i outside possible range\n");
-			return;
+		for (ma_uint32 i = 0; i < frameAmt; ++i) {
+			uint32_t index = (start + i) % bufferSize;
+			out[i] = buffer[index];
 		}
 	}
 
+	void getMonoSummedWindow(float* out, ma_uint32 frameAmt, uint32_t passedWrite = 0) {
+		uint32_t localWrite = (passedWrite == 0) ? writeIndex.load() : passedWrite;
+		uint32_t start = 0;
+		ma_uint32 channels = device.capture.channels;
+		frameAmt *= channels;
+
+		if (frameAmt > localWrite) {
+			start = localWrite - frameAmt + bufferSize;
+		}
+		else {
+			start = localWrite - frameAmt;
+		}
+
+		for (ma_uint32 i = 0; i < frameAmt; i += channels) {
+			float sum = 0;
+			for (ma_uint32 ch = 0; ch < channels; ++ch) {
+				sum += buffer[(start + i + ch) % bufferSize];
+			}
+			out[i / channels] = sum / (float)channels;
+		}
+	}
+
+	int pop(float* out, ma_uint32 maxFrames, uint32_t passedWrite = 0) {
+		uint32_t localRead = readIndex.load();
+		uint32_t localWrite = (passedWrite == 0) ? writeIndex.load() : passedWrite;
+		ma_uint32 readSize = 0;
+		maxFrames *= device.capture.channels;
+
+		if (localWrite < localRead) {
+			readSize = localWrite + (bufferSize - localRead);
+		}
+		else {
+			readSize = localWrite - localRead;
+		}
+
+		if (readSize > maxFrames) {
+			readSize = maxFrames;
+		}
+
+		for (ma_uint32 i = 0; i < readSize; ++i) {
+			int index = (localRead + i) % bufferSize;
+			out[i] = buffer[index];
+		}
+
+		readIndex.store((localRead + readSize) % bufferSize);
+
+		return readSize / device.capture.channels;
+	}
+
+	void setReadIndexForwardByFrames(uint32_t i, uint32_t passedWrite = 0) {
+		if (i > bufferSize / device.capture.channels) {
+			printf("setReadIndexForwardByFrames(): given i outside possible range\n");
+			return;
+		}
+		ma_uint32 oldRead = readIndex.load();
+		ma_uint32 advance = i * device.capture.channels;
+		ma_uint32 write = (passedWrite == 0) ? writeIndex.load() : passedWrite;
+		ma_uint32 available = (write - oldRead + bufferSize) % bufferSize;
+		if (advance > available) {
+			advance = available;
+		}
+		readIndex.store((oldRead + advance) % bufferSize);
+	}
+
 	uint32_t getWindowStartFromWrite(uint32_t windowSize) {
-		return buffer.getWindowStartFromWrite(windowSize);
+		uint32_t samples = windowSize * device.capture.channels;
+		return (writeIndex.load() + bufferSize - samples) % bufferSize;
 	}
 
 	uint32_t getNumChannels() {
@@ -128,15 +194,15 @@ public:
 	}
 
 	float* getRawBufferPointer() {
-		return buffer.getRawBufferPointer();
+		return buffer.data();
 	}
 
 	uint32_t getWriteIndex() {
-		return buffer.writeIndex.load();
+		return writeIndex.load();
 	}
 
 	uint32_t getReadIndex() {
-		return buffer.readIndex.load();
+		return readIndex.load();
 	}
 
 	uint32_t getAccumulatedFrames() {
@@ -145,8 +211,7 @@ public:
 
 	void resetAccumulator() {
 		framesAccumulated.store(0);
-		buffer.writeIndex.store(0);
-		buffer.readIndex.store(0);
+		readIndex.store(writeIndex.load());
 	}
 
 	void moveAccumulator(uint32_t amt) {
@@ -170,7 +235,7 @@ private:
 	}
 
 	void processInput(const float* input, ma_uint32 frameCount) {
-		ma_uint32 localWrite = buffer.writeIndex.load();
+		ma_uint32 localWrite = writeIndex.load();
 		ma_uint32 totalSamples = frameCount * device.capture.channels;
 
 		for (ma_uint32 i = 0; i < totalSamples; ++i) {
@@ -178,16 +243,18 @@ private:
 			localWrite = (localWrite + 1) % bufferSize;
 		}
 
-		buffer.writeIndex.store(localWrite);
+		writeIndex.store(localWrite);
 		framesAccumulated.fetch_add(frameCount);
 	}
 
 	//NOTE: total size = bufferSize(size passed in * channels) * sizeof(float) + 
-	//sizeof(device) + sizeof(context) + 28 bytes + 8 for buffer config copies
+	//sizeof(device) + sizeof(context) + 28 bytes
 	struct ma_device device;
 	ma_context context;
 
-	RingBuffer buffer;
+	std::vector<float> buffer;
+	std::atomic<ma_uint32> writeIndex;
+	std::atomic<ma_uint32> readIndex;
 	ma_uint32 bufferSize;
 
 	std::atomic<uint32_t> framesAccumulated{0};

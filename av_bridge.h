@@ -4,11 +4,9 @@
 #include "smooth_value.h"
 #include "audio.h"
 #include "audio_spec.h"
-#include <cstdint>
 
-//probably want to put these in a globals.h at some point
+//probably want to put these in a globals.h at some point if I wind up with too many
 static constexpr float MIN_FREQ = 20.0f;
-static constexpr float MID_FREQ = 1000.0f;
 static constexpr float MAX_FREQ = 20000.0f;
 static constexpr float MIN_DB = -96.0f;
 
@@ -165,7 +163,7 @@ private:
         else {
             gpuPeakRMS.reset(frameRate, 0.0f, 0.0f, 0.0f, peakRMSSize, prMin);
         }
-
+        //config fft size
         audio.getAudibleRange(&audibleStart, &audibleSize);
         if (newSpec.customLinearSize == 0 && !newSpec.useAudibleSize) {
             gpuFFTSize = binAmt;

@@ -68,7 +68,7 @@ int main() {
     const SDL_DisplayMode* mode = SDL_GetCurrentDisplayMode(displayID);
     if (mode) displayHz = (int)mode->refresh_rate;
 
-    const int fft_order = 12;
+    const int fft_order = 13;
 
     AudioSpec spec;
     Audio audio(fft_order);

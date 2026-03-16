@@ -1,3 +1,5 @@
+quality and windowing check
+
 NEXT PHASE:
 glsl folder to house all glsl files
 specs.h - houses const (probably inline)AudioSpecs for each shader, names must match

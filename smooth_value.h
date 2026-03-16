@@ -125,7 +125,6 @@ struct SmoothArraySoA {
         increment[i] = 0.0f;
     }
 
-    //fix pls
     void setTargetVal(size_t i, float val) {
         if (target[i] == val) return;
         target[i] = val;
@@ -200,7 +199,7 @@ private:
     float minVal = 0.0f;
 };
 
-
+/*
 //based on juce LinearSmoothedValue, be careful on multi thread use.
 //best practice is to have 1 thread set targets, and another thread get currents
 //don't use this for frequency smoothing and make sure to call setup before use
@@ -379,4 +378,5 @@ private:
     uint32_t attack_steps = 1;
     uint32_t release_steps = 1;
 };
+*/
 
