@@ -1,5 +1,3 @@
-audio & bridge resize fixes: swap freq, accumulator reset, get h & w scalars, mult them
-
 NEXT PHASE:
 glsl folder to house all glsl files
 specs.h - houses const (probably inline)AudioSpecs for each shader, names must match
@@ -19,6 +17,7 @@ Make high quality spectrum analyser with peak and rms
 try and pull off mel-spectrograms as well
 
 FINAL PHASE:
+need more robust resizing?
 make list all devices functionality and allow for monitor substring to be var that can be replaced on cmdline?
 give another command line function to check that vars will keep up with callback at 30 & 60 FPS? (or set fft_size according to fps?) this will be a big deal if they become dynamic
 set all prints to a log.txt file

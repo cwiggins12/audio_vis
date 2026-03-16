@@ -12,10 +12,6 @@ static constexpr float MID_FREQ = 1000.0f;
 static constexpr float MAX_FREQ = 20000.0f;
 static constexpr float MIN_DB = -96.0f;
 
-//NOTE: initial window settings here for now, will move once things are up and running
-static constexpr float INIT_WIDTH = 1280.0f;
-static constexpr float INIT_HEIGHT = 720.0f;
-
 class AVBridge {
 public:
     AVBridge(Audio& a, AudioSpec& spec) : audio(a), currSpec(spec) {}
@@ -25,16 +21,19 @@ public:
     AVBridge(AVBridge&&) = delete;
     AVBridge& operator=(AVBridge&&) = delete;
 
-    void init(uint32_t deviceFrameRate) {
+    void init(uint32_t deviceFrameRate, int w, int h) {
         frameRate = deviceFrameRate;
         binAmt = audio.getFFTSize() / 2 + 1;
         channels = audio.getNumChannels();
         sampleRate = audio.getSampleRate();
+        initWidth = w;
+        initHeight = h;
+        currentWidth = w;
+        currentHeight = h;
         swap(currSpec);
     }
 
     void nextFrame() {
-        //TODO: would adding if/else here for calls where smoothing is disabled call next over asym
         gpuPeakRMS.advanceAll();
         gpuFFT.advanceAll();
         fftHolds.countdownAll();
@@ -57,13 +56,26 @@ public:
         return peakRMSHolds.getValuePtr();
     }
 
-    //TODO:
     void resize(int w, int h) {
-        if (currSpec.isSizeWidthDependent && currSpec.isSizeHeightDependent) {
+        currentWidth = w;
+        currentHeight = h;
+        if (!currSpec.isSizeWidthDependent && !currSpec.isSizeHeightDependent) return;
+
+        gpuFFTSize = computeFFTSize(w, h);
+        setIndexFreqs(gpuFFTSize);
+
+        float fftMin = currSpec.isFFTdB ? MIN_DB : 0.0f;
+        if (currSpec.useFFTSmoothing) {
+            gpuFFT.reset(frameRate, currSpec.fftAtk, currSpec.fftRls, 
+                         gpuFFTSize, fftMin);
         }
-        else if (currSpec.isSizeWidthDependent) {
+        else {
+            gpuFFT.reset(frameRate, 0.0f, 0.0f, 0.0f, gpuFFTSize, fftMin);
         }
-        else if (currSpec.isSizeHeightDependent) {
+
+        if (currSpec.getsFFTHolds) {
+            fftHolds.reset(frameRate, currSpec.fftHoldTime, currSpec.fftHoldScalar,
+                           currSpec.isFFTdB, gpuFFTSize);
         }
     }
 
@@ -153,7 +165,7 @@ private:
         else {
             gpuPeakRMS.reset(frameRate, 0.0f, 0.0f, 0.0f, peakRMSSize, prMin);
         }
-        //TODO: config fft size
+
         audio.getAudibleRange(&audibleStart, &audibleSize);
         if (newSpec.customLinearSize == 0 && !newSpec.useAudibleSize) {
             gpuFFTSize = binAmt;
@@ -162,43 +174,49 @@ private:
             gpuFFTSize = audibleSize;
         }
         else {
-            //TODO: still need h and w logic pls
+            baseFFTSize = newSpec.customLinearSize;
             const bool h = newSpec.isSizeHeightDependent;
             const bool w = newSpec.isSizeWidthDependent;
-            if (h && w) {
-            }
-            else if (h) {
-            }
-            else if (w) {
+            if (h || w) {
+                gpuFFTSize = computeFFTSize(currentWidth, currentHeight);
             }
             else {
-                gpuFFTSize = newSpec.customLinearSize;
+                gpuFFTSize = baseFFTSize;
             }
             setIndexFreqs(gpuFFTSize);
         }
         //config FFT holds
         if (newSpec.getsFFTHolds) {
-            peakRMSHolds.reset(frameRate, newSpec.fftHoldTime, newSpec.fftHoldScalar, 
+            fftHolds.reset(frameRate, newSpec.fftHoldTime, newSpec.fftHoldScalar, 
                                newSpec.isFFTdB, gpuFFTSize);
         }
         //config fft smooth array
         float fftMin = newSpec.isFFTdB ? MIN_DB : 0.0f;
         if (newSpec.useFFTSmoothing) {
-            gpuPeakRMS.reset(frameRate, newSpec.fftAtk, newSpec.fftRls, gpuFFTSize, fftMin);
+            gpuFFT.reset(frameRate, newSpec.fftAtk, newSpec.fftRls, gpuFFTSize, fftMin);
         }
         else {
-            gpuPeakRMS.reset(frameRate, 0.0f, 0.0f, 0.0f, gpuFFTSize, fftMin);
+            gpuFFT.reset(frameRate, 0.0f, 0.0f, 0.0f, gpuFFTSize, fftMin);
         }
+    }
+
+    uint32_t computeFFTSize(int w, int h) {
+        if (currSpec.isSizeWidthDependent && initWidth > 0) {
+            return (uint32_t)std::round(baseFFTSize * ((float)w / (float)initWidth));
+        }
+        else if (currSpec.isSizeHeightDependent && initHeight > 0) {
+            return (uint32_t)std::round(baseFFTSize * ((float)h / (float)initHeight));
+        }
+        return baseFFTSize;
     }
 
     //sets arbitrary size smoothAoS and finds midpoint for the below bin collating algo
     void setIndexFreqs(uint32_t size) {
         indexFreqs.resize(size);
         const float scale = (float)fftSize / (float)sampleRate;
-        if (!swapFreqSet) {
-            setSwapFreq(scale);
-        }
+        setSwapFreq(scale);
         bool swapIndexFound = false;
+        if (size < 2) return;
 
         for (uint32_t i = 0; i < size; ++i) {
             float norm = (float)i / (float)(size - 1);
@@ -213,12 +231,12 @@ private:
         }
     }
 
-    void setSwapFreq(const float binWidth) {
+    void setSwapFreq(const float scale) {
+        const float binWidth = 1.0f / scale;
         const float logRatio = std::log(MAX_FREQ / MIN_FREQ);
         swapFreq = binWidth * (float)(indexFreqs.size() - 1) / logRatio;
         swapFreq = std::min(std::max(swapFreq, MIN_FREQ), MAX_FREQ);
         std::cout << "Swap Freq: " << swapFreq << std::endl;
-        swapFreqSet = true;
     }
 
     void linearPlacement() {
@@ -259,7 +277,7 @@ private:
     }
 
     float getHighFreqValueDB(int idx, const float* fftOut) {
-        int lowB = (int)indexFreqs[idx - 1] + 1;
+        int lowB = (idx > 0) ? (int)indexFreqs[idx - 1] + 1 : 0;
         int highB = (int)indexFreqs[idx];
 
         float sumSq = 0.0f;
@@ -273,7 +291,7 @@ private:
 
     //expects gain and returns gain
     float getHighFreqValueGain(int idx, const float* fftOut) {
-        int lowB = (int)indexFreqs[idx - 1] + 1;
+        int lowB = (idx > 0) ? (int)indexFreqs[idx - 1] + 1 : 0;
         int highB = (int)indexFreqs[idx];
 
         float sumSq = 0.0f;
@@ -345,15 +363,15 @@ private:
     uint32_t audibleStart = 0;
     uint32_t audibleSize = 0;
 
+    uint32_t baseFFTSize = 0;
     uint32_t gpuFFTSize = 0;
     uint32_t swapIndex = 0;
 
+    int initWidth = 0;
+    int initHeight = 0;
     int currentWidth = 0;
     int currentHeight = 0;
-    float widthScalar = 0.0f;
-    float heightScalar = 0.0f;
 
     float swapFreq = 0.0f;
-    bool swapFreqSet = false;
 };
 

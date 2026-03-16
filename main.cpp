@@ -81,7 +81,7 @@ int main() {
         SDL_Quit();
         return -1;
     }
-    bridge.init(displayHz);
+    bridge.init(displayHz, w, h);
 
     GLuint vao;
     glGenVertexArrays(1, &vao);
@@ -148,7 +148,7 @@ int main() {
         float t = SDL_GetTicks() / 1000.0f;
         glUniform1f(timeLoc, t);
         glUniform1i(numBinsLoc, bridge.getFFTGPUSize() / sizeof(float));
-        glUniform1i(channelsLoc, sizeof(int));
+        glUniform1i(channelsLoc, audio.getNumChannels());
         glDrawArrays(GL_TRIANGLES, 0, 3);
 
         //this blocks until next vblank and makes the loop fire once per device frame

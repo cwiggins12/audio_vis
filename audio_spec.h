@@ -36,10 +36,11 @@ struct AudioSpec {
     //or 4.5 for a more music focused analyser popularized by FabFilter's Pro-Q
     float perceptualSlopeDegrees = 4.5;
 
-    float hScale = 0.0f;
-    float wScale = 0.0f;
-    float hFactor = 1.0f;
-    float wFactor = 1.0f;
+    //currently, only one of these should be true at once
+    //there will be more ways to work with this later, but right now
+    //whichever one is true, when resized, will be compared against the 
+    //original dimension, then that scalar will multiply the bin amount
+    //this only affects custom bin amount in this version
     bool isSizeWidthDependent = false;
     bool isSizeHeightDependent = false;
 
