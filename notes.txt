@@ -1,5 +1,4 @@
-quality and windowing check
-need resizeable version of current shader :(
+test with sig_gen to ensure correct noise and waveform readings
 
 NEXT PHASE:
 glsl folder to house all glsl files
@@ -31,6 +30,20 @@ need hella more documentation
 Done This Week:
 av_bridge. Massive changes to audio.h, main.cpp, analysis.h, and a bit to capture.h to account for the changes. All configurable variables in fft, rms, and peak can now be affected by a struct and a call with that struct to audio and avBridge.
 
-avBridge contains control over the gpu arrays to send and how they are formatted, all of which can be dynamically adjusted by the AudioSpect struct that is meant to be paired with each fragment shader. 
+avBridge contains control over the gpu arrays to send and how they are formatted, all of which can be dynamically adjusted by the AudioSpec struct that is meant to be paired with each fragment shader. 
 
 AudioSpec allows for dynamic changes to these variables according to the fragment shader creators needs: an arbitrary size that will give a non noisy response curve, smoothing over time with variable attack and release for all values, the full fft output, the fft's audible bin output only, peak/rms holds, fft bin holds, mono for peak and rms, values in db or amplitude on all analysis output, hann windowing for fft, perceptual slope for fft at any chosen float, along with handling width and height dependencies for the fft output for the user on window resizes.
+
+added custom data structures: hold values and ringbuffer
+full smoothvalue rework to give it a better, more intuitive interface
+refactored ring_buffer out of audio capture
+
+added monosummed functionality to peak and rms, its not used, but its there just in case
+
+HEAVILY COMMENTED  audio spec to thoroughly explain what all of the settings do
+
+added more uniforms and hold value functionality to pass to the gpu for shader use
+
+build rms, peak, and spectum analyser test shader that is resizable
+
+tested resizing

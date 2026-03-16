@@ -10,10 +10,6 @@
 
 class Audio {
 public:
-    //at some point maybe add the fft customizers if the need arises
-    //if smoothSize is 0, it will make a smoothValue array of audible bin size
-    //and will only directly place bins in array
-    //if set to an output number, it will smooth based on that size and spencySmooth() 
     Audio(uint32_t fft_o) : fftOrder(fft_o) {}
 	~Audio() {}
     //no moves, no copies

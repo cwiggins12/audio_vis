@@ -28,7 +28,7 @@ int main() {
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 
-    //probably need this to scale and start full screen eventually, we'll see
+    //this will change eventually
     SDL_Window* window = SDL_CreateWindow("audio_vis", 1280, 720,
                          SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
     if (!window) {
@@ -60,9 +60,11 @@ int main() {
     //ties gl frames to device fps
     SDL_GL_SetSwapInterval(1);
 
-    std::cout << "GL Version: " << glGetString(GL_VERSION) << std::endl;
-    std::cout << "GLSL Version: " << glGetString(GL_SHADING_LANGUAGE_VERSION) << std::endl;
+    //keep this around for Raspberry Pi testing l8r
+    //std::cout << "GL Version: " << glGetString(GL_VERSION) << std::endl;
+    //std::cout << "GLSL Version: " << glGetString(GL_SHADING_LANGUAGE_VERSION) << std::endl;
 
+    //may wanna add some dynamic hopAmt or fftOrder changes to account for other rates
     int displayHz = 60; //fallback :(
     SDL_DisplayID displayID = SDL_GetDisplayForWindow(window);
     const SDL_DisplayMode* mode = SDL_GetCurrentDisplayMode(displayID);
@@ -73,7 +75,6 @@ int main() {
     AudioSpec spec;
     Audio audio(fft_order);
     AVBridge bridge(audio, spec);
-
     if (!audio.init(spec)) {
         std::cerr << "Audio initialization failed \n";
         SDL_GL_DestroyContext(glContext);
@@ -86,22 +87,18 @@ int main() {
     GLuint vao;
     glGenVertexArrays(1, &vao);
     glBindVertexArray(vao);
-
     Shader shader(vertexSrc, fragmentSrc);
     GLint timeLoc = glGetUniformLocation(shader.id, "time");
     GLint numBinsLoc = glGetUniformLocation(shader.id, "numBins");
     GLint channelsLoc = glGetUniformLocation(shader.id, "numChannels");
     GLfloat windowHLoc = glGetUniformLocation(shader.id, "H");
     GLfloat windowWLoc = glGetUniformLocation(shader.id, "W");
-
     GLuint ssbos[4];
     glGenBuffers(4, ssbos);
-
     bindSSBO(0, bridge.getPeakRMSGPUSize(), ssbos[0]);
     bindSSBO(1, bridge.getFFTGPUSize(), ssbos[1]);
     bindSSBO(2, bridge.getPeakRMSGPUSize(), ssbos[2]);
     bindSSBO(3, bridge.getFFTGPUSize(), ssbos[3]);
-
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
     bool running = true;
@@ -138,14 +135,11 @@ int main() {
 
         size_t prSize = bridge.getPeakRMSGPUSize();
         size_t fftSize = bridge.getFFTGPUSize();
-
         dynBind(prSize, ssbos[0], bridge.getPeakRMSPtr());
         dynBind(fftSize, ssbos[1], bridge.getFFTPtr());
         dynBind(prSize, ssbos[2], bridge.getPeakRMSHoldPtr());
         dynBind(fftSize, ssbos[3], bridge.getFFTHoldPtr());
-
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
-
         shader.use();
         float t = SDL_GetTicks() / 1000.0f;
         glUniform1f(timeLoc, t);
@@ -154,7 +148,6 @@ int main() {
         glUniform1f(windowHLoc, h);
         glUniform1f(windowWLoc, w);
         glDrawArrays(GL_TRIANGLES, 0, 3);
-
         //this blocks until next vblank and makes the loop fire once per device frame
         SDL_GL_SwapWindow(window);
     }
