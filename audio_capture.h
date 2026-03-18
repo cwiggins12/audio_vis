@@ -72,7 +72,7 @@ public:
 		}
 
 		//NOTE: expectation is that the working amount user will need 
-		//* channel amount to only require sample amount 
+		//* channel amount to only require user interface to deal in sample amount 
 		//(frame amount in miniaudio terms)
 		bufferSize = size * device.capture.channels;
 		buffer.init(bufferSize, device.capture.channels);

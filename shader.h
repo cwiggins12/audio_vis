@@ -190,24 +190,3 @@ void main() {
 }
 )";
 
-//glsl logic:
-//guaranteed 2 channels for this test shader
-//x = space->fft->space->l-meter->half-space->r-meter->space
-//fft = 1000, 2x meter = 70(35 peak, 35 rms), space = 40, half-space = 20
-//total = 1280 = 40 + 1000 + 40 + 70 + 20 + 70 + 40
-//
-//y = space->measurements->space
-//measurements = 640, space = 40
-//total = 720 = 40 + 640 + 40
-//
-//peak and rms meters fill based off of a single scalar each 
-//order is peakl, rmsl, peakr, rmsr in buffer and in window
-//order is the same for the holds with should be 4px y and the same width
-//
-//for fft, each pixel will be a bin as given by the buffer in order
-//holds will be in the same order in the holds buffer and the same dims as the other holds
-//
-//all values will be given in dB with a range of -96.0 - 0.0
-//
-//I want the fft to be green, peak to be yellow, rms to be red, and all holds to be white
-//white holds should be on top of the other measurements

@@ -32,9 +32,9 @@ struct AudioSpec {
     float peakRMSHoldScalar = 0.975f;
     float fftHoldScalar = 0.975f;
     //if isFFTPerceptual is true, it will use this slope
-    //common values are 3.0 for a flat white noise
+    //common values are 3.0 for a flat pink noise, 0.0 for flat white noise,
     //or 4.5 for a more music focused analyser popularized by FabFilter's Pro-Q
-    float perceptualSlopeDegrees = 4.5;
+    float perceptualSlopeDegrees = 3.0f;
 
     //currently, only one of these should be true at once
     //there will be more ways to work with this later, but right now

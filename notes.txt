@@ -1,4 +1,4 @@
-test with sig_gen to ensure correct noise and waveform readings
+fix first hold countdown pls
 
 NEXT PHASE:
 glsl folder to house all glsl files
@@ -11,6 +11,13 @@ add key presses to events to switch through these
 need compilation function to assert proper configurations in AudioSpec
 
 fully cleanup directories
+root should only have src, CMakeLists.txt, notes.txt, and .gitignore in repo
+src
+	include(all headers)
+	external(glad)
+	shaders(all glsl files)
+	main.cpp
+
 handle height & width case in AudioSpec
 
 NEXT PHASE:

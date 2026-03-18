@@ -32,10 +32,10 @@ public:
     }
 
     void nextFrame() {
-        gpuPeakRMS.advanceAll();
         gpuFFT.advanceAll();
-        fftHolds.countdownAll();
-        peakRMSHolds.countdownAll();
+        gpuPeakRMS.advanceAll();
+        fftHolds.countdownAll(gpuFFT.getCurrents());
+        peakRMSHolds.countdownAll(gpuPeakRMS.getCurrents());
     }
 
     const float* getFFTPtr() {
@@ -155,6 +155,9 @@ private:
             peakRMSHolds.reset(frameRate, newSpec.peakRMSHoldTime, newSpec.peakRMSHoldScalar, 
                                newSpec.isPeakRMSdB, peakRMSSize);
         }
+        else {
+            peakRMSHolds.reset(frameRate, 0.0f, 0.0f, false, 0);
+        }
         //config peak/RMS smooth array
         float prMin = newSpec.isPeakRMSdB ? MIN_DB : 0.0f;
         if (newSpec.usePeakRMSSmoothing) {
@@ -187,6 +190,9 @@ private:
         if (newSpec.getsFFTHolds) {
             fftHolds.reset(frameRate, newSpec.fftHoldTime, newSpec.fftHoldScalar, 
                                newSpec.isFFTdB, gpuFFTSize);
+        }
+        else {
+            fftHolds.reset(frameRate, 0.0f, 0.0f, false, 0);
         }
         //config fft smooth array
         float fftMin = newSpec.isFFTdB ? MIN_DB : 0.0f;

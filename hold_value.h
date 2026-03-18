@@ -91,6 +91,9 @@ public:
         }
     }
 
+    //TODO: need logic for when linear drop goes past current
+    //would like to either bail on exponential scaling or have some logic
+    //to cheapen it when its close enough to min
     void countdownIndex(uint32_t i) {
         if (countdowns[i] >= 0) {
             countdowns[i]--;
@@ -107,6 +110,19 @@ public:
         int n = values.size();
         for (int i = 0; i < n; ++i) {
             countdownIndex(i);
+        }
+    }
+
+    //fix for when linear drop puts hold below current val
+    //will optimize these loops l8r
+    void countdownAll(const float* compVals) {
+        int n = values.size();
+        for (int i = 0; i < n; ++i) {
+            countdownIndex(i);
+            if (values[i] < compVals[i]) {
+                values[i] = compVals[i];
+                countdowns[i] = maxSteps;
+            }
         }
     }
 

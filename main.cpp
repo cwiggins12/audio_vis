@@ -123,7 +123,6 @@ int main() {
                     break;
             }
         }
-
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
@@ -151,7 +150,6 @@ int main() {
         //this blocks until next vblank and makes the loop fire once per device frame
         SDL_GL_SwapWindow(window);
     }
-
     glDeleteBuffers(4, ssbos);
     glDeleteVertexArrays(1, &vao);
     SDL_GL_DestroyContext(glContext);
