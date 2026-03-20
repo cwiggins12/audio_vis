@@ -1,9 +1,9 @@
 #pragma once
 
-#include "audio_capture.h"
-#include "peak_rms.h"
-#include "fft.h"
-#include "audio_spec.h"
+#include "audio_capture.hpp"
+#include "peak_rms.hpp"
+#include "fft.hpp"
+#include "audio_spec.hpp"
 #include <cstdint>
 #include <memory>
 #include <iostream>

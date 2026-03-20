@@ -1,8 +1,8 @@
 #define MINIAUDIO_IMPLEMENTATION
 
-#include "audio.h"
-#include "shader.h"
-#include "av_bridge.h"
+#include "include/audio.hpp"
+#include "include/shader.hpp"
+#include "include/av_bridge.hpp"
 #include <SDL3/SDL.h>
 
 void bindSSBO(int i, size_t size, GLuint b) {
@@ -88,6 +88,7 @@ int main() {
     glGenVertexArrays(1, &vao);
     glBindVertexArray(vao);
     Shader shader(vertexSrc, fragmentSrc);
+    //make a struct once all the uniforms are cemented
     GLint timeLoc = glGetUniformLocation(shader.id, "time");
     GLint numBinsLoc = glGetUniformLocation(shader.id, "numBins");
     GLint channelsLoc = glGetUniformLocation(shader.id, "numChannels");
@@ -95,10 +96,12 @@ int main() {
     GLfloat windowWLoc = glGetUniformLocation(shader.id, "W");
     GLuint ssbos[4];
     glGenBuffers(4, ssbos);
-    bindSSBO(0, bridge.getPeakRMSGPUSize(), ssbos[0]);
-    bindSSBO(1, bridge.getFFTGPUSize(), ssbos[1]);
-    bindSSBO(2, bridge.getPeakRMSGPUSize(), ssbos[2]);
-    bindSSBO(3, bridge.getFFTGPUSize(), ssbos[3]);
+    //look into how it handles the sizing changes
+    //and better way to handle this type of op in general
+    bindSSBO(0, bridge.getPeakRMSGPUSizeInBytes(), ssbos[0]);
+    bindSSBO(1, bridge.getFFTGPUSizeInBytes(), ssbos[1]);
+    bindSSBO(2, bridge.getPeakRMSGPUSizeInBytes(), ssbos[2]);
+    bindSSBO(3, bridge.getFFTGPUSizeInBytes(), ssbos[3]);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
     bool running = true;
@@ -131,18 +134,23 @@ int main() {
             bridge.formatData();
         }
         bridge.nextFrame();
-
-        size_t prSize = bridge.getPeakRMSGPUSize();
-        size_t fftSize = bridge.getFFTGPUSize();
+        //h8 this so much
+        size_t prSize = bridge.getPeakRMSGPUSizeInBytes();
+        size_t fftSize = bridge.getFFTGPUSizeInBytes();
         dynBind(prSize, ssbos[0], bridge.getPeakRMSPtr());
         dynBind(fftSize, ssbos[1], bridge.getFFTPtr());
-        dynBind(prSize, ssbos[2], bridge.getPeakRMSHoldPtr());
-        dynBind(fftSize, ssbos[3], bridge.getFFTHoldPtr());
+        if (spec.getsPeakRMSHolds) {
+            dynBind(prSize, ssbos[2], bridge.getPeakRMSHoldPtr());
+        }
+        if (spec.getsFFTHolds) {
+            dynBind(fftSize, ssbos[3], bridge.getFFTHoldPtr());
+        }
+
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
         shader.use();
         float t = SDL_GetTicks() / 1000.0f;
         glUniform1f(timeLoc, t);
-        glUniform1i(numBinsLoc, bridge.getFFTGPUSize() / sizeof(float));
+        glUniform1i(numBinsLoc, bridge.getFFTGPUSize());
         glUniform1i(channelsLoc, audio.getNumChannels());
         glUniform1f(windowHLoc, h);
         glUniform1f(windowWLoc, w);

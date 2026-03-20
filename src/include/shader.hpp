@@ -22,6 +22,8 @@ public:
             char log[512];
             glGetProgramInfoLog(id, 512, nullptr, log);
             std::cerr << "Shader link error:\n" << log << std::endl;
+        } else {
+            valid = true;
         }
 
         glDeleteShader(vert);
@@ -48,6 +50,7 @@ private:
 
         return shader;
     }
+    bool valid = false;
 };
 
 inline const char* vertexSrc = R"(#version 310 es

@@ -1,9 +1,9 @@
 #pragma once
 
-#include "hold_value.h"
-#include "smooth_value.h"
-#include "audio.h"
-#include "audio_spec.h"
+#include "hold_value.hpp"
+#include "smooth_value.hpp"
+#include "audio.hpp"
+#include "audio_spec.hpp"
 
 //probably want to put these in a globals.h at some point if I wind up with too many
 static constexpr float MIN_FREQ = 20.0f;
@@ -64,7 +64,7 @@ public:
 
         float fftMin = currSpec.isFFTdB ? MIN_DB : 0.0f;
         if (currSpec.useFFTSmoothing) {
-            gpuFFT.reset(frameRate, currSpec.fftAtk, currSpec.fftRls, 
+            gpuFFT.reset(frameRate, currSpec.fftAtk, currSpec.fftRls,
                          gpuFFTSize, fftMin);
         }
         else {
@@ -83,12 +83,19 @@ public:
     }
 
     size_t getFFTGPUSize() {
-        return gpuFFTSize * sizeof(float);
+        return gpuFFTSize;
     }
 
     size_t getPeakRMSGPUSize() {
-        size_t size = (currSpec.isPeakRMSMono) ? 2 : channels * 2;
-        return size * sizeof(float);
+        return (currSpec.isPeakRMSMono) ? 2 : channels * 2;
+    }
+
+    size_t getFFTGPUSizeInBytes() {
+        return getFFTGPUSize() * sizeof(float);
+    }
+
+    size_t getPeakRMSGPUSizeInBytes() {
+        return getPeakRMSGPUSize() * sizeof(float);
     }
 
     //pls refactor

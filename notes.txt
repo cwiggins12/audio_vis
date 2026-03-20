@@ -1,24 +1,24 @@
-fix first hold countdown pls
+nvim: replace any uses of the movement characters I changed
 
-NEXT PHASE:
-glsl folder to house all glsl files
-specs.h - houses const (probably inline)AudioSpecs for each shader, names must match
-just have it be a monolith static inline function that generates the AudioSpecs that the user places in the function based on their shader needs. Eventually having a dynamic or meta way to do this would be great, but this will be fine for initial switching tests
-Shader switching logic(this is gonna basically be bugfixing of the above class)
-Dynamically (either compile time or on boot) know shader amount to allow looping through them
-add key presses to events to switch through these
+Piecemeal implementation order
 
-need compilation function to assert proper configurations in AudioSpec
+1. Extract the active shader into a ShaderPreset struct with hardcoded spec and the current test shader. Nothing changes behaviorally, you're just wrapping what exists. Verify the test still runs identically.
+2. Add a std::vector<ShaderPreset> and an activeIdx int. Put two copies of the test preset in the list and wire the right arrow key to cycle activeIdx and call your existing spec swap. Verify the key press works and the bridge reconfigures without crashing.
+3. Implement the introspection-based uniform map on Shader or ShaderPreset. Replace all the hardcoded glGetUniformLocation calls in main with lookups into the map. Verify everything still renders.
+4. Write the injected header and the Shader constructor change that prepends it before compiling. Verify the test shader still compiles with the header injected (it will conflict until you remove the duplicate buffer declarations from fragmentSrc).
+5. Write the flat config file parser for AudioSpec. Point it at a hand-written file next to your test shader. Verify the parsed struct matches what you wrote in the file.
+6. Write the directory scanner that produces a vector<ShaderPreset> from a shaders/ folder. Move the test shader there, verify it loads and runs exactly as before.
+7. Write a second real shader using only the injected helper functions. Drop it in shaders/. Verify cycling between the two works end to end including the spec swap and SSBO resize.
 
-fully cleanup directories
-root should only have src, CMakeLists.txt, notes.txt, and .gitignore in repo
-src
-	include(all headers)
-	external(glad)
-	shaders(all glsl files)
-	main.cpp
+Hot-reload and error overlays are both good follow-ons after step 7.
 
+look into setting up flags for the spec asserts and device(audio & video) listings functions
+allow for user to predefine audio device and video device some way later on
+get audio device search to be different for other os's
+
+Full screen mode with SDL?
 handle height & width case in AudioSpec
+have a percentage specific height and width case? ie. user marks a width bool true and puts 0.8f as the width scalar. the fft size will be width pixel amount * width scalar and always scale to that amount on resize.
 
 NEXT PHASE:
 Make fun, abstract test shaders
@@ -33,24 +33,10 @@ look for refactoring oppurtunities
 need Mesa's V3DV driver for this to work on a pi
 trim all but what is used from miniaudio.h at the very end of development
 need hella more documentation
+pre-built widgets for meters and stuff?
+port to VST
+test memory use: when program is running, in another console enter:
+cat /proc/$(pgrep audio_vis)/smaps_rollup
 
 Done This Week:
-av_bridge. Massive changes to audio.h, main.cpp, analysis.h, and a bit to capture.h to account for the changes. All configurable variables in fft, rms, and peak can now be affected by a struct and a call with that struct to audio and avBridge.
 
-avBridge contains control over the gpu arrays to send and how they are formatted, all of which can be dynamically adjusted by the AudioSpec struct that is meant to be paired with each fragment shader. 
-
-AudioSpec allows for dynamic changes to these variables according to the fragment shader creators needs: an arbitrary size that will give a non noisy response curve, smoothing over time with variable attack and release for all values, the full fft output, the fft's audible bin output only, peak/rms holds, fft bin holds, mono for peak and rms, values in db or amplitude on all analysis output, hann windowing for fft, perceptual slope for fft at any chosen float, along with handling width and height dependencies for the fft output for the user on window resizes.
-
-added custom data structures: hold values and ringbuffer
-full smoothvalue rework to give it a better, more intuitive interface
-refactored ring_buffer out of audio capture
-
-added monosummed functionality to peak and rms, its not used, but its there just in case
-
-HEAVILY COMMENTED  audio spec to thoroughly explain what all of the settings do
-
-added more uniforms and hold value functionality to pass to the gpu for shader use
-
-build rms, peak, and spectum analyser test shader that is resizable
-
-tested resizing

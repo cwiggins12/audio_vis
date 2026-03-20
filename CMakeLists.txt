@@ -11,18 +11,16 @@ find_package(SDL3 REQUIRED)
 find_package(OpenGL REQUIRED)
 
 add_executable(audio_vis
-    main.cpp
-    external/glad/src/gles2.c
-    external/glad/src/egl.c
+    src/main.cpp
+    src/external/glad/src/gles2.c
+    src/external/glad/src/egl.c
 )
 
-# Include current directory (for miniaudio.h and headers)
 target_include_directories(audio_vis PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}
-    ${CMAKE_CURRENT_SOURCE_DIR}/external/glad/include
+    src/include
+    src/external/glad/include
 )
 
-# Link libraries
 target_link_libraries(audio_vis PRIVATE
     fftw3f          #float FFTW
     pthread         #required by miniaudio
