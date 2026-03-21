@@ -1,10 +1,9 @@
 #define MINIAUDIO_IMPLEMENTATION
 
-#include "include/audio.hpp"
-#include "include/av_bridge.hpp"
-#include "include/shader_loader.hpp"
+#include "audio.hpp"
+#include "av_bridge.hpp"
+#include "shader_loader.hpp"
 #include <SDL3/SDL.h>
-#include <filesystem>
 
 std::string getAssetPath(const std::string& relative) {
     char buf[4096];
@@ -14,6 +13,7 @@ std::string getAssetPath(const std::string& relative) {
     auto binDir = std::filesystem::path(buf).parent_path();
     return (binDir / relative).string();
 }
+
 void bindSSBO(int i, size_t size, GLuint b) {
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, b);
     glBufferData(GL_SHADER_STORAGE_BUFFER, size, 

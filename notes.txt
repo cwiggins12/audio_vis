@@ -1,31 +1,40 @@
-nvim: replace any uses of the movement characters I changed
-set autocomplete accept to tab, look at what the up and down are that aren't arrows again
-
-TOMORROW:
-Hot-reload and error overlays(make an assert hell function on boot with very specific error messages for specs and shaders), how can order be decided in the shaders?, what should be done to have less dynamic binding?, how can custom uniforms be handled?, look into setting up flags for the spec asserts and device(audio & video) listings functions
-
-Figure out full screen mode with SDL
-handle height & width case in AudioSpec
-have a percentage specific height and/or width case
+9. hot reloading
+10. send all cerr reporting to a log.txt file
+11. how can order be decided in the shaders clearly for users? alphabetic?
+12. what should be done to have lower cost dynamic binding?
+13. how can custom uniforms be handled?
+14. Figure out full screen mode with SDL
+15. handle height & width case in AudioSpec more robustly, have a percentage specific height and/or width case
+16. maybe instead of listing flags for sizing, have a uint state?
+17. look into making the h/w pixel conventions forced through injection
+18. look into bit-mapped font, possibly to be injected
 
 NEXT PHASE:
 Make fun, abstract test shaders
 try and pull off mel-spectrograms as well
+finalize spec and injection after findings from the above shaders
+when spec is finalized, finish specAssert logic
 
 FINAL PHASE:
-allow for user to predefine audio device and video device some way later on
-get audio device search to be different for other os's
-make list all devices functionality and allow for monitor substring to be var that can be replaced on cmdline?
-give another command line function to check that vars will keep up with callback at 30 & 60 FPS? (or set fft_size according to fps?) this will be a big deal if they become dynamic
-set all prints to a log.txt file
+look into setting up flags for the device(audio & video) listing functions
+allow for user to define audio device and video device some way, maybe a config or window
+get audio device search to work on windows
 need Mesa's V3DV driver for this to work on a pi
 trim all but what is used from miniaudio.h at the very end of development
 need hella more documentation
 pre-built widgets for meters and stuff?
-port to VST
-refactor, profile, optimize, get crossplatform for Windows,
+security check with all of these cstrings from glsl and file pathing
+refactor, profile, optimize, get good as standalone for win and lin
 test memory use: when program is running, in another console enter:
 cat /proc/$(pgrep audio_vis)/smaps_rollup
+
+Possible future work:
+Allow export of current setup in standalone to VST3, with midi that can drive shader changes
+when you port to VST3: no JUCE, straight up steinbergSDK use
+config utility to let users choose audio and video device and set it in a config.ini
+user defined arrays in glsl for recursive buffers
+texture handling in glsl
+dmx output for dmx based video walls(WOULD BE NIGHTMARE TO FIND DEVICE, make it up to users)
 
 Done This Week:
 1. Extract the active shader into a ShaderPreset struct with hardcoded spec and the current test shader. Then verify. 
@@ -42,4 +51,5 @@ DONE
 DONE
 7. Write a second real shader using only the injected helper functions. Drop it in shaders/. Verify cycling between the two works end to end including the spec swap and SSBO resize.
 DONE
-setup cmake to update build after each shader is updated. Need hot reloading asap to not need to reconfigure the build every time a new shader is added.
+8. setup cmake to update build after each shader is updated. Need hot reloading next to not need to reconfigure the build every time a new shader is added.
+DONE

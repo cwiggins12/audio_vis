@@ -4,7 +4,6 @@
 #include <vector>
 #include <cmath>
 
-//need equivalent maths for handling dB values with the linear scalar
 //if you go with default construction, you must reset, or you'll have a bad time
 class HoldArray {
 public:

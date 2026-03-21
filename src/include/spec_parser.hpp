@@ -23,7 +23,7 @@ inline bool parseSpec(const std::string& path, AudioSpec& out) {
     while (std::getline(file, line)) {
         lineNum++;
 
-        // strip // comments
+        //strip comments
         size_t commentPos = line.find("//");
         if (commentPos != std::string::npos)
             line = line.substr(0, commentPos);
@@ -47,7 +47,7 @@ inline bool parseSpec(const std::string& path, AudioSpec& out) {
             return false;
         }
 
-        // bool helper
+        //bool helper
         auto parseBool = [&](bool& field) -> bool {
             if (val == "true")  { field = true;  return true; }
             if (val == "false") { field = false; return true; }
@@ -56,7 +56,7 @@ inline bool parseSpec(const std::string& path, AudioSpec& out) {
             return false;
         };
 
-        // match every AudioSpec field
+        //match every AudioSpec field
         if (key == "customLinearSize") {
             out.customLinearSize = std::stoul(val);
         }

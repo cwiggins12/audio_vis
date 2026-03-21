@@ -18,6 +18,7 @@ add_executable(audio_vis
 
 target_include_directories(audio_vis PRIVATE
     src/include
+    src/external
     src/external/glad/include
 )
 

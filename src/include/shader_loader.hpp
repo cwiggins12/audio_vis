@@ -20,6 +20,13 @@ inline std::string loadFile(const std::string& path) {
     return ss.str();
 }
 
+//TODO if a possible logic error could happen in the spec settings, handle it here
+//currently does nothing to not have to adjust on every iteration
+//put new line at end of any spec error pls
+inline std::string specAssertHell(AudioSpec& spec) {
+    return "";
+}
+
 inline std::vector<ShaderPreset> loadPresets(const std::string& shadersDir) {
     std::vector<ShaderPreset> presets;
 
@@ -36,7 +43,7 @@ inline std::vector<ShaderPreset> loadPresets(const std::string& shadersDir) {
 
         if (!std::filesystem::exists(fragPath)) {
             std::cerr << "loadPresets: skipping " << entry.path().filename()
-                      << " — no frag.glsl found\n";
+                      << " - no frag.glsl found\n";
             continue;
         }
 
@@ -50,15 +57,21 @@ inline std::vector<ShaderPreset> loadPresets(const std::string& shadersDir) {
         if (std::filesystem::exists(specPath)) {
             if (!parseSpec(specPath.string(), p.spec)) {
                 std::cerr << "loadPresets: skipping " << p.name
-                          << " — spec parse failed\n";
+                          << " - spec parse failed\n";
                 continue;
+            }
+            std::string specErr = specAssertHell(p.spec);
+            if (specErr != "") {
+                std::cerr << "loadPresets: skipping " << p.name
+                          << " - spec logic error found - " <<
+                          specErr;
             }
         }
 
         p.shader = Shader(vertexSrc, fragSrc.c_str());
         if (!p.shader.valid) {
             std::cerr << "loadPresets: skipping " << p.name
-                      << " — shader compile failed\n";
+                      << " - shader compile failed\n";
             continue;
         }
 
@@ -68,3 +81,4 @@ inline std::vector<ShaderPreset> loadPresets(const std::string& shadersDir) {
 
     return presets;
 }
+
