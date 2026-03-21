@@ -2,7 +2,6 @@
 
 #include "shader_preset.hpp"
 #include "spec_parser.hpp"
-#include "shader.hpp"
 #include <filesystem>
 #include <fstream>
 #include <sstream>
