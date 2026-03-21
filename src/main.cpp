@@ -1,10 +1,19 @@
 #define MINIAUDIO_IMPLEMENTATION
 
 #include "include/audio.hpp"
-#include "include/shader.hpp"
 #include "include/av_bridge.hpp"
+#include "include/shader_loader.hpp"
 #include <SDL3/SDL.h>
+#include <filesystem>
 
+std::string getAssetPath(const std::string& relative) {
+    char buf[4096];
+    ssize_t len = readlink("/proc/self/exe", buf, sizeof(buf) - 1);
+    if (len == -1) return relative; // fallback
+    buf[len] = '\0';
+    auto binDir = std::filesystem::path(buf).parent_path();
+    return (binDir / relative).string();
+}
 void bindSSBO(int i, size_t size, GLuint b) {
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, b);
     glBufferData(GL_SHADER_STORAGE_BUFFER, size, 
@@ -70,12 +79,22 @@ int main() {
     const SDL_DisplayMode* mode = SDL_GetCurrentDisplayMode(displayID);
     if (mode) displayHz = (int)mode->refresh_rate;
 
-    const int fft_order = 13;
+    std::vector<ShaderPreset> presets = loadPresets(getAssetPath("shaders/"));
+    if (presets.empty()) {
+        std::cerr << "No valid presets found\n";
+        SDL_GL_DestroyContext(glContext);
+        SDL_DestroyWindow(window);
+        SDL_Quit();
+        return -1;
+    }
+    int activeIdx = 0;
 
-    AudioSpec spec;
-    Audio audio(fft_order);
-    AVBridge bridge(audio, spec);
-    if (!audio.init(spec)) {
+    const int fft_order = 13;
+    const int hopAmt = 4;
+
+    Audio audio(fft_order, hopAmt);
+    AVBridge bridge(audio, presets[0].spec);
+    if (!audio.init(presets[0].spec)) {
         std::cerr << "Audio initialization failed \n";
         SDL_GL_DestroyContext(glContext);
         SDL_DestroyWindow(window);
@@ -87,13 +106,6 @@ int main() {
     GLuint vao;
     glGenVertexArrays(1, &vao);
     glBindVertexArray(vao);
-    Shader shader(vertexSrc, fragmentSrc);
-    //make a struct once all the uniforms are cemented
-    GLint timeLoc = glGetUniformLocation(shader.id, "time");
-    GLint numBinsLoc = glGetUniformLocation(shader.id, "numBins");
-    GLint channelsLoc = glGetUniformLocation(shader.id, "numChannels");
-    GLfloat windowHLoc = glGetUniformLocation(shader.id, "H");
-    GLfloat windowWLoc = glGetUniformLocation(shader.id, "W");
     GLuint ssbos[4];
     glGenBuffers(4, ssbos);
     //look into how it handles the sizing changes
@@ -116,6 +128,15 @@ int main() {
                 case SDL_EVENT_KEY_DOWN:
                     if (event.key.key == SDLK_ESCAPE)
                         running = false;
+                    if (event.key.key == SDLK_RIGHT) {
+                        activeIdx = (activeIdx + 1) % presets.size();
+                        bridge.swapSpec(presets[activeIdx].spec);
+                        bindSSBO(0, bridge.getPeakRMSGPUSizeInBytes(), ssbos[0]);
+                        bindSSBO(1, bridge.getFFTGPUSizeInBytes(),     ssbos[1]);
+                        bindSSBO(2, bridge.getPeakRMSGPUSizeInBytes(), ssbos[2]);
+                        bindSSBO(3, bridge.getFFTGPUSizeInBytes(),     ssbos[3]);
+                        glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+                    }
                     break;
 
                 case SDL_EVENT_WINDOW_RESIZED:
@@ -139,21 +160,23 @@ int main() {
         size_t fftSize = bridge.getFFTGPUSizeInBytes();
         dynBind(prSize, ssbos[0], bridge.getPeakRMSPtr());
         dynBind(fftSize, ssbos[1], bridge.getFFTPtr());
-        if (spec.getsPeakRMSHolds) {
+        if (presets[activeIdx].spec.getsPeakRMSHolds) {
             dynBind(prSize, ssbos[2], bridge.getPeakRMSHoldPtr());
         }
-        if (spec.getsFFTHolds) {
+        if (presets[activeIdx].spec.getsFFTHolds) {
             dynBind(fftSize, ssbos[3], bridge.getFFTHoldPtr());
         }
 
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
-        shader.use();
+        presets[activeIdx].shader.use();
         float t = SDL_GetTicks() / 1000.0f;
-        glUniform1f(timeLoc, t);
-        glUniform1i(numBinsLoc, bridge.getFFTGPUSize());
-        glUniform1i(channelsLoc, audio.getNumChannels());
-        glUniform1f(windowHLoc, h);
-        glUniform1f(windowWLoc, w);
+        glUniform1f(presets[activeIdx].shader.uniforms["time"], t);
+        glUniform1i(presets[activeIdx].shader.uniforms["numBins"], 
+                    bridge.getFFTGPUSize());
+        glUniform1i(presets[activeIdx].shader.uniforms["numChannels"], 
+                    audio.getNumChannels());
+        glUniform1f(presets[activeIdx].shader.uniforms["H"], h);
+        glUniform1f(presets[activeIdx].shader.uniforms["W"], w);
         glDrawArrays(GL_TRIANGLES, 0, 3);
         //this blocks until next vblank and makes the loop fire once per device frame
         SDL_GL_SwapWindow(window);

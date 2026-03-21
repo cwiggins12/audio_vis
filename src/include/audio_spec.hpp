@@ -3,9 +3,6 @@
 #include <cstdint>
 
 struct AudioSpec {
-    //hop amount lives here for now. 
-    //it will probably become a constant with fftOrder eventually
-    uint32_t hopAmt = 4;
     //for custom sized pixel aligned fftOutputs, if non-zero this will
     //give a log scaled bin output for frequency to align with pixels
     //in a way that lines up with how we hear. It will cubic interpolate

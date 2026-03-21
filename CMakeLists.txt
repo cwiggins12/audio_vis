@@ -31,3 +31,16 @@ target_link_libraries(audio_vis PRIVATE
     EGL             #OpenGL dependency
 )
 
+file(GLOB_RECURSE SHADER_FILES
+    ${CMAKE_SOURCE_DIR}/src/shaders/*.glsl
+    ${CMAKE_SOURCE_DIR}/src/shaders/*.txt
+)
+
+add_custom_target(copy_shaders ALL
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/src/shaders
+        ${CMAKE_BINARY_DIR}/shaders
+    DEPENDS ${SHADER_FILES}
+)
+
+add_dependencies(audio_vis copy_shaders)

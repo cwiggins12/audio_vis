@@ -10,7 +10,7 @@
 
 class Audio {
 public:
-    Audio(uint32_t fft_o) : fftOrder(fft_o) {}
+    Audio(uint32_t fft_o, uint32_t hops) : fftOrder(fft_o), hopAmt(hops) {}
 	~Audio() {}
     //no moves, no copies
 	Audio(const Audio&) = delete;
@@ -20,7 +20,7 @@ public:
 
     bool init(AudioSpec& spec) {
         fftSize = 1 << fftOrder;
-        hopSize = fftSize / spec.hopAmt;
+        hopSize = fftSize / hopAmt;
         const int frameAmount = fftSize * 2;
 
         if (!capture.init(frameAmount)) {
@@ -136,6 +136,7 @@ private:
     std::unique_ptr<FFT> fft;
 
     const uint32_t fftOrder;
+    const uint32_t hopAmt;
 
     bool firstWindowAccumulated = false;
 
