@@ -1,47 +1,53 @@
-hot reloading
-how can order be decided in the shaders clearly for users? alphabetic?
-what should be done to have lower cost dynamic binding?
-how can custom uniforms/uniform arrays be handled?
-Figure out full screen mode with SDL
-handle height & width case in AudioSpec more robustly, have a percentage specific height and/or width case
-maybe instead of listing flags for sizing, have a uint state?
-look into making the h/w pixel conventions forced through injection
-look into bit-mapped font, possibly to be injected
-look into different interpolation strategies for the low end. This cubic interp is not it.
+1. shuffle button(when pressed, random next shader)
+2. add left key to go back to prior shader
+3. Figure out full screen mode with glfw(start in full, resizeable window. Allow non-windowed 4. fullscreen on and off with a button press)
+5. set up some possible feedback ssbos for the user to do what they would want with them
+6. preset name display on window (glfwSetWindowTitle can do this on each swap)
+7. make the h/w pixel conventions forced through injection
+8. injected bit-mapped font
+9. hot reloading
+10. error display on errored hot reloaded shader(need bit-mapped font)
+11. texture usage functionality (use stb_image, introspection, and make users label the textures to uniforms in spec)
+12. look into different interpolation strategies for the low end. This cubic interp is rough
 
 NEXT PHASE:
 Make fun, abstract test shaders
 try and pull off mel-spectrograms as well
+handle height & width case in AudioSpec more robustly
+have a percentage specific height and/or width case
+maybe instead of listing flags for sizing, have a uint state?
 finalize spec and injection after findings from the above shaders
-when spec is finalized, finish specAssert logic
+when spec is finalized, finish specAssert logic in shader_loader.hpp
+timed shuffle mode(pressing a button opens a dialog box, user enters a time?)
 
 FINAL PHASE:
-look into setting up flags for the device(audio & video) listing functions
-allow for user to define audio device and video device some way, maybe a config or window
-get audio device search to work on windows
 need Mesa's V3DV driver for this to work on a pi
 trim all but what is used from miniaudio.h at the very end of development
 need hella more documentation
-pre-built widgets for meters and stuff?
 security check with all of these cstrings from glsl and file pathing
-refactor, profile, optimize, get good as standalone for win and lin
+refactor, profile, optimize, get it good as standalone for linux only (windows l8r)
 test memory use: when program is running, in another console enter:
 cat /proc/$(pgrep audio_vis)/smaps_rollup
 
 Possible future work:
+everything working on a windows build(capture will require the largest changes)
+look into setting up flags for the device(audio & video) listing functions
+allow for user to define audio device and video device some way, maybe a .ini or menu
 Allow export of current setup in standalone to VST3, with midi that can drive shader changes
-when you port to VST3: no JUCE, straight up steinbergSDK use
+when you port to VST3: no JUCE, straight up steinbergSDK use. 
 config utility to let users choose audio and video device and set it in a config.ini
 user defined arrays in glsl for recursive buffers
 texture handling in glsl
-dmx output for dmx based video walls(WOULD BE NIGHTMARE TO FIND DEVICE, make it up to users)
+dmx output for dmx based video walls(WOULD BE NIGHTMARE TO FIND DEVICE, make it up to users, or DAWS in the case of a vst3?)
+Allow for user defined uniforms that could be adjusted by midi, key input, or ui
+pre-built widgets(meters, mel-bin, etc.)
 
 Done This Week:
 1. Extract the active shader into a ShaderPreset struct with hardcoded spec and the current test shader. Then verify. 
 DONE
 2. Add a std::vector<ShaderPreset> and an activeIdx int. Put two copies of the test preset in the list and wire the right arrow key to cycle activeIdx and call spec swap. Then verify.
 DONE
-3. Implement the introspection-based uniform map on Shader or ShaderPreset. Replace all the hardcoded glGetUniformLocation calls in main with lookups into the map. Then verify.
+3. Add a uniform struct that will be in each preset, each getting populated during use with the preset uniforms to hand to the user.
 DONE
 4. Write the injected header and the Shader constructor change that prepends it before compiling. Then verify.
 DONE
@@ -57,4 +63,7 @@ DONE
 DONE
 10. send all cerr and cout reporting to a log.txt file that is truncated each run.
 DONE
-11. 
+11. ensure consistent lexicographic ordering of shaders in loader
+DONE
+12. full dynamic ssbo rework to a custom ssbo that is persistent, turning each frame's passes of data to the gpu into a couple of getters and a memcpy.
+DONE

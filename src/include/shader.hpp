@@ -70,13 +70,6 @@ public:
             std::cerr << "Shader link error:\n" << log << std::endl;
         } else {
             valid = true;
-            GLint uniformCount;
-            glGetProgramiv(id, GL_ACTIVE_UNIFORMS, &uniformCount);
-            for (GLint i = 0; i < uniformCount; ++i) {
-                char name[64]; GLint size; GLenum type;
-                glGetActiveUniform(id, i , sizeof(name), nullptr, &size, &type, name);
-                uniforms[std::string(name)] = glGetUniformLocation(id, name);
-            }
         }
 
         glDeleteShader(vert);
@@ -89,7 +82,6 @@ public:
 
     GLuint id;
     bool valid = false;
-    std::unordered_map<std::string, GLint> uniforms;
 
 private:
     GLuint compile(GLenum type, const char* src) {

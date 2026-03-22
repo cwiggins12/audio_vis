@@ -9,6 +9,25 @@ struct SSBO {
     float* ptr  = nullptr;
     size_t size = 0;
 
+    SSBO() = default;
+
+    // no copying
+    SSBO(const SSBO&) = delete;
+    SSBO& operator=(const SSBO&) = delete;
+
+    // move
+    SSBO(SSBO&& o) noexcept : id(o.id), ptr(o.ptr), size(o.size) {
+        o.id = 0; o.ptr = nullptr; o.size = 0;
+    }
+    SSBO& operator=(SSBO&& o) noexcept {
+        if (this != &o) {
+            free();
+            id = o.id; ptr = o.ptr; size = o.size;
+            o.id = 0; o.ptr = nullptr; o.size = 0;
+        }
+        return *this;
+    }
+
     void alloc(size_t bytes) {
         size = bytes;
         glGenBuffers(1, &id);
@@ -47,7 +66,6 @@ struct SSBO {
     void resize(size_t bytes) {
         free();
         alloc(bytes);
-        bind(0); // caller should rebind to correct slot after resize
     }
 
     ~SSBO() {

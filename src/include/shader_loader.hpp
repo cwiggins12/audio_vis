@@ -7,6 +7,7 @@
 #include <sstream>
 #include <iostream>
 #include <vector>
+#include <algorithm>
 
 inline std::string loadFile(const std::string& path) {
     std::ifstream f(path);
@@ -34,7 +35,15 @@ inline std::vector<ShaderPreset> loadPresets(const std::string& shadersDir) {
         return presets;
     }
 
+    std::vector<std::filesystem::directory_entry> entries;
     for (auto& entry : std::filesystem::directory_iterator(shadersDir)) {
+        if (entry.is_directory()) {
+            entries.push_back(entry);
+        }
+    }
+    std::sort(entries.begin(), entries.end());
+
+    for (auto& entry : entries) {
         if (!entry.is_directory()) continue;
 
         auto fragPath = entry.path() / "frag.glsl";
@@ -50,8 +59,8 @@ inline std::vector<ShaderPreset> loadPresets(const std::string& shadersDir) {
         if (fragSrc.empty()) continue;
 
         ShaderPreset p;
-        p.name   = entry.path().filename().string();
-        p.spec   = AudioSpec{};
+        p.name = entry.path().filename().string();
+        p.spec = AudioSpec{};
 
         if (std::filesystem::exists(specPath)) {
             if (!parseSpec(specPath.string(), p.spec)) {
@@ -73,9 +82,15 @@ inline std::vector<ShaderPreset> loadPresets(const std::string& shadersDir) {
                       << " - shader compile failed\n";
             continue;
         }
+        p.uniforms.time = glGetUniformLocation(p.shader.id, "time");
+        p.uniforms.W = glGetUniformLocation(p.shader.id, "W");
+        p.uniforms.H = glGetUniformLocation(p.shader.id, "H");
+        p.uniforms.numBins = glGetUniformLocation(p.shader.id, "numBins");
+        p.uniforms.numChannels = glGetUniformLocation(p.shader.id, "numChannels");
 
+        std::string loadedName = p.name;
         presets.push_back(std::move(p));
-        std::cout << "loadPresets: loaded " << p.name << "\n";
+        std::cout << "loadPresets: loaded " << loadedName << "\n";
     }
 
     return presets;
