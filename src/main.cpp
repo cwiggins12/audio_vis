@@ -3,7 +3,7 @@
 #include "audio.hpp"
 #include "av_bridge.hpp"
 #include "shader_loader.hpp"
-#include <SDL3/SDL.h>
+#include <GLFW/glfw3.h>
 
 std::string getAssetPath(const std::string& relative) {
     char buf[4096];
@@ -27,66 +27,75 @@ void dynBind(size_t size, GLuint b, const float* ptr) {
 }
 
 int main() {
-    if (!SDL_Init(SDL_INIT_VIDEO)) {
-        std::cerr << "SDL_Init failed: " << SDL_GetError() << std::endl;
+std::streambuf* origCout = std::cout.rdbuf();
+std::streambuf* origCerr = std::cerr.rdbuf();
+
+std::ofstream logFile(getAssetPath("log.txt"));
+if (logFile.is_open()) {
+    std::cout.rdbuf(logFile.rdbuf());
+    std::cerr.rdbuf(logFile.rdbuf());
+    std::cout.setf(std::ios::unitbuf);
+    std::cerr.setf(std::ios::unitbuf);
+}
+
+auto now = std::chrono::system_clock::now();
+std::time_t t = std::chrono::system_clock::to_time_t(now);
+std::cout << "=== audio_vis started: " << std::ctime(&t);
+
+    if (!glfwInit()) {
+        std::cerr << "glfwInit failed\n";
         return -1;
     }
 
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
-    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
+    glfwWindowHint(GLFW_DOUBLEBUFFER, GLFW_TRUE);
+    glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 
     //this will change eventually
-    SDL_Window* window = SDL_CreateWindow("audio_vis", 1280, 720,
-                         SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
+    GLFWwindow* window = glfwCreateWindow(1280, 720, "audio_vis", nullptr, nullptr);
     if (!window) {
-        std::cerr << "Window creation failed: " << SDL_GetError() << std::endl;
-        SDL_Quit();
+        std::cerr << "glfwCreateWindow failed\n";
+        glfwTerminate();
         return -1;
     }
 
-    SDL_GLContext glContext = SDL_GL_CreateContext(window);
-    if (!glContext) {
-        std::cerr << "GL Context creation failed: " << SDL_GetError() << std::endl;
-        SDL_DestroyWindow(window);
-        SDL_Quit();
-        return -1;
-    }
+    glfwMakeContextCurrent(window);
 
-    if (!gladLoadGLES2(SDL_GL_GetProcAddress)) {
+    if (!gladLoadGLES2Loader((GLADloadproc)glfwGetProcAddress)) {
         std::cerr << "Failed to initialize GLAD\n";
-        SDL_GL_DestroyContext(glContext);
-        SDL_DestroyWindow(window);
-        SDL_Quit();
+        glfwDestroyWindow(window);
+        glfwTerminate();
         return -1;
     }
 
     int w, h;
-    SDL_GetWindowSizeInPixels(window, &w, &h);
+    glfwGetFramebufferSize(window, &w, &h);
     glViewport(0, 0, w, h);
 
     //ties gl frames to device fps
-    SDL_GL_SetSwapInterval(1);
+    glfwSwapInterval(1);
 
     //keep this around for Raspberry Pi testing l8r
-    //std::cout << "GL Version: " << glGetString(GL_VERSION) << std::endl;
-    //std::cout << "GLSL Version: " << glGetString(GL_SHADING_LANGUAGE_VERSION) << std::endl;
+    std::cout << "GL Version: " << glGetString(GL_VERSION) << std::endl;
+    std::cout << "GLSL Version: " << glGetString(GL_SHADING_LANGUAGE_VERSION) 
+              << std::endl;
 
     //may wanna add some dynamic hopAmt or fftOrder changes to account for other rates
     int displayHz = 60; //fallback :(
-    SDL_DisplayID displayID = SDL_GetDisplayForWindow(window);
-    const SDL_DisplayMode* mode = SDL_GetCurrentDisplayMode(displayID);
-    if (mode) displayHz = (int)mode->refresh_rate;
+    GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+    const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+    if (mode) displayHz = mode->refreshRate;
 
     std::vector<ShaderPreset> presets = loadPresets(getAssetPath("shaders/"));
     if (presets.empty()) {
         std::cerr << "No valid presets found\n";
-        SDL_GL_DestroyContext(glContext);
-        SDL_DestroyWindow(window);
-        SDL_Quit();
+        glfwDestroyWindow(window);
+        glfwTerminate();
         return -1;
     }
+
     int activeIdx = 0;
 
     const int fft_order = 13;
@@ -96,9 +105,8 @@ int main() {
     AVBridge bridge(audio, presets[0].spec);
     if (!audio.init(presets[0].spec)) {
         std::cerr << "Audio initialization failed \n";
-        SDL_GL_DestroyContext(glContext);
-        SDL_DestroyWindow(window);
-        SDL_Quit();
+        glfwDestroyWindow(window);
+        glfwTerminate();
         return -1;
     }
     bridge.init(displayHz, w, h);
@@ -110,43 +118,41 @@ int main() {
     glGenBuffers(4, ssbos);
     //look into how it handles the sizing changes
     //and better way to handle this type of op in general
-    bindSSBO(0, bridge.getPeakRMSGPUSizeInBytes(), ssbos[0]);
-    bindSSBO(1, bridge.getFFTGPUSizeInBytes(), ssbos[1]);
-    bindSSBO(2, bridge.getPeakRMSGPUSizeInBytes(), ssbos[2]);
-    bindSSBO(3, bridge.getFFTGPUSizeInBytes(), ssbos[3]);
+    bindSSBO(0, bridge.getPeakRMSGPUSizeInBytes(),  ssbos[0]);
+    bindSSBO(1, bridge.getFFTGPUSizeInBytes(),      ssbos[1]);
+    bindSSBO(2, bridge.getPeakRMSGPUSizeInBytes(),  ssbos[2]);
+    bindSSBO(3, bridge.getFFTGPUSizeInBytes(),      ssbos[3]);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
-    bool running = true;
-    SDL_Event event;
-    while (running) {
-        while (SDL_PollEvent(&event)) {
-            switch (event.type) {
-                case SDL_EVENT_QUIT:
-                    running = false;
-                    break;
+    int prevRightKey = GLFW_RELEASE;
+    while (!glfwWindowShouldClose(window)) {
+        glfwPollEvents();
 
-                case SDL_EVENT_KEY_DOWN:
-                    if (event.key.key == SDLK_ESCAPE)
-                        running = false;
-                    if (event.key.key == SDLK_RIGHT) {
-                        activeIdx = (activeIdx + 1) % presets.size();
-                        bridge.swapSpec(presets[activeIdx].spec);
-                        bindSSBO(0, bridge.getPeakRMSGPUSizeInBytes(), ssbos[0]);
-                        bindSSBO(1, bridge.getFFTGPUSizeInBytes(),     ssbos[1]);
-                        bindSSBO(2, bridge.getPeakRMSGPUSizeInBytes(), ssbos[2]);
-                        bindSSBO(3, bridge.getFFTGPUSizeInBytes(),     ssbos[3]);
-                        glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
-                    }
-                    break;
-
-                case SDL_EVENT_WINDOW_RESIZED:
-                    w = event.window.data1;
-                    h = event.window.data2;
-                    glViewport(0, 0, w, h);
-                    bridge.resize(w, h);
-                    break;
-            }
+        if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
+            glfwSetWindowShouldClose(window, GLFW_TRUE);
         }
+
+        int rightKey = glfwGetKey(window, GLFW_KEY_RIGHT);
+        if (rightKey == GLFW_PRESS && prevRightKey == GLFW_RELEASE) {
+            activeIdx = (activeIdx + 1) % presets.size();
+            bridge.swapSpec(presets[activeIdx].spec);
+            bindSSBO(0, bridge.getPeakRMSGPUSizeInBytes(), ssbos[0]);
+            bindSSBO(1, bridge.getFFTGPUSizeInBytes(),     ssbos[1]);
+            bindSSBO(2, bridge.getPeakRMSGPUSizeInBytes(), ssbos[2]);
+            bindSSBO(3, bridge.getFFTGPUSizeInBytes(),     ssbos[3]);
+            glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+        }
+        prevRightKey = rightKey;
+
+        int newW, newH;
+        glfwGetFramebufferSize(window, &newW, &newH);
+        if (newW != w || newH != h) {
+            w = newW;
+            h = newH;
+            glViewport(0, 0, w, h);
+            bridge.resize(w, h);
+        }
+
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
@@ -166,27 +172,29 @@ int main() {
         if (presets[activeIdx].spec.getsFFTHolds) {
             dynBind(fftSize, ssbos[3], bridge.getFFTHoldPtr());
         }
-
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+
         presets[activeIdx].shader.use();
-        float t = SDL_GetTicks() / 1000.0f;
+        float t = (float)glfwGetTime();
         glUniform1f(presets[activeIdx].shader.uniforms["time"], t);
-        glUniform1i(presets[activeIdx].shader.uniforms["numBins"], 
+        glUniform1i(presets[activeIdx].shader.uniforms["numBins"],
                     bridge.getFFTGPUSize());
-        glUniform1i(presets[activeIdx].shader.uniforms["numChannels"], 
+        glUniform1i(presets[activeIdx].shader.uniforms["numChannels"],
                     audio.getNumChannels());
         glUniform1f(presets[activeIdx].shader.uniforms["H"], h);
         glUniform1f(presets[activeIdx].shader.uniforms["W"], w);
         glDrawArrays(GL_TRIANGLES, 0, 3);
         //this blocks until next vblank and makes the loop fire once per device frame
-        SDL_GL_SwapWindow(window);
+        glfwSwapBuffers(window);
     }
     glDeleteBuffers(4, ssbos);
     glDeleteVertexArrays(1, &vao);
-    SDL_GL_DestroyContext(glContext);
-    SDL_DestroyWindow(window);
-    SDL_Quit();
+    glfwDestroyWindow(window);
+    glfwTerminate();
 
+    std::cout.rdbuf(origCout);
+    std::cerr.rdbuf(origCerr);
+    logFile.close();
     return 0;
 }
 

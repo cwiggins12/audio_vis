@@ -38,7 +38,7 @@ inline std::vector<ShaderPreset> loadPresets(const std::string& shadersDir) {
         if (!entry.is_directory()) continue;
 
         auto fragPath = entry.path() / "frag.glsl";
-        auto specPath = entry.path() / "spec.txt";
+        auto specPath = entry.path() / "spec.cfg";
 
         if (!std::filesystem::exists(fragPath)) {
             std::cerr << "loadPresets: skipping " << entry.path().filename()

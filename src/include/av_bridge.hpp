@@ -235,6 +235,7 @@ private:
             if (!swapIndexFound && freq > swapFreq) {
                 swapIndex = i;
                 swapIndexFound = true;
+                std::cout << "Swap Index: " << swapIndex << std::endl;
             }
             float binIndexFloat = freq * scale;
 

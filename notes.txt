@@ -1,14 +1,13 @@
-9. hot reloading
-10. send all cerr reporting to a log.txt file
-11. how can order be decided in the shaders clearly for users? alphabetic?
-12. what should be done to have lower cost dynamic binding?
-13. how can custom uniforms/uniform arrays be handled?
-14. Figure out full screen mode with SDL
-15. handle height & width case in AudioSpec more robustly, have a percentage specific height and/or width case
-16. maybe instead of listing flags for sizing, have a uint state?
-17. look into making the h/w pixel conventions forced through injection
-18. look into bit-mapped font, possibly to be injected
-19. Swap out SDL3 to GLFW
+hot reloading
+how can order be decided in the shaders clearly for users? alphabetic?
+what should be done to have lower cost dynamic binding?
+how can custom uniforms/uniform arrays be handled?
+Figure out full screen mode with SDL
+handle height & width case in AudioSpec more robustly, have a percentage specific height and/or width case
+maybe instead of listing flags for sizing, have a uint state?
+look into making the h/w pixel conventions forced through injection
+look into bit-mapped font, possibly to be injected
+look into different interpolation strategies for the low end. This cubic interp is not it.
 
 NEXT PHASE:
 Make fun, abstract test shaders
@@ -54,3 +53,8 @@ DONE
 DONE
 8. setup cmake to update build after each shader is updated. Need hot reloading next to not need to reconfigure the build every time a new shader is added.
 DONE
+9. Migration from SDL3 to glfw to make glad easier to deal with and remove the bloat from the binaries that will be made when I statically link the dependencies.
+DONE
+10. send all cerr and cout reporting to a log.txt file that is truncated each run.
+DONE
+11. 

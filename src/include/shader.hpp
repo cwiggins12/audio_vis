@@ -1,6 +1,6 @@
 #pragma once
 
-#include <glad/gles2.h>
+#include <glad/glad.h>
 #include <iostream>
 #include <unordered_map>
 
@@ -108,5 +108,4 @@ private:
         return shader;
     }
 };
-
 

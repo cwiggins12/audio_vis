@@ -2,7 +2,7 @@
 
 #include "ring_buffer.hpp"
 #include <cstring>
-#include <cstdio>
+#include <iostream>
 
 class AudioCapture {
 public:
@@ -41,7 +41,7 @@ public:
 
 		for (ma_uint32 i = 0; i < captureCount; i++) {
 			char* name = captureInfos[i].name;
-			printf("Capture Device: %s \n", name);
+			std::cout << "Capture Device: " << name << std::endl;
 			
 			//search name for monitor, necessary if on linux devices. 
 			//Windows devices have this as a property to check
@@ -60,10 +60,10 @@ public:
 
 		if (foundMonitor) {
 			config.capture.pDeviceID = &selectedId;
-			printf("Using monitor device \n");
+			std::cout << "Using monitor device" << std::endl;
 		}
 		else {
-			printf("No monitor found \n");
+			std::cout << "No monitor found" << std::endl;
 			return false;
 		}
 
@@ -102,7 +102,7 @@ public:
 
 	void setReadIndexForwardByFrames(uint32_t i, uint32_t passedWrite = 0) {
 		if (!buffer.setReadIndexForwardByFrames(i, passedWrite)) {
-			printf("setReadIndexForwardByFrames(): given i outside possible range\n");
+			std::cerr << "setReadIndexForwardByFrames(): given index outside possible range. Given value was: " << i << std::endl;
 			return;
 		}
 	}
