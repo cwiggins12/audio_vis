@@ -28,7 +28,12 @@ struct SSBO {
         return *this;
     }
 
+    ~SSBO() {
+        free();
+    }
+
     void alloc(size_t bytes) {
+        if (bytes == 0) return;
         size = bytes;
         glGenBuffers(1, &id);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, id);
@@ -37,8 +42,9 @@ struct SSBO {
         ptr = (float*)glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, bytes,
             GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT_EXT | GL_MAP_COHERENT_BIT_EXT);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
-        if (!ptr)
+        if (!ptr) {
             std::cerr << "SSBO: glMapBufferRange returned nullptr\n";
+        }
     }
 
     void bind(int slot) {
@@ -46,8 +52,9 @@ struct SSBO {
     }
 
     void write(const float* src, size_t bytes) {
-        if (ptr && src && bytes <= size)
+        if (ptr && src && bytes <= size) {
             std::memcpy(ptr, src, bytes);
+        }
     }
 
     void free() {
@@ -64,11 +71,17 @@ struct SSBO {
     }
 
     void resize(size_t bytes) {
+        if (bytes == 0) return;
         free();
         alloc(bytes);
     }
 
-    ~SSBO() {
-        free();
+    void fill(float value) {
+        if (ptr && size > 0) {
+            size_t count = size / sizeof(float);
+            for (size_t i = 0; i < count; i++) {
+                ptr[i] = value;
+            }
+        }
     }
 };

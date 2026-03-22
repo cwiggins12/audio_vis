@@ -1,9 +1,3 @@
-1. shuffle button(when pressed, random next shader)
-2. add left key to go back to prior shader
-3. Figure out full screen mode with glfw(start in full, resizeable window. Allow non-windowed 4. fullscreen on and off with a button press)
-5. set up some possible feedback ssbos for the user to do what they would want with them
-6. preset name display on window (glfwSetWindowTitle can do this on each swap)
-7. make the h/w pixel conventions forced through injection
 8. injected bit-mapped font
 9. hot reloading
 10. error display on errored hot reloaded shader(need bit-mapped font)
@@ -11,16 +5,19 @@
 12. look into different interpolation strategies for the low end. This cubic interp is rough
 
 NEXT PHASE:
-Make fun, abstract test shaders
+Make a few fun, abstract test shaders
+Make sure shaders exist to test feedback buffer, hw/px/uv, bit-map font, and texture
 try and pull off mel-spectrograms as well
 handle height & width case in AudioSpec more robustly
 have a percentage specific height and/or width case
 maybe instead of listing flags for sizing, have a uint state?
 finalize spec and injection after findings from the above shaders
 when spec is finalized, finish specAssert logic in shader_loader.hpp
+shuffle button(when pressed, random next shader)
 timed shuffle mode(pressing a button opens a dialog box, user enters a time?)
 
 FINAL PHASE:
+look into a wayland fullscreen and window pos workaround
 need Mesa's V3DV driver for this to work on a pi
 trim all but what is used from miniaudio.h at the very end of development
 need hella more documentation
@@ -30,8 +27,9 @@ test memory use: when program is running, in another console enter:
 cat /proc/$(pgrep audio_vis)/smaps_rollup
 
 Possible future work:
+std_truetype integration for user defined fonts
 everything working on a windows build(capture will require the largest changes)
-look into setting up flags for the device(audio & video) listing functions
+utilities for device(audio & video) listing functions
 allow for user to define audio device and video device some way, maybe a .ini or menu
 Allow export of current setup in standalone to VST3, with midi that can drive shader changes
 when you port to VST3: no JUCE, straight up steinbergSDK use. 
@@ -67,3 +65,13 @@ DONE
 DONE
 12. full dynamic ssbo rework to a custom ssbo that is persistent, turning each frame's passes of data to the gpu into a couple of getters and a memcpy.
 DONE
+13. add left key to go back to prior shader
+DONE
+14. preset name display on window (glfwSetWindowTitle can do this on each swap)
+DONE
+15. Figure out full screen mode with glfw(start in device-sized, resizeable window. Allow non-windowed fullscreen on and off with a button press)
+TESTS PLANNED IN PHASE 2
+16. set up a feedback ssbo for the user to do what they would want with them
+TESTS PLANNED IN PHASE 2
+17. make the h/w pixel conventions forced through injection. Leave uv available for those that want it
+TESTS PLANNED IN PHASE 2

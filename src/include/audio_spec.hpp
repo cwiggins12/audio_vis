@@ -63,5 +63,13 @@ struct AudioSpec {
     bool isPeakRMSdB = true;
     bool getsPeakRMSHolds = true;
     bool isPeakRMSMono = false;
+
+    //if you want a buffer to cycle for feedback loops in your shader,
+    //define its size here. This will result in 2 ssbos of the specified size
+    //due to needing to double buffer for an in and out buffer.
+    //shader will read from feedbackIn and write to feedbackOut each frame
+    uint32_t feedbackBufferSize = 0;
+    //if you want an initial value to the buffer elements. Set it here.
+    float feedbackBufferInitValue = 0.0f;
 };
 

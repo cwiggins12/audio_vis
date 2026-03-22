@@ -147,6 +147,12 @@ inline bool parseSpec(const std::string& path, AudioSpec& out) {
                 return false;
             }
         }
+        else if (key == "feedbackBufferSize") {
+            out.feedbackBufferSize = std::stoul(val);
+        }
+        else if (key == "feedbackBufferInitValue") {
+            out.feedbackBufferInitValue = std::stof(val);
+        }
         else {
             std::cerr << "parseSpec: line " << lineNum
                       << ": unknown key \"" << key << "\"\n";

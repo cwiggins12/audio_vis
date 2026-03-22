@@ -2,7 +2,6 @@
 
 #include <glad/glad.h>
 #include <iostream>
-#include <unordered_map>
 
 inline const char* vertexSrc = R"(#version 310 es
 precision highp float;
@@ -46,6 +45,15 @@ layout(std430, binding = 2) readonly buffer PRHolds {
 layout(std430, binding = 3) readonly buffer FFTHolds {
     float fftHolds[];
 };
+layout(std430, binding = 4) readonly buffer FeedbackRead {
+    float feedbackIn[];
+};
+layout(std430, binding = 5) writeonly buffer FeedbackWrite {
+    float feedbackOut[];
+};
+
+vec2 toPx()     { return vec2(uv.x * W, uv.y * H); }
+vec2 toCenter() { return vec2((uv.x - 0.5) * W, (uv.y - 0.5) * H); }
 )";
 
 class Shader {

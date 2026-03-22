@@ -15,6 +15,44 @@ std::string getAssetPath(const std::string& relative) {
     return (binDir / relative).string();
 }
 
+void setTitleBarForPreset(GLFWwindow* window, int i, std::string& s) {
+    std::string newTitle = "audio_vis - Preset " + std::to_string(i) + ": " + s;
+    glfwSetWindowTitle(window, newTitle.c_str());
+}
+
+//h8 this, but there is no current glfw ops to get the monitor the window is most on
+//almost certain this among other related things will break on Wayland,
+//since it, to my knowledge, doesn't expose window positioning
+GLFWmonitor* getCurrentMonitor(GLFWwindow* window) {
+    int wx, wy, ww, wh;
+    glfwGetWindowPos(window, &wx, &wy);
+    glfwGetWindowSize(window, &ww, &wh);
+
+    int monitorCount;
+    GLFWmonitor** monitors = glfwGetMonitors(&monitorCount);
+
+    GLFWmonitor* best = glfwGetPrimaryMonitor();
+    int bestOverlap = 0;
+
+    for (int i = 0; i < monitorCount; i++) {
+        int mx, my;
+        glfwGetMonitorPos(monitors[i], &mx, &my);
+        const GLFWvidmode* vm = glfwGetVideoMode(monitors[i]);
+
+        int overlapX = std::max(0,
+                                std::min(wx + ww, mx + vm->width)  - std::max(wx, mx));
+        int overlapY = std::max(0,
+                                std::min(wy + wh, my + vm->height) - std::max(wy, my));
+        int overlap  = overlapX * overlapY;
+
+        if (overlap > bestOverlap) {
+            bestOverlap = overlap;
+            best = monitors[i];
+        }
+    }
+    return best;
+}
+
 int main() {
     std::streambuf* origCout = std::cout.rdbuf();
     std::streambuf* origCerr = std::cerr.rdbuf();
@@ -36,13 +74,29 @@ int main() {
         return -1;
     }
 
+    int displayHz = 60;
+    GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+    const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+    if (!mode) {
+        std::cerr << "Unable to get glfw vidmode\n";
+        glfwTerminate();
+        return -1;
+    }
+    displayHz = mode->refreshRate;
+
     glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
     glfwWindowHint(GLFW_DOUBLEBUFFER, GLFW_TRUE);
     glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
+    glfwWindowHint(GLFW_RED_BITS, mode->redBits);
+    glfwWindowHint(GLFW_GREEN_BITS, mode->greenBits);
+    glfwWindowHint(GLFW_BLUE_BITS, mode->blueBits);
+    glfwWindowHint(GLFW_REFRESH_RATE, displayHz);
+    glfwWindowHint(GLFW_MAXIMIZED, GLFW_TRUE);
 
-    GLFWwindow* window = glfwCreateWindow(1280, 720, "audio_vis", nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(mode->width, mode->height, "audio_vis", 
+                                          nullptr, nullptr);
     if (!window) {
         std::cerr << "glfwCreateWindow failed\n";
         glfwTerminate();
@@ -67,11 +121,6 @@ int main() {
     std::cout << "GL Version: " << glGetString(GL_VERSION) << "\n";
     std::cout << "GLSL Version: " << glGetString(GL_SHADING_LANGUAGE_VERSION) << "\n";
 
-    int displayHz = 60;
-    GLFWmonitor* monitor = glfwGetPrimaryMonitor();
-    const GLFWvidmode* mode = glfwGetVideoMode(monitor);
-    if (mode) displayHz = mode->refreshRate;
-
     std::vector<ShaderPreset> presets = loadPresets(getAssetPath("shaders/"));
     if (presets.empty()) {
         std::cerr << "No valid presets found\n";
@@ -81,6 +130,7 @@ int main() {
     }
     int activeIdx = 0;
 
+    //set up a displayhz switch to ensure these are good choices based on that
     const int fft_order = 13;
     const int hopAmt = 4;
 
@@ -98,14 +148,34 @@ int main() {
     glGenVertexArrays(1, &vao);
     glBindVertexArray(vao);
 
-    SSBO ssbos[4];
-    ssbos[0].alloc(bridge.getPeakRMSGPUSizeInBytes());      ssbos[0].bind(0);
-    ssbos[1].alloc(bridge.getFFTGPUSizeInBytes());          ssbos[1].bind(1);
-    ssbos[2].alloc(bridge.getPeakRMSGPUSizeInBytes());      ssbos[2].bind(2);
-    ssbos[3].alloc(bridge.getFFTGPUSizeInBytes());          ssbos[3].bind(3);
+    SSBO ssbos[6];
+    ssbos[0].alloc(bridge.getPeakRMSGPUSizeInBytes());
+    ssbos[0].bind(0);
+    ssbos[1].alloc(bridge.getFFTGPUSizeInBytes());
+    ssbos[1].bind(1);
+    ssbos[2].alloc(bridge.getPeakRMSGPUSizeInBytes());
+    ssbos[2].bind(2);
+    ssbos[3].alloc(bridge.getFFTGPUSizeInBytes());
+    ssbos[3].bind(3);
+    size_t fbSize = presets[0].spec.feedbackBufferSize * sizeof(float);
+    float fbInitVal = presets[0].spec.feedbackBufferInitValue;
+    ssbos[4].alloc(fbSize);
+    ssbos[4].fill(fbInitVal);
+    ssbos[4].bind(4);
+    ssbos[5].alloc(fbSize);
+    ssbos[5].fill(fbInitVal);
+    ssbos[5].bind(5);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
+    int windowedX = 0, windowedY = 0, windowedW = w, windowedH = h;
+    glfwGetWindowPos(window, &windowedX, &windowedY);
+
     int prevRightKey = GLFW_RELEASE;
+    int prevLeftKey = GLFW_RELEASE;
+    int prevFSKey = GLFW_RELEASE;
+    bool isFullscreen = false;
+    bool feedbackFlip = false;
+
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
 
@@ -117,13 +187,70 @@ int main() {
         if (rightKey == GLFW_PRESS && prevRightKey == GLFW_RELEASE) {
             activeIdx = (activeIdx + 1) % presets.size();
             bridge.swapSpec(presets[activeIdx].spec);
-            ssbos[0].resize(bridge.getPeakRMSGPUSizeInBytes());     ssbos[0].bind(0);
-            ssbos[1].resize(bridge.getFFTGPUSizeInBytes());         ssbos[1].bind(1);
-            ssbos[2].resize(bridge.getPeakRMSGPUSizeInBytes());     ssbos[2].bind(2);
-            ssbos[3].resize(bridge.getFFTGPUSizeInBytes());         ssbos[3].bind(3);
+            ssbos[0].resize(bridge.getPeakRMSGPUSizeInBytes());
+            ssbos[0].bind(0);
+            ssbos[1].resize(bridge.getFFTGPUSizeInBytes());
+            ssbos[1].bind(1);
+            ssbos[2].resize(bridge.getPeakRMSGPUSizeInBytes());
+            ssbos[2].bind(2);
+            ssbos[3].resize(bridge.getFFTGPUSizeInBytes());
+            ssbos[3].bind(3);
+            size_t fbSize = presets[activeIdx].spec.feedbackBufferSize * sizeof(float);
+            float fbInitVal = presets[activeIdx].spec.feedbackBufferInitValue;
+            ssbos[4].resize(fbSize);
+            ssbos[4].fill(fbInitVal);
+            ssbos[4].bind(4);
+            ssbos[5].resize(fbSize);
+            ssbos[5].fill(fbInitVal);
+            ssbos[5].bind(5);
+            setTitleBarForPreset(window, activeIdx, presets[activeIdx].name);
             glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
         }
         prevRightKey = rightKey;
+
+        int leftKey = glfwGetKey(window, GLFW_KEY_LEFT);
+        if (leftKey == GLFW_PRESS && prevLeftKey == GLFW_RELEASE) {
+            activeIdx = ((activeIdx - 1) + (int)presets.size()) % (int)presets.size();
+            bridge.swapSpec(presets[activeIdx].spec);
+            ssbos[0].resize(bridge.getPeakRMSGPUSizeInBytes());
+            ssbos[0].bind(0);
+            ssbos[1].resize(bridge.getFFTGPUSizeInBytes());
+            ssbos[1].bind(1);
+            ssbos[2].resize(bridge.getPeakRMSGPUSizeInBytes());
+            ssbos[2].bind(2);
+            ssbos[3].resize(bridge.getFFTGPUSizeInBytes());
+            ssbos[3].bind(3);
+            size_t fbSize = presets[activeIdx].spec.feedbackBufferSize * sizeof(float);
+            float fbInitVal = presets[activeIdx].spec.feedbackBufferInitValue;
+            ssbos[4].resize(fbSize);
+            ssbos[4].fill(fbInitVal);
+            ssbos[4].bind(4);
+            ssbos[5].resize(fbSize);
+            ssbos[5].fill(fbInitVal);
+            ssbos[5].bind(5);
+            setTitleBarForPreset(window, activeIdx, presets[activeIdx].name);
+            glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+        }
+        prevLeftKey = leftKey;
+
+        int fsKey = glfwGetKey(window, GLFW_KEY_F);
+        if (fsKey == GLFW_PRESS && prevFSKey == GLFW_RELEASE) {
+            if (!isFullscreen) {
+                glfwGetWindowPos(window, &windowedX, &windowedY);
+                glfwGetWindowSize(window, &windowedW, &windowedH);
+                //hacky way to get monitor with most overlap. Needs more testing
+                GLFWmonitor* mon = getCurrentMonitor(window);
+                const GLFWvidmode* vm = glfwGetVideoMode(mon);
+                glfwSetWindowMonitor(window, mon, 0, 0,
+                                     vm->width, vm->height, vm->refreshRate);
+            }
+            else {
+                glfwSetWindowMonitor(window, nullptr, windowedX, windowedY, 
+                                     windowedW, windowedH, 0);
+            }
+            isFullscreen = !isFullscreen;
+        }
+        prevFSKey = fsKey;
 
         int newW, newH;
         glfwGetFramebufferSize(window, &newW, &newH);
@@ -145,13 +272,13 @@ int main() {
 
         size_t prSize  = bridge.getPeakRMSGPUSizeInBytes();
         size_t fftSize = bridge.getFFTGPUSizeInBytes();
-        ssbos[0].write(bridge.getPeakRMSPtr(),  prSize);
-        ssbos[1].write(bridge.getFFTPtr(),      fftSize);
+        ssbos[0].write(bridge.getPeakRMSPtr(), prSize);
+        ssbos[1].write(bridge.getFFTPtr(), fftSize);
         if (presets[activeIdx].spec.getsPeakRMSHolds) {
             ssbos[2].write(bridge.getPeakRMSHoldPtr(), prSize);
         }
         if (presets[activeIdx].spec.getsFFTHolds) {
-            ssbos[3].write(bridge.getFFTHoldPtr(),     fftSize);
+            ssbos[3].write(bridge.getFFTHoldPtr(), fftSize);
         }
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
@@ -163,6 +290,9 @@ int main() {
         glUniform1f(presets[activeIdx].uniforms.H, (float)h);
         glUniform1f(presets[activeIdx].uniforms.W, (float)w);
         glDrawArrays(GL_TRIANGLES, 0, 3);
+        feedbackFlip = !feedbackFlip;
+        ssbos[4].bind(feedbackFlip ? 4 : 5);
+        ssbos[5].bind(feedbackFlip ? 5 : 4);
 
         glfwSwapBuffers(window);
     }
