@@ -54,8 +54,9 @@ void main() {
     float meas_y0  = sp;
     float meas_y1  = sp + meas_h;
 
-    float px = uv.x * W;
-    float py = uv.y * H;
+    vec2 p = toPx();
+    float px = p.x;
+    float py = p.y;
     vec4 color = COL_BG;
 
     // FFT

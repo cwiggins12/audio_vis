@@ -1,12 +1,11 @@
-8. injected bit-mapped font
-9. hot reloading
-10. error display on errored hot reloaded shader(need bit-mapped font)
+10. error display on errored hot reloaded shader
 11. texture usage functionality (use stb_image, introspection, and make users label the textures to uniforms in spec)
 12. look into different interpolation strategies for the low end. This cubic interp is rough
 
 NEXT PHASE:
-Make a few fun, abstract test shaders
+Make a few fun, abstract test shaders to test new features and QOL
 Make sure shaders exist to test feedback buffer, hw/px/uv, bit-map font, and texture
+test multi monitor functionality
 try and pull off mel-spectrograms as well
 handle height & width case in AudioSpec more robustly
 have a percentage specific height and/or width case
@@ -27,15 +26,11 @@ test memory use: when program is running, in another console enter:
 cat /proc/$(pgrep audio_vis)/smaps_rollup
 
 Possible future work:
+put hot reload notifictations on a bg thread with inotify/ReadDirectoryChangesW wrapper
 std_truetype integration for user defined fonts
 everything working on a windows build(capture will require the largest changes)
-utilities for device(audio & video) listing functions
-allow for user to define audio device and video device some way, maybe a .ini or menu
-Allow export of current setup in standalone to VST3, with midi that can drive shader changes
-when you port to VST3: no JUCE, straight up steinbergSDK use. 
-config utility to let users choose audio and video device and set it in a config.ini
-user defined arrays in glsl for recursive buffers
-texture handling in glsl
+utilities for device(audio & video) listing/choosing
+Allow export of current setup in standalone to VST3, with midi that can drive shader changes. no JUCE, straight up steinbergSDK use.
 dmx output for dmx based video walls(WOULD BE NIGHTMARE TO FIND DEVICE, make it up to users, or DAWS in the case of a vst3?)
 Allow for user defined uniforms that could be adjusted by midi, key input, or ui
 pre-built widgets(meters, mel-bin, etc.)
@@ -69,9 +64,13 @@ DONE
 DONE
 14. preset name display on window (glfwSetWindowTitle can do this on each swap)
 DONE
-15. Figure out full screen mode with glfw(start in device-sized, resizeable window. Allow non-windowed fullscreen on and off with a button press)
+15. Figured out full screen mode with glfw(start in max-sized, resizeable window. Allow non-windowed fullscreen on and off with a button press)
 TESTS PLANNED IN PHASE 2
 16. set up a feedback ssbo for the user to do what they would want with them
 TESTS PLANNED IN PHASE 2
 17. make the h/w pixel conventions forced through injection. Leave uv available for those that want it
 TESTS PLANNED IN PHASE 2
+18. injected bit-mapped font and render text
+WILL BE TESTED IN NEXT TASK
+19. initial hot reloading iteration
+DONE, BUT NEEDS MORE TESTING

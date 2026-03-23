@@ -87,8 +87,16 @@ inline std::vector<ShaderPreset> loadPresets(const std::string& shadersDir) {
         p.uniforms.H = glGetUniformLocation(p.shader.id, "H");
         p.uniforms.numBins = glGetUniformLocation(p.shader.id, "numBins");
         p.uniforms.numChannels = glGetUniformLocation(p.shader.id, "numChannels");
-
+        p.uniforms.errorChars = glGetUniformLocation(p.shader.id, "errorChars");
+        p.uniforms.errorLen = glGetUniformLocation(p.shader.id, "errorLen");
+        p.uniforms.showError = glGetUniformLocation(p.shader.id, "showError");
         std::string loadedName = p.name;
+        p.fragPath = fragPath.string();
+        p.specPath = specPath.string();
+        p.lastFragWrite = std::filesystem::last_write_time(fragPath);
+        p.lastSpecWrite = std::filesystem::exists(specPath)
+                          ? std::filesystem::last_write_time(specPath)
+                          : std::filesystem::file_time_type{};
         presets.push_back(std::move(p));
         std::cout << "loadPresets: loaded " << loadedName << "\n";
     }
@@ -96,3 +104,43 @@ inline std::vector<ShaderPreset> loadPresets(const std::string& shadersDir) {
     return presets;
 }
 
+inline void reloadPreset(ShaderPreset& p) {
+    std::string fragSrc = loadFile(p.fragPath);
+    if (fragSrc.empty()) {
+        p.hasError     = true;
+        p.errorMessage = "failed to read frag.glsl";
+        return;
+    }
+
+    // re-parse spec if it exists
+    AudioSpec newSpec{};
+    if (!p.specPath.empty() && std::filesystem::exists(p.specPath)) {
+        if (!parseSpec(p.specPath, newSpec)) {
+            p.hasError     = true;
+            p.errorMessage = "spec parse failed";
+            return;
+        }
+    }
+
+    Shader newShader(vertexSrc, fragSrc.c_str());
+    if (!newShader.valid) {
+        p.hasError     = true;
+        p.errorMessage = "shader compile failed";
+        return;
+    }
+
+    // success — swap in new shader and spec
+    p.shader       = std::move(newShader);
+    p.spec         = newSpec;
+    p.hasError     = false;
+    p.errorMessage = "";
+
+    p.uniforms.time        = glGetUniformLocation(p.shader.id, "time");
+    p.uniforms.W           = glGetUniformLocation(p.shader.id, "W");
+    p.uniforms.H           = glGetUniformLocation(p.shader.id, "H");
+    p.uniforms.numBins     = glGetUniformLocation(p.shader.id, "numBins");
+    p.uniforms.numChannels = glGetUniformLocation(p.shader.id, "numChannels");
+    p.uniforms.errorChars  = glGetUniformLocation(p.shader.id, "errorChars");
+    p.uniforms.errorLen    = glGetUniformLocation(p.shader.id, "errorLen");
+    p.uniforms.showError   = glGetUniformLocation(p.shader.id, "showError");
+}

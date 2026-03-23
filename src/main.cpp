@@ -53,6 +53,30 @@ GLFWmonitor* getCurrentMonitor(GLFWwindow* window) {
     return best;
 }
 
+void uploadError(const ShaderPreset& p, const std::string& msg) {
+    int chars[128] = {};
+    int len = std::min((int)msg.size(), 128);
+    for (int i = 0; i < len; i++)
+        chars[i] = (int)msg[i];
+    glUniform1iv(p.uniforms.errorChars, 128, chars);
+    glUniform1i(p.uniforms.errorLen,   len);
+    glUniform1i(p.uniforms.showError,  1);
+}
+
+void doSwap(int activeIdx, std::vector<ShaderPreset>& presets,
+            AVBridge& bridge, SSBO* ssbos) {
+    bridge.swapSpec(presets[activeIdx].spec);
+    ssbos[0].resize(bridge.getPeakRMSGPUSizeInBytes()); ssbos[0].bind(0);
+    ssbos[1].resize(bridge.getFFTGPUSizeInBytes());     ssbos[1].bind(1);
+    ssbos[2].resize(bridge.getPeakRMSGPUSizeInBytes()); ssbos[2].bind(2);
+    ssbos[3].resize(bridge.getFFTGPUSizeInBytes());     ssbos[3].bind(3);
+    size_t fbSize = presets[activeIdx].spec.feedbackBufferSize * sizeof(float);
+    float fbInit = presets[activeIdx].spec.feedbackBufferInitValue;
+    ssbos[4].resize(fbSize);    ssbos[4].fill(fbInit);  ssbos[4].bind(4);
+    ssbos[5].resize(fbSize);    ssbos[5].fill(fbInit);  ssbos[5].bind(5);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+}
+
 int main() {
     std::streambuf* origCout = std::cout.rdbuf();
     std::streambuf* origCerr = std::cerr.rdbuf();
@@ -71,6 +95,10 @@ int main() {
 
     if (!glfwInit()) {
         std::cerr << "glfwInit failed\n";
+        std::cout.rdbuf(origCout);
+        std::cerr.rdbuf(origCerr);
+        logFile.close();
+
         return -1;
     }
 
@@ -80,6 +108,9 @@ int main() {
     if (!mode) {
         std::cerr << "Unable to get glfw vidmode\n";
         glfwTerminate();
+        std::cout.rdbuf(origCout);
+        std::cerr.rdbuf(origCerr);
+        logFile.close();
         return -1;
     }
     displayHz = mode->refreshRate;
@@ -100,6 +131,9 @@ int main() {
     if (!window) {
         std::cerr << "glfwCreateWindow failed\n";
         glfwTerminate();
+        std::cout.rdbuf(origCout);
+        std::cerr.rdbuf(origCerr);
+        logFile.close();
         return -1;
     }
 
@@ -108,14 +142,16 @@ int main() {
     if (!gladLoadGLES2Loader((GLADloadproc)glfwGetProcAddress)) {
         std::cerr << "Failed to initialize GLAD\n";
         glfwDestroyWindow(window);
-        glfwTerminate();
+        glfwTerminate(); 
+        std::cout.rdbuf(origCout);
+        std::cerr.rdbuf(origCerr);
+        logFile.close();
         return -1;
     }
 
     int w, h;
     glfwGetFramebufferSize(window, &w, &h);
     glViewport(0, 0, w, h);
-
     glfwSwapInterval(1);
 
     std::cout << "GL Version: " << glGetString(GL_VERSION) << "\n";
@@ -126,6 +162,9 @@ int main() {
         std::cerr << "No valid presets found\n";
         glfwDestroyWindow(window);
         glfwTerminate();
+        std::cout.rdbuf(origCout);
+        std::cerr.rdbuf(origCerr);
+        logFile.close();
         return -1;
     }
     int activeIdx = 0;
@@ -143,6 +182,7 @@ int main() {
         return -1;
     }
     bridge.init(displayHz, w, h);
+    setTitleBarForPreset(window, activeIdx, presets[activeIdx].name);
 
     GLuint vao;
     glGenVertexArrays(1, &vao);
@@ -186,23 +226,7 @@ int main() {
         int rightKey = glfwGetKey(window, GLFW_KEY_RIGHT);
         if (rightKey == GLFW_PRESS && prevRightKey == GLFW_RELEASE) {
             activeIdx = (activeIdx + 1) % presets.size();
-            bridge.swapSpec(presets[activeIdx].spec);
-            ssbos[0].resize(bridge.getPeakRMSGPUSizeInBytes());
-            ssbos[0].bind(0);
-            ssbos[1].resize(bridge.getFFTGPUSizeInBytes());
-            ssbos[1].bind(1);
-            ssbos[2].resize(bridge.getPeakRMSGPUSizeInBytes());
-            ssbos[2].bind(2);
-            ssbos[3].resize(bridge.getFFTGPUSizeInBytes());
-            ssbos[3].bind(3);
-            size_t fbSize = presets[activeIdx].spec.feedbackBufferSize * sizeof(float);
-            float fbInitVal = presets[activeIdx].spec.feedbackBufferInitValue;
-            ssbos[4].resize(fbSize);
-            ssbos[4].fill(fbInitVal);
-            ssbos[4].bind(4);
-            ssbos[5].resize(fbSize);
-            ssbos[5].fill(fbInitVal);
-            ssbos[5].bind(5);
+            doSwap(activeIdx, presets, bridge, ssbos);
             setTitleBarForPreset(window, activeIdx, presets[activeIdx].name);
             glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
         }
@@ -211,29 +235,13 @@ int main() {
         int leftKey = glfwGetKey(window, GLFW_KEY_LEFT);
         if (leftKey == GLFW_PRESS && prevLeftKey == GLFW_RELEASE) {
             activeIdx = ((activeIdx - 1) + (int)presets.size()) % (int)presets.size();
-            bridge.swapSpec(presets[activeIdx].spec);
-            ssbos[0].resize(bridge.getPeakRMSGPUSizeInBytes());
-            ssbos[0].bind(0);
-            ssbos[1].resize(bridge.getFFTGPUSizeInBytes());
-            ssbos[1].bind(1);
-            ssbos[2].resize(bridge.getPeakRMSGPUSizeInBytes());
-            ssbos[2].bind(2);
-            ssbos[3].resize(bridge.getFFTGPUSizeInBytes());
-            ssbos[3].bind(3);
-            size_t fbSize = presets[activeIdx].spec.feedbackBufferSize * sizeof(float);
-            float fbInitVal = presets[activeIdx].spec.feedbackBufferInitValue;
-            ssbos[4].resize(fbSize);
-            ssbos[4].fill(fbInitVal);
-            ssbos[4].bind(4);
-            ssbos[5].resize(fbSize);
-            ssbos[5].fill(fbInitVal);
-            ssbos[5].bind(5);
+            doSwap(activeIdx, presets, bridge, ssbos);
             setTitleBarForPreset(window, activeIdx, presets[activeIdx].name);
             glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
         }
         prevLeftKey = leftKey;
 
-        int fsKey = glfwGetKey(window, GLFW_KEY_F);
+        int fsKey = glfwGetKey(window, GLFW_KEY_UP);
         if (fsKey == GLFW_PRESS && prevFSKey == GLFW_RELEASE) {
             if (!isFullscreen) {
                 glfwGetWindowPos(window, &windowedX, &windowedY);
@@ -270,6 +278,22 @@ int main() {
         }
         bridge.nextFrame();
 
+        // hot reload
+        auto& active = presets[activeIdx];
+        auto fragTime = std::filesystem::last_write_time(active.fragPath);
+        std::filesystem::file_time_type specTime{};
+        if (!active.specPath.empty() && std::filesystem::exists(active.specPath))
+            specTime = std::filesystem::last_write_time(active.specPath);
+
+        if (fragTime != active.lastFragWrite || specTime != active.lastSpecWrite) {
+            active.lastFragWrite = fragTime;
+            active.lastSpecWrite = specTime;
+            std::cout << "hot reload: " << active.name << "\n";
+            reloadPreset(active);
+            if (!active.hasError)
+                doSwap(activeIdx, presets, bridge, ssbos);
+        }
+
         size_t prSize  = bridge.getPeakRMSGPUSizeInBytes();
         size_t fftSize = bridge.getFFTGPUSizeInBytes();
         ssbos[0].write(bridge.getPeakRMSPtr(), prSize);
@@ -289,6 +313,9 @@ int main() {
         glUniform1i(presets[activeIdx].uniforms.numChannels, audio.getNumChannels());
         glUniform1f(presets[activeIdx].uniforms.H, (float)h);
         glUniform1f(presets[activeIdx].uniforms.W, (float)w);
+
+        glUniform1i(presets[activeIdx].uniforms.showError, 0);
+        glUniform1i(presets[activeIdx].uniforms.errorLen, 0);
         glDrawArrays(GL_TRIANGLES, 0, 3);
         feedbackFlip = !feedbackFlip;
         ssbos[4].bind(feedbackFlip ? 4 : 5);
