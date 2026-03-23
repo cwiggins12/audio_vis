@@ -1,21 +1,19 @@
-10. error display on errored hot reloaded shader
 11. texture usage functionality (use stb_image, introspection, and make users label the textures to uniforms in spec)
 12. look into different interpolation strategies for the low end. This cubic interp is rough
 
 NEXT PHASE:
 Make a few fun, abstract test shaders to test new features and QOL
-Make sure shaders exist to test feedback buffer, hw/px/uv, bit-map font, and texture
-test multi monitor functionality
-try and pull off mel-spectrograms as well
+NEEDS TESTING: feedback buffer, hw/px/uv, bit-map font, textures, hot reload
+test multi monitor functionality :(
+do some mel-spectrograms
+shuffle button(when pressed, random next shader)
 handle height & width case in AudioSpec more robustly
 have a percentage specific height and/or width case
 maybe instead of listing flags for sizing, have a uint state?
-finalize spec and injection after findings from the above shaders
-when spec is finalized, finish specAssert logic in shader_loader.hpp
-shuffle button(when pressed, random next shader)
-timed shuffle mode(pressing a button opens a dialog box, user enters a time?)
+finalize spec and injection after findings from the above shaders and resize rework
+when spec is finalized, finish specAssert logic in shader_loader
 
-FINAL PHASE:
+FINAL PHASE TO 1.0.0:
 look into a wayland fullscreen and window pos workaround
 need Mesa's V3DV driver for this to work on a pi
 trim all but what is used from miniaudio.h at the very end of development
@@ -24,12 +22,14 @@ security check with all of these cstrings from glsl and file pathing
 refactor, profile, optimize, get it good as standalone for linux only (windows l8r)
 test memory use: when program is running, in another console enter:
 cat /proc/$(pgrep audio_vis)/smaps_rollup
+look into speed diffs between clang and gcc (reminder: stb_image will only use SIMD on GCC when using the -msse2 flag)
 
 Possible future work:
+timed shuffle mode(pressing a button opens a dialog box, user enters a time?)
 put hot reload notifictations on a bg thread with inotify/ReadDirectoryChangesW wrapper
 std_truetype integration for user defined fonts
-everything working on a windows build(capture will require the largest changes)
-utilities for device(audio & video) listing/choosing
+get a windows build(capture will require the largest changes)
+utilitie exes for device(audio & video) listing/choosing
 Allow export of current setup in standalone to VST3, with midi that can drive shader changes. no JUCE, straight up steinbergSDK use.
 dmx output for dmx based video walls(WOULD BE NIGHTMARE TO FIND DEVICE, make it up to users, or DAWS in the case of a vst3?)
 Allow for user defined uniforms that could be adjusted by midi, key input, or ui
@@ -65,12 +65,15 @@ DONE
 14. preset name display on window (glfwSetWindowTitle can do this on each swap)
 DONE
 15. Figured out full screen mode with glfw(start in max-sized, resizeable window. Allow non-windowed fullscreen on and off with a button press)
-TESTS PLANNED IN PHASE 2
+DONE
 16. set up a feedback ssbo for the user to do what they would want with them
-TESTS PLANNED IN PHASE 2
+DONE
 17. make the h/w pixel conventions forced through injection. Leave uv available for those that want it
-TESTS PLANNED IN PHASE 2
+DONE
 18. injected bit-mapped font and render text
-WILL BE TESTED IN NEXT TASK
+DONE
 19. initial hot reloading iteration
-DONE, BUT NEEDS MORE TESTING
+DONE
+20. error display for error on hot reloaded shader
+DONE
+21. 

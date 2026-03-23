@@ -2,6 +2,7 @@
 
 #include <cstdint>
 
+//now that this includes feedback ssbos, AudioSpec is no longer a great name. Change l8r
 struct AudioSpec {
     //for custom sized pixel aligned fftOutputs, if non-zero this will
     //give a log scaled bin output for frequency to align with pixels

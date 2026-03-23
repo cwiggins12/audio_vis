@@ -39,11 +39,9 @@ GLFWmonitor* getCurrentMonitor(GLFWwindow* window) {
         glfwGetMonitorPos(monitors[i], &mx, &my);
         const GLFWvidmode* vm = glfwGetVideoMode(monitors[i]);
 
-        int overlapX = std::max(0,
-                                std::min(wx + ww, mx + vm->width)  - std::max(wx, mx));
-        int overlapY = std::max(0,
-                                std::min(wy + wh, my + vm->height) - std::max(wy, my));
-        int overlap  = overlapX * overlapY;
+        int olX = std::max(0, std::min(wx + ww, mx + vm->width) - std::max(wx, mx));
+        int olY = std::max(0, std::min(wy + wh, my + vm->height) - std::max(wy, my));
+        int overlap  = olX * olY;
 
         if (overlap > bestOverlap) {
             bestOverlap = overlap;
@@ -58,9 +56,9 @@ void uploadError(const ShaderPreset& p, const std::string& msg) {
     int len = std::min((int)msg.size(), 128);
     for (int i = 0; i < len; i++)
         chars[i] = (int)msg[i];
-    glUniform1iv(p.uniforms.errorChars, 128, chars);
-    glUniform1i(p.uniforms.errorLen,   len);
-    glUniform1i(p.uniforms.showError,  1);
+    glUniform1iv(p.shader.uniforms.errorChars, 128, chars);
+    glUniform1i(p.shader.uniforms.errorLen,   len);
+    glUniform1i(p.shader.uniforms.showError,  1);
 }
 
 void doSwap(int activeIdx, std::vector<ShaderPreset>& presets,
@@ -126,7 +124,7 @@ int main() {
     glfwWindowHint(GLFW_REFRESH_RATE, displayHz);
     glfwWindowHint(GLFW_MAXIMIZED, GLFW_TRUE);
 
-    GLFWwindow* window = glfwCreateWindow(mode->width, mode->height, "audio_vis", 
+    GLFWwindow* window = glfwCreateWindow(mode->width, mode->height, "audio_vis",
                                           nullptr, nullptr);
     if (!window) {
         std::cerr << "glfwCreateWindow failed\n";
@@ -189,22 +187,14 @@ int main() {
     glBindVertexArray(vao);
 
     SSBO ssbos[6];
-    ssbos[0].alloc(bridge.getPeakRMSGPUSizeInBytes());
-    ssbos[0].bind(0);
-    ssbos[1].alloc(bridge.getFFTGPUSizeInBytes());
-    ssbos[1].bind(1);
-    ssbos[2].alloc(bridge.getPeakRMSGPUSizeInBytes());
-    ssbos[2].bind(2);
-    ssbos[3].alloc(bridge.getFFTGPUSizeInBytes());
-    ssbos[3].bind(3);
+    ssbos[0].alloc(bridge.getPeakRMSGPUSizeInBytes());          ssbos[0].bind(0);
+    ssbos[1].alloc(bridge.getFFTGPUSizeInBytes());              ssbos[1].bind(1);
+    ssbos[2].alloc(bridge.getPeakRMSGPUSizeInBytes());          ssbos[2].bind(2);
+    ssbos[3].alloc(bridge.getFFTGPUSizeInBytes());              ssbos[3].bind(3);
     size_t fbSize = presets[0].spec.feedbackBufferSize * sizeof(float);
     float fbInitVal = presets[0].spec.feedbackBufferInitValue;
-    ssbos[4].alloc(fbSize);
-    ssbos[4].fill(fbInitVal);
-    ssbos[4].bind(4);
-    ssbos[5].alloc(fbSize);
-    ssbos[5].fill(fbInitVal);
-    ssbos[5].bind(5);
+    ssbos[4].alloc(fbSize);     ssbos[4].fill(fbInitVal);       ssbos[4].bind(4);
+    ssbos[5].alloc(fbSize);     ssbos[5].fill(fbInitVal);       ssbos[5].bind(5);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
     int windowedX = 0, windowedY = 0, windowedW = w, windowedH = h;
@@ -306,16 +296,28 @@ int main() {
         }
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
-        presets[activeIdx].shader.use();
         float t = (float)glfwGetTime();
-        glUniform1f(presets[activeIdx].uniforms.time, t);
-        glUniform1i(presets[activeIdx].uniforms.numBins, bridge.getFFTGPUSize());
-        glUniform1i(presets[activeIdx].uniforms.numChannels, audio.getNumChannels());
-        glUniform1f(presets[activeIdx].uniforms.H, (float)h);
-        glUniform1f(presets[activeIdx].uniforms.W, (float)w);
+        size_t bins = bridge.getFFTGPUSize();
+        size_t channels = audio.getNumChannels();
 
-        glUniform1i(presets[activeIdx].uniforms.showError, 0);
-        glUniform1i(presets[activeIdx].uniforms.errorLen, 0);
+        if (presets[activeIdx].hasError) {
+            getErrorShader().use();
+            glUniform1f(getErrorShader().uniforms.time,        t);
+            glUniform1i(getErrorShader().uniforms.numBins,     bins);
+            glUniform1i(getErrorShader().uniforms.numChannels, channels);
+            glUniform1f(getErrorShader().uniforms.H,           (float)h);
+            glUniform1f(getErrorShader().uniforms.W,           (float)w);
+            uploadError(presets[activeIdx], presets[activeIdx].errorMessage);
+        } else {
+            presets[activeIdx].shader.use();
+            glUniform1f(presets[activeIdx].shader.uniforms.time,        t);
+            glUniform1i(presets[activeIdx].shader.uniforms.numBins,     bins);
+            glUniform1i(presets[activeIdx].shader.uniforms.numChannels, channels);
+            glUniform1f(presets[activeIdx].shader.uniforms.H,           (float)h);
+            glUniform1f(presets[activeIdx].shader.uniforms.W,           (float)w);
+            glUniform1i(presets[activeIdx].shader.uniforms.showError,   0);
+            glUniform1i(presets[activeIdx].shader.uniforms.errorLen,    0);
+        }
         glDrawArrays(GL_TRIANGLES, 0, 3);
         feedbackFlip = !feedbackFlip;
         ssbos[4].bind(feedbackFlip ? 4 : 5);

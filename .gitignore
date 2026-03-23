@@ -4,4 +4,6 @@
 sesh
 sesh1
 miniaudio.h
+stb_image.h
+stb_truetype.h
 compile_commands.json

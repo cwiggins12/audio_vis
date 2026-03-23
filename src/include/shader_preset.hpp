@@ -4,30 +4,38 @@
 #include "audio_spec.hpp"
 #include <string>
 #include <filesystem>
+#include <vector>
 
 using FileTime = std::filesystem::file_time_type;
 
-struct Uniforms {
-    GLint time = -1;
-    GLint W = -1;
-    GLint H = -1;
-    GLint numBins = -1;
-    GLint numChannels = -1;
-    GLint errorChars = -1;
-    GLint errorLen = -1;
-    GLint showError = -1;
+struct TextureSlot {
+    std::string uniformName = "";   //from frag.glsl
+    std::string filename = "";      //from spec.cfg
+    GLuint texId = 0;
+    int unit = 0;                   //GL texture unit index
 };
 
 struct ShaderPreset {
-    std::string name;
-    std::string fragPath;
-    std::string specPath;
+    std::string name = "";
+    //TODO: gonna wanna make this cheaper l8r
+    std::string fragPath = "";
+    std::string specPath = "";
+    std::string shaderDir = "";
     AudioSpec   spec;
     Shader      shader;
-    Uniforms    uniforms;
     FileTime    lastFragWrite;
     FileTime    lastSpecWrite;
     bool        hasError = false;
     std::string errorMessage = "";
+    std::vector<TextureSlot> textures;
+
+    void destroyTextures() {
+        for (auto& t : textures) {
+            if (t.texId) {
+                glDeleteTextures(1, &t.texId);
+            }
+            textures.clear();
+        }
+    }
 };
 
