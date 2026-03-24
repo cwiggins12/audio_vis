@@ -31,8 +31,8 @@ public:
         channels = capture.getNumChannels();
         sampleRate = capture.getSampleRate();
 
-        peak = std::make_unique<Peak[]>(channels);
-        rms = std::make_unique<RMS[]>(channels);
+        peak = std::make_unique<PeakMeter[]>(channels);
+        rms = std::make_unique<RMSMeter[]>(channels);
         fft = std::make_unique<FFT>(fftSize, spec.isPerceptual, spec.isHannWindowed, 
                                     spec.isFFTdB, true, spec.perceptualSlopeDegrees);
         fft->initFFT(sampleRate);
@@ -88,7 +88,7 @@ public:
 
         //set this way to account for arb sized array being more efficient to
         //just get db the convert after sizing
-        bool db = (spec.customLogSize != 0 && !spec.useAudibleSize) 
+        bool db = (spec.customSize != 0 && !spec.useAudibleSize) 
                    ? true : spec.isFFTdB;
         fft->swapSpec(spec.isPerceptual, spec.isHannWindowed, db,
                       spec.perceptualSlopeDegrees, sampleRate);
@@ -131,8 +131,8 @@ public:
 private:
     AudioCapture capture;
 
-    std::unique_ptr<RMS[]> rms;
-    std::unique_ptr<Peak[]> peak;
+    std::unique_ptr<RMSMeter[]> rms;
+    std::unique_ptr<PeakMeter[]> peak;
     std::unique_ptr<FFT> fft;
 
     const uint32_t fftOrder;

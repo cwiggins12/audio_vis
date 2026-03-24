@@ -4,7 +4,7 @@
 #include <cmath>
 
 //peak measurement per channel
-struct Peak {
+struct PeakMeter {
     float pop() {
         return value.exchange(0.0f);
     }
@@ -82,7 +82,7 @@ private:
 };
 
 //rms reading per channel
-struct RMS {
+struct RMSMeter {
     float pop() {
         return value.exchange(0.0f);
     }

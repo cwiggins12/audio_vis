@@ -280,8 +280,9 @@ int main() {
             active.lastSpecWrite = specTime;
             std::cout << "hot reload: " << active.name << "\n";
             reloadPreset(active);
-            if (!active.hasError)
+            if (!active.hasError) {
                 doSwap(activeIdx, presets, bridge, ssbos);
+            }
         }
 
         size_t prSize  = bridge.getPeakRMSGPUSizeInBytes();

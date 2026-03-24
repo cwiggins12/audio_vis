@@ -1,12 +1,7 @@
-14. allow user's to choose between the new high end and low end custom size options
-
-15. when hot reloading, ensure that spec changes are treated like a swap
-
-
 NEXT PHASE:
 Make a few fun, abstract test shaders to test new features and QOL
-NEEDS TESTING: feedback buffer, hw/px/uv, bit-map font, textures, hot reload, multi monitor functionality :(
-do some mel-spectrograms
+NEEDS TESTING: feedback buffer, hw/px/uv, bit-map font, textures, hot reload, multi monitor functionality, all the new low and high end modes, audible bins, full bins,
+mel-spectrogram shader
 shuffle button(when pressed, random next shader)
 handle height & width case in AudioSpec more robustly
 have a percentage specific height and/or width case
@@ -84,3 +79,4 @@ DONE
 23. look into different interpolation strategies for the low end. This cubic interp is rough
 TONS ADDED. SO MUCH TESTING NEEDED.
 24. allow user's to choose between the new high end and low end custom size options
+DONE

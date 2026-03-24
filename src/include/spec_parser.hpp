@@ -58,7 +58,13 @@ inline bool parseSpec(const std::string& path, AudioSpec& out) {
 
         //match every AudioSpec field
         if (key == "customLogSize") {
-            out.customLogSize = std::stoul(val);
+            out.customSize = std::stoul(val);
+        }
+        else if (key == "highMode") {
+            out.highMode = static_cast<HighMode>(stoi(val));
+        }
+        else if (key == "lowMode") {
+            out.lowMode = static_cast<LowMode>(stoi(val));
         }
         else if (key == "fftAtk") {
             out.fftAtk = std::stof(val);

@@ -4,6 +4,32 @@
 #include <map>
 #include <string>
 
+enum LowMode {
+    LINEAR,
+    PCHIP,
+    LANCZOS,
+    GAUSSIAN,
+    CUBIC_B,
+    MIN_MAX_ENV,
+    AKIMA,
+    LOG_PCHIP,
+    COSINE,
+    HERMITE,
+    EXPONENTIAL,
+    STEFFEN,
+    CATMULL_ROM_3,
+    CATMULL_ROM_5
+};
+
+enum HighMode {
+    RMS,
+    PEAK,
+    MEDIAN,
+    POWER_MEAN,
+    L_NORM,
+    TRIMMED_RMS
+};
+
 //now that this includes feedback ssbos, AudioSpec is no longer a great name. Change l8r
 struct AudioSpec {
     //for custom sized pixel aligned fftOutputs, if non-zero this will
@@ -12,7 +38,9 @@ struct AudioSpec {
     //until a dynamically found point shows that each pixel has at least 1 bin
     //from there it will rms each bin within a pixel's bounds.
     //If you don't want to deal with freq space, this entirely abstracts it away :)
-    uint32_t customLogSize = 1000;
+    uint32_t customSize = 1000;
+    HighMode highMode = RMS;
+    LowMode lowMode = LOG_PCHIP;
     //if useFFTSmoothing == true, these will decide the attack and release values 
     //for asymmetrical smoothing. The values are in seconds and will be dropped to
     //the last frame shown before this time
