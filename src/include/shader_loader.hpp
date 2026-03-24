@@ -2,6 +2,7 @@
 
 #include "shader_preset.hpp"
 #include "spec_parser.hpp"
+#include "texture_loader.hpp"
 #include <algorithm> //just using this for sort
 
 inline std::string loadFile(const std::string& path) {
@@ -98,12 +99,14 @@ inline std::vector<ShaderPreset> loadPresets(const std::string& shadersDir) {
         }
 
         std::string loadedName = p.name;
+        p.shaderDir = entry.path().string();
         p.fragPath = fragPath.string();
         p.specPath = specPath.string();
         p.lastFragWrite = std::filesystem::last_write_time(fragPath);
         p.lastSpecWrite = std::filesystem::exists(specPath)
                           ? std::filesystem::last_write_time(specPath)
                           : std::filesystem::file_time_type{};
+        buildTextures(p);
         presets.push_back(std::move(p));
         std::cout << "loadPresets: loaded " << loadedName << "\n";
     }
@@ -141,5 +144,6 @@ inline void reloadPreset(ShaderPreset& p) {
     p.spec         = newSpec;
     p.hasError     = false;
     p.errorMessage = "";
+    buildTextures(p);
 }
 

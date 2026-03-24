@@ -88,7 +88,7 @@ public:
 
         //set this way to account for arb sized array being more efficient to
         //just get db the convert after sizing
-        bool db = (spec.customLinearSize != 0 && !spec.useAudibleSize) 
+        bool db = (spec.customLogSize != 0 && !spec.useAudibleSize) 
                    ? true : spec.isFFTdB;
         fft->swapSpec(spec.isPerceptual, spec.isHannWindowed, db,
                       spec.perceptualSlopeDegrees, sampleRate);

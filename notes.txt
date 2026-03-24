@@ -1,10 +1,11 @@
-11. texture usage functionality (use stb_image, introspection, and make users label the textures to uniforms in spec)
-12. look into different interpolation strategies for the low end. This cubic interp is rough
+14. allow user's to choose between the new high end and low end custom size options
+
+15. when hot reloading, ensure that spec changes are treated like a swap
+
 
 NEXT PHASE:
 Make a few fun, abstract test shaders to test new features and QOL
-NEEDS TESTING: feedback buffer, hw/px/uv, bit-map font, textures, hot reload
-test multi monitor functionality :(
+NEEDS TESTING: feedback buffer, hw/px/uv, bit-map font, textures, hot reload, multi monitor functionality :(
 do some mel-spectrograms
 shuffle button(when pressed, random next shader)
 handle height & width case in AudioSpec more robustly
@@ -28,10 +29,10 @@ Possible future work:
 timed shuffle mode(pressing a button opens a dialog box, user enters a time?)
 put hot reload notifictations on a bg thread with inotify/ReadDirectoryChangesW wrapper
 std_truetype integration for user defined fonts
-get a windows build(capture will require the largest changes)
-utilitie exes for device(audio & video) listing/choosing
+a windows build(capture will require the largest changes)
+utility exes for device(audio & video) listing/choosing
 Allow export of current setup in standalone to VST3, with midi that can drive shader changes. no JUCE, straight up steinbergSDK use.
-dmx output for dmx based video walls(WOULD BE NIGHTMARE TO FIND DEVICE, make it up to users, or DAWS in the case of a vst3?)
+dmx output for dmx based video walls(WOULD BE NIGHTMARE TO FIND DEVICE, make it up to users or DAWS in the case of a vst3?)
 Allow for user defined uniforms that could be adjusted by midi, key input, or ui
 pre-built widgets(meters, mel-bin, etc.)
 
@@ -76,4 +77,10 @@ DONE
 DONE
 20. error display for error on hot reloaded shader
 DONE
-21. 
+21. texture usage functionality(stb_image)
+DONE
+22. get a peak instead of rms on high end in custom log size mode, and allow user to choose
+DONE
+23. look into different interpolation strategies for the low end. This cubic interp is rough
+TONS ADDED. SO MUCH TESTING NEEDED.
+24. allow user's to choose between the new high end and low end custom size options

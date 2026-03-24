@@ -2,6 +2,8 @@
 
 #include <glad/glad.h>
 #include <iostream>
+#include <unordered_map>
+#include <vector>
 #include "fragment_header.hpp"
 
 struct BaseUniforms {
@@ -23,6 +25,7 @@ public:
     bool            valid    = false;
     std::string     errorLog = "";
     BaseUniforms    uniforms;
+    std::unordered_map<std::string, GLint> samplerLocations;
 
     Shader() = default;
 
@@ -61,6 +64,13 @@ public:
 
         glDeleteShader(vert);
         glDeleteShader(frag);
+    }
+
+    void resolveSamplerLocations(const std::vector<std::string>& names) {
+        samplerLocations.clear();
+        for (auto& name : names) {
+            samplerLocations[name] = glGetUniformLocation(id, name.c_str());
+        }
     }
 
     void use() { glUseProgram(id); }

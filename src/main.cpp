@@ -317,11 +317,14 @@ int main() {
             glUniform1f(presets[activeIdx].shader.uniforms.W,           (float)w);
             glUniform1i(presets[activeIdx].shader.uniforms.showError,   0);
             glUniform1i(presets[activeIdx].shader.uniforms.errorLen,    0);
+            bindTextures(presets[activeIdx]);
         }
         glDrawArrays(GL_TRIANGLES, 0, 3);
         feedbackFlip = !feedbackFlip;
         ssbos[4].bind(feedbackFlip ? 4 : 5);
         ssbos[5].bind(feedbackFlip ? 5 : 4);
+        //not sure if necessary
+        unbindTextures(presets[activeIdx]);
 
         glfwSwapBuffers(window);
     }

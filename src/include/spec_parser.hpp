@@ -57,8 +57,8 @@ inline bool parseSpec(const std::string& path, AudioSpec& out) {
         };
 
         //match every AudioSpec field
-        if (key == "customLinearSize") {
-            out.customLinearSize = std::stoul(val);
+        if (key == "customLogSize") {
+            out.customLogSize = std::stoul(val);
         }
         else if (key == "fftAtk") {
             out.fftAtk = std::stof(val);
@@ -99,6 +99,11 @@ inline bool parseSpec(const std::string& path, AudioSpec& out) {
         }
         else if (key == "useFFTSmoothing") {
             if (!parseBool(out.useFFTSmoothing)) {
+                return false;
+            }
+        }
+        else if (key == "isHighEndRMS") {
+            if (!parseBool(out.isHighEndRMS)) {
                 return false;
             }
         }
@@ -152,6 +157,15 @@ inline bool parseSpec(const std::string& path, AudioSpec& out) {
         }
         else if (key == "feedbackBufferInitValue") {
             out.feedbackBufferInitValue = std::stof(val);
+        }
+        else if (key.rfind("texture.",0) == 0) {
+            std::string uniformName = trimStr(key.substr(8));
+            if (uniformName.empty()) {
+                std::cerr << "parseSpec: line " << lineNum 
+                          << ": empty texture uniform name\n";
+                return false;
+            }
+            out.textures[uniformName] = val;
         }
         else {
             std::cerr << "parseSpec: line " << lineNum

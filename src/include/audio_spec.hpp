@@ -1,6 +1,8 @@
 #pragma once
 
 #include <cstdint>
+#include <map>
+#include <string>
 
 //now that this includes feedback ssbos, AudioSpec is no longer a great name. Change l8r
 struct AudioSpec {
@@ -10,7 +12,7 @@ struct AudioSpec {
     //until a dynamically found point shows that each pixel has at least 1 bin
     //from there it will rms each bin within a pixel's bounds.
     //If you don't want to deal with freq space, this entirely abstracts it away :)
-    uint32_t customLinearSize = 1000;
+    uint32_t customLogSize = 1000;
     //if useFFTSmoothing == true, these will decide the attack and release values 
     //for asymmetrical smoothing. The values are in seconds and will be dropped to
     //the last frame shown before this time
@@ -44,6 +46,8 @@ struct AudioSpec {
 
     //want atk and rls over time smoothing for fft ouput?
     bool useFFTSmoothing = true;
+    //if using customLogSize, do you want the high end rms bins within index (true) or peak metering bins within index
+    bool isHighEndRMS = true;
     //If custom size is 0 and you just want the audible bins (20Hz-20kHz)
     //the amount will be given in the numBins uniform
     bool useAudibleSize = false;
@@ -72,5 +76,6 @@ struct AudioSpec {
     uint32_t feedbackBufferSize = 0;
     //if you want an initial value to the buffer elements. Set it here.
     float feedbackBufferInitValue = 0.0f;
+    std::map<std::string, std::string> textures;
 };
 
