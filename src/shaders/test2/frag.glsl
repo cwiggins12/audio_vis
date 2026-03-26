@@ -2,7 +2,7 @@ const float PI = 3.14159265359;
 const float TWO_PI = 6.28318530718;
 const float RING_RADIUS = 0.2;
 const float RING_WIDTH  = 0.4;
-const float DB_MIN = -96.0;
+const float DB_MIN = -80.0;
 const float DB_MAX =   0.0;
 
 float dbToT(float db) {

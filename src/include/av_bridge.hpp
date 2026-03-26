@@ -170,7 +170,7 @@ private:
         //config peak/RMS smooth array
         float prMin = newSpec.isPeakRMSdB ? MIN_DB : 0.0f;
         if (newSpec.usePeakRMSSmoothing) {
-            gpuPeakRMS.reset(frameRate, newSpec.peakRMSAtk, newSpec.peakRMSAtk, 
+            gpuPeakRMS.reset(frameRate, 1.0f, newSpec.peakRMSAtk, newSpec.peakRMSAtk, 
                              peakRMSSize, prMin);
         }
         else {
@@ -207,7 +207,7 @@ private:
         //config fft smooth array
         float fftMin = newSpec.isFFTdB ? MIN_DB : 0.0f;
         if (newSpec.useFFTSmoothing) {
-            gpuFFT.reset(frameRate, newSpec.fftAtk, newSpec.fftRls, 
+            gpuFFT.reset(frameRate, 1.0, newSpec.fftAtk, newSpec.fftRls, 
                          gpuFFTSize, fftMin);
         }
         else {
@@ -234,12 +234,12 @@ private:
         if (size < 2) return;
 
         for (uint32_t i = 0; i < size; ++i) {
-            float norm = (float)i / (float)(size - 1);
+            float norm = (float)(i) / (float)(size - 1);
             float freq = MIN_FREQ * std::pow(MAX_FREQ / MIN_FREQ, norm);
             if (!swapIndexFound && freq > swapFreq) {
                 swapIndex = i;
                 swapIndexFound = true;
-                std::cout << "Swap Index: " << swapIndex << std::endl;
+                //std::cout << "Swap Index: " << swapIndex << std::endl;
             }
             float binIndexFloat = freq * scale;
 
@@ -247,16 +247,18 @@ private:
         }
     }
 
+    //currently set to start when bin density >= index density
+    //may want a scalar > 1 to allow more customization
     void setSwapFreq(const float scale) {
         const float binWidth = 1.0f / scale;
         const float logRatio = std::log(MAX_FREQ / MIN_FREQ);
         swapFreq = binWidth * (float)(indexFreqs.size() - 1) / logRatio;
         swapFreq = std::min(std::max(swapFreq, MIN_FREQ), MAX_FREQ);
-        std::cout << "Swap Freq: " << swapFreq << std::endl;
+        //std::cout << "Swap Freq: " << swapFreq << std::endl;
     }
 
     void customSizeFFTPlacement() {
-        const float* fftOut = audio.getFFTPtr();
+        float* fftOut = audio.getFFTPtr();
         const bool db = currSpec.isFFTdB;
         if (db) {
             switch (currSpec.lowMode) {
@@ -295,13 +297,6 @@ private:
                     }
                     break;
                 }
-                case MIN_MAX_ENV: {
-                    for (int i = 0; i < swapIndex; ++i) {
-                        float val = getLowFreqMinMaxEnvelope(i, fftOut);
-                        gpuFFT.setTargetVal(i, val);
-                    }
-                    break;
-                }
                 case AKIMA: {
                     for (int i = 0; i < swapIndex; ++i) {
                         float val = getLowFreqAkima(i, fftOut);
@@ -309,30 +304,9 @@ private:
                     }
                     break;
                 }
-                case LOG_PCHIP: {
-                    for (int i = 0; i < swapIndex; ++i) {
-                        float val = gainToDB(getLowFreqLogPCHIP(i, fftOut));
-                        gpuFFT.setTargetVal(i, val);
-                    }
-                    break;
-                }
-                case COSINE: {
-                    for (int i = 0; i < swapIndex; ++i) {
-                        float val = getLowFreqCosine(i, fftOut);
-                        gpuFFT.setTargetVal(i, val);
-                    }
-                    break;
-                }
                 case HERMITE: {
                     for (int i = 0; i < swapIndex; ++i) {
                         float val = getLowFreqHermiteTB(i, fftOut);
-                        gpuFFT.setTargetVal(i, val);
-                    }
-                    break;
-                }
-                case EXPONENTIAL: {
-                    for (int i = 0; i < swapIndex; ++i) {
-                        float val = gainToDB(getLowFreqExpPow(i, fftOut));
                         gpuFFT.setTargetVal(i, val);
                     }
                     break;
@@ -347,13 +321,6 @@ private:
                 case CATMULL_ROM_3: {
                     for (int i = 0; i < swapIndex; ++i) {
                         float val = getLowFreqCatmullRom3pt(i, fftOut);
-                        gpuFFT.setTargetVal(i, val);
-                    }
-                    break;
-                }
-                case CATMULL_ROM_5: {
-                    for (int i = 0; i < swapIndex; ++i) {
-                        float val = getLowFreqCatmullRom5pt(i, fftOut);
                         gpuFFT.setTargetVal(i, val);
                     }
                     break;
@@ -374,13 +341,6 @@ private:
                     }
                     break;
                 }
-                case MEDIAN: {
-                    for (int i = swapIndex; i < gpuFFTSize; ++i) {
-                        float val = getHighFreqMedian(i, fftOut);
-                        gpuFFT.setTargetVal(i, val);
-                    }
-                    break;
-                }
                 case POWER_MEAN: {
                     for (int i = swapIndex; i < gpuFFTSize; ++i) {
                         float val = getHighFreqPowerWeighted(i, fftOut);
@@ -391,13 +351,6 @@ private:
                 case L_NORM: {
                     for (int i = swapIndex; i < gpuFFTSize; ++i) {
                         float val = gainToDB(getHighFreqLNorm(i, fftOut));
-                        gpuFFT.setTargetVal(i, val);
-                    }
-                    break;
-                }
-                case TRIMMED_RMS: {
-                    for (int i = swapIndex; i < gpuFFTSize; ++i) {
-                        float val = gainToDB(getHighFreqTrimmedRMS(i, fftOut));
                         gpuFFT.setTargetVal(i, val);
                     }
                     break;
@@ -441,13 +394,6 @@ private:
                     }
                     break;
                 }
-                case MIN_MAX_ENV: {
-                    for (int i = 0; i < swapIndex; ++i) {
-                        float val = dBToGain(getLowFreqMinMaxEnvelope(i, fftOut));
-                        gpuFFT.setTargetVal(i, val);
-                    }
-                    break;
-                }
                 case AKIMA: {
                     for (int i = 0; i < swapIndex; ++i) {
                         float val = dBToGain(getLowFreqAkima(i, fftOut));
@@ -455,30 +401,9 @@ private:
                     }
                     break;
                 }
-                case LOG_PCHIP: {
-                    for (int i = 0; i < swapIndex; ++i) {
-                        float val = getLowFreqLogPCHIP(i, fftOut);
-                        gpuFFT.setTargetVal(i, val);
-                    }
-                    break;
-                }
-                case COSINE: {
-                    for (int i = 0; i < swapIndex; ++i) {
-                        float val = dBToGain(getLowFreqCosine(i, fftOut));
-                        gpuFFT.setTargetVal(i, val);
-                    }
-                    break;
-                }
                 case HERMITE: {
                     for (int i = 0; i < swapIndex; ++i) {
                         float val = dBToGain(getLowFreqHermiteTB(i, fftOut));
-                        gpuFFT.setTargetVal(i, val);
-                    }
-                    break;
-                }
-                case EXPONENTIAL: {
-                    for (int i = 0; i < swapIndex; ++i) {
-                        float val = getLowFreqExpPow(i, fftOut);
                         gpuFFT.setTargetVal(i, val);
                     }
                     break;
@@ -493,13 +418,6 @@ private:
                 case CATMULL_ROM_3: {
                     for (int i = 0; i < swapIndex; ++i) {
                         float val = dBToGain(getLowFreqCatmullRom3pt(i, fftOut));
-                        gpuFFT.setTargetVal(i, val);
-                    }
-                    break;
-                }
-                case CATMULL_ROM_5: {
-                    for (int i = 0; i < swapIndex; ++i) {
-                        float val = dBToGain(getLowFreqCatmullRom5pt(i, fftOut));
                         gpuFFT.setTargetVal(i, val);
                     }
                     break;
@@ -520,13 +438,6 @@ private:
                     }
                     break;
                 }
-                case MEDIAN: {
-                    for (int i = swapIndex; i < gpuFFTSize; ++i) {
-                        float val = dBToGain(getHighFreqMedian(i, fftOut));
-                        gpuFFT.setTargetVal(i, val);
-                    }
-                    break;
-                }
                 case POWER_MEAN: {
                     for (int i = swapIndex; i < gpuFFTSize; ++i) {
                         float val = dBToGain(getHighFreqPowerWeighted(i, fftOut));
@@ -541,47 +452,12 @@ private:
                     }
                     break;
                 }
-                case TRIMMED_RMS: {
-                    for (int i = swapIndex; i < gpuFFTSize; ++i) {
-                        float val = getHighFreqTrimmedRMS(i, fftOut);
-                        gpuFFT.setTargetVal(i, val);
-                    }
-                    break;
-                }
             }
         }
     }
 
-    float getLowFreqCatmullRom3pt(int i, const float* fftOut) {
-        float centerBinFloat = indexFreqs[i];
-        uint32_t bin1 = (int)centerBinFloat;
-        float fraction = centerBinFloat - bin1;
-
-        uint32_t bin0 = (bin1 == 0) ? 0 : bin1 - 1;
-        uint32_t bin2 = std::min(binAmt - 1, bin1 + 1);
-        uint32_t bin3 = std::min(binAmt - 1, bin1 + 2);
-
-        float y0 = fftOut[bin0];
-        float y1 = fftOut[bin1];
-        float y2 = fftOut[bin2];
-        float y3 = fftOut[bin3];
-
-        return cubicInterp(y0, y1, y2, y3, fraction);
-    }
-
-    //fft gpu low end helper to cubic interpolate with catmull-rom
-    float cubicInterp(float y0, float y1, float y2, float y3, float mu) {
-        float mu2 = mu * mu;
-        float a0 = -0.5f * y0 + 1.5f * y1 - 1.5f * y2 + 0.5f * y3;
-        float a1 = y0 - 2.5f * y1 + 2.0f * y2 - 0.5f * y3;
-        float a2 = -0.5f * y0 + 0.5f * y2;
-        float a3 = y1;
-
-        return a0 * mu * mu2 + a1 * mu2 + a2 * mu + a3;
-    }
-
-    // Low-end interpolation
-    // ── 1. LINEAR ────────────────────────────────────────────────────────────────
+    // Low-end interpolation strats
+    // 0. LINEAR
     float getLowFreqLinear(int i, const float* fftOut) {
         float cf = indexFreqs[i];
         uint32_t bin1 = (uint32_t)cf;
@@ -590,7 +466,7 @@ private:
         return fftOut[bin1] + t * (fftOut[bin2] - fftOut[bin1]);
     }
 
-    // ── 2. MONOTONIC CUBIC / PCHIP (Fritsch-Carlson) ────────────────────────────
+    // 1. PCHIP
     float getLowFreqPCHIP(int i, const float* fftOut) {
         float cf = indexFreqs[i];
         uint32_t bin1 = (uint32_t)cf;
@@ -628,7 +504,7 @@ private:
         return h00*y1 + h10*m1 + h01*y2 + h11*m2;
     }
 
-    // ── 3. WINDOWED SINC / LANCZOS ───────────────────────────────────────────────
+    // 2. LANCZOS
     float getLowFreqLanczos(int i, const float* fftOut) {
         constexpr int A = 4;    // lobe count; 2–4 typical; higher = sharper/slower
 
@@ -655,7 +531,7 @@ private:
         return (wsum > 1e-9f) ? sum / wsum : fftOut[center];
     }
 
-    // ── 4. GAUSSIAN ──────────────────────────────────────────────────────────────
+    // 3. GAUSSIAN
     float getLowFreqGaussian(int i, const float* fftOut) {
         constexpr float SIGMA = 1.0f;   // std-dev in bins; increase for more blur
         constexpr int   HALF  = 3;      // half-window (3*sigma covers 99.7 %)
@@ -677,7 +553,7 @@ private:
         return (wsum > 1e-9f) ? sum / wsum : fftOut[center];
     }
 
-    // ── 5. CUBIC B-SPLINE ────────────────────────────────────────────────────────
+    // 4. CUBIC_B
     float getLowFreqBSpline(int i, const float* fftOut) {
         float cf = indexFreqs[i];
         uint32_t bin1 = (uint32_t)cf;
@@ -699,27 +575,7 @@ private:
         return b0*y0 + b1*y1 + b2*y2 + b3*y3;
     }
 
-    // ── 6. MIN/MAX ENVELOPE ──────────────────────────────────────────────────────
-    // Blend factor alpha=0 → min envelope, alpha=1 → max, 0.5 → midpoint.
-    // Unique character – can highlight peaks (alpha→1) or troughs.
-    float getLowFreqMinMaxEnvelope(int i, const float* fftOut,
-                                   float alpha = 1.0f,   // 0=min, 1=max
-                                   int   halfWin = 1) {
-        float cf = indexFreqs[i];
-        uint32_t center = (uint32_t)cf;
-
-        float lo =  1e30f, hi = -1e30f;
-        for (int k = -(halfWin); k <= halfWin + 1; ++k) {
-            int bin = (int)center + k;
-            if (bin < 0) bin = 0;
-            if (bin >= (int)binAmt) bin = (int)binAmt - 1;
-            lo = std::min(lo, fftOut[bin]);
-            hi = std::max(hi, fftOut[bin]);
-        }
-        return lo + alpha * (hi - lo);
-    }
-
-    // ── 7. AKIMA ─────────────────────────────────────────────────────────────────
+    // 5. AKIMA
     // Local cubic that is less prone to oscillation than standard Catmull-Rom
     // Uses 5 points; slope weighting suppresses outliers.
     float getLowFreqAkima(int i, const float* fftOut) {
@@ -765,57 +621,7 @@ private:
              + (   t3 -   t2    ) * s2;
     }
 
-    // LOG-DOMAIN PCHIP ──────────────────────────────────────────────────
-    float getLowFreqLogPCHIP(int i, const float* fftOut) {
-        constexpr float MIN_DB = -96.0f;
-
-        float cf = indexFreqs[i];
-        uint32_t bin1 = (uint32_t)cf;
-        float t = cf - bin1;
-
-        uint32_t bin0 = (bin1 == 0) ? 0 : bin1 - 1;
-        uint32_t bin2 = std::min(binAmt - 1, bin1 + 1);
-        uint32_t bin3 = std::min(binAmt - 1, bin1 + 2);
-
-        // Convert to linear amplitude for interpolation
-        float y0 = dBToGain(fftOut[bin0]);
-        float y1 = dBToGain(fftOut[bin1]);
-        float y2 = dBToGain(fftOut[bin2]);
-        float y3 = dBToGain(fftOut[bin3]);
-
-        float d0 = y1 - y0, d1 = y2 - y1, d2 = y3 - y2;
-
-        auto pchipSlope = [](float dm, float dp) -> float {
-            if (dm * dp <= 0.0f) return 0.0f;
-            float w1 = 2.0f * dp + dm, w2 = dp + 2.0f * dm;
-            return (w1 + w2) / (w1 / dm + w2 / dp);
-        };
-
-        float m1 = pchipSlope(d0, d1);
-        float m2 = pchipSlope(d1, d2);
-
-        float t2 = t*t, t3 = t2*t;
-        float h00 =  2*t3 - 3*t2 + 1;
-        float h10 =    t3 - 2*t2 + t;
-        float h01 = -2*t3 + 3*t2;
-        float h11 =    t3 -   t2;
-
-        float linearResult = h00*y1 + h10*m1 + h01*y2 + h11*m2;
-        return std::max(linearResult, 1e-10f);
-    }
-
-    // ── 1. COSINE ─────────────────────────────────────────────────────────────────
-    float getLowFreqCosine(int i, const float* fftOut) {
-        float cf = indexFreqs[i];
-        uint32_t bin1 = (uint32_t)cf;
-        float t = cf - bin1;
-        uint32_t bin2 = std::min(binAmt - 1, bin1 + 1);
-
-        float tc = (1.0f - std::cos(M_PI * t)) * 0.5f;   // remap t
-        return fftOut[bin1] + tc * (fftOut[bin2] - fftOut[bin1]);
-    }
-
-    // ── 2. HERMITE (tension / bias) ───────────────────────────────────────────────
+    // 6. HERMITE (tension / bias)
     //   tension  0 = loose/full curve, 1 = linear (tightens the slopes)
     //   bias    -1 = pull toward previous sample, +1 = pull toward next
     // Catmull-Rom is exactly tension=0, bias=0.
@@ -848,29 +654,7 @@ private:
         return h00*y1 + h10*m1 + h01*y2 + h11*m2;
     }
 
-    // ── 3. EXPONENTIAL / POWER-LAW ────────────────────────────────────────────────
-    // Interpolates in linear amplitude space between the two bracketing bins,
-    // then converts back to dB. The exponent shapes the curve:
-    //   exp = 1.0  → linear in amplitude (slightly log-shaped in dB)
-    //   exp > 1.0  → biased toward y1 (slower attack)
-    //   exp < 1.0  → biased toward y2 (faster attack)
-    float getLowFreqExpPow(int i, const float* fftOut, float exp = 1.0f) {
-        constexpr float MIN_DB = -96.0f;
-
-        float cf = indexFreqs[i];
-        uint32_t bin1 = (uint32_t)cf;
-        float t = cf - bin1;
-        uint32_t bin2 = std::min(binAmt - 1, bin1 + 1);
-
-        float g1 = dBToGain(fftOut[bin1]);
-        float g2 = dBToGain(fftOut[bin2]);
-
-        float tc = (exp == 1.0f) ? t : std::pow(t, exp);
-        float result = g1 + tc * (g2 - g1);
-        return std::max(result, 1e-10f);
-    }
-
-    // ── 4. STEFFEN ────────────────────────────────────────────────────────────────
+    // 7. STEFFEN
     // Monotonic cubic (Steffen 1990). Same no-overshoot guarantee as PCHIP with a
     // simpler slope formula: clamp the harmonic mean of adjacent secants to not
     // exceed 3x either secant. Slightly cheaper than PCHIP.
@@ -910,39 +694,32 @@ private:
         return h00*y1 + h10*m1 + h01*y2 + h11*m2;
     }
 
-    // ── 5. CATMULL-ROM WITH 5-POINT FINITE DIFFERENCE SLOPES ─────────────────────
-    // Replaces the 3-point central difference slope m = (y[i+1]-y[i-1])/2
-    // with the 4th-order accurate 5-point stencil 
-    // m = (-y[i+2] + 8y[i+1] - 8y[i-1] + y[i-2]) / 12.
-    float getLowFreqCatmullRom5pt(int i, const float* fftOut) {
-        float cf = indexFreqs[i];
-        uint32_t bin2 = (uint32_t)cf;   // left bracket (y1 in original naming)
-        float t = cf - bin2;
+    // 8. CATMULL_ROM_3
+    float getLowFreqCatmullRom3pt(int i, const float* fftOut) {
+        float centerBinFloat = indexFreqs[i];
+        uint32_t bin1 = (int)centerBinFloat;
+        float mu = centerBinFloat - bin1;
 
-        auto clampBin = [&](int b) -> uint32_t {
-            return (uint32_t)std::max(0, std::min((int)binAmt - 1, b));
-        };
+        uint32_t bin0 = (bin1 == 0) ? 0 : bin1 - 1;
+        uint32_t bin2 = std::min(binAmt - 1, bin1 + 1);
+        uint32_t bin3 = std::min(binAmt - 1, bin1 + 2);
 
-        float ym2 = fftOut[clampBin((int)bin2 - 2)];
-        float ym1 = fftOut[clampBin((int)bin2 - 1)];
-        float y0  = fftOut[clampBin((int)bin2    )];
-        float y1  = fftOut[clampBin((int)bin2 + 1)];
-        float y2  = fftOut[clampBin((int)bin2 + 2)];
-        float y3  = fftOut[clampBin((int)bin2 + 3)];
+        float y0 = fftOut[bin0];
+        float y1 = fftOut[bin1];
+        float y2 = fftOut[bin2];
+        float y3 = fftOut[bin3];
 
-        // 5-point stencil slopes at y0 and y1
-        float m0 = (-y2  + 8.0f*y1  - 8.0f*ym1 + ym2) / 12.0f;
-        float m1 = (-y3  + 8.0f*y2  - 8.0f*y0  + ym1) / 12.0f;
+        float mu2 = mu * mu;
+        float a0 = -0.5f * y0 + 1.5f * y1 - 1.5f * y2 + 0.5f * y3;
+        float a1 = y0 - 2.5f * y1 + 2.0f * y2 - 0.5f * y3;
+        float a2 = -0.5f * y0 + 0.5f * y2;
+        float a3 = y1;
 
-        float t2 = t * t, t3 = t2 * t;
-        float h00 =  2*t3 - 3*t2 + 1;
-        float h10 =    t3 - 2*t2 + t;
-        float h01 = -2*t3 + 3*t2;
-        float h11 =    t3 -   t2;
-
-        return h00*y0 + h10*m0 + h01*y1 + h11*m1;
+        return a0 * mu * mu2 + a1 * mu2 + a2 * mu + a3;
     }
 
+    // High-end interpolation strats
+    // 0. RMS
     float getHighFreqRMS(int idx, const float* fftOut) {
         int lowB = (idx > 0) ? (int)indexFreqs[idx - 1] + 1 : 0;
         int highB = (int)indexFreqs[idx];
@@ -956,6 +733,7 @@ private:
         return rms;
     }
 
+    // 1. PEAK
     float getHighFreqPeak(int idx, const float* fftOut) {
         int lowB = (idx > 0) ? (int)indexFreqs[idx - 1] + 1 : 0;
         int highB = (int)indexFreqs[idx];
@@ -967,40 +745,7 @@ private:
         return peak;
     }
 
-    // ── 2. MEDIAN ─────────────────────────────────────────────────────────────────
-    float getHighFreqMedian(int idx, const float* fftOut) {
-        int lowB  = (idx > 0) ? (int)indexFreqs[idx - 1] + 1 : 0;
-        int highB = (int)indexFreqs[idx];
-        int count = highB - lowB + 1;
-
-        if (count == 1) return fftOut[lowB];
-
-        constexpr int STACK_MAX = 64;
-        float  stackBuf[STACK_MAX];
-        std::vector<float> heapBuf;
-        float* buf;
-
-        if (count <= STACK_MAX) {
-            buf = stackBuf;
-        } else {
-            heapBuf.resize(count);
-            buf = heapBuf.data();
-        }
-
-        for (int k = 0; k < count; ++k)
-            buf[k] = fftOut[lowB + k];
-
-        int mid = count / 2;
-        std::nth_element(buf, buf + mid, buf + count);
-
-        if (count % 2 == 0) {
-            float upper = *std::min_element(buf + mid, buf + count);
-            return (buf[mid - 1] + upper) * 0.5f;
-        }
-        return buf[mid];
-    }
-
-    // ── 3. POWER-WEIGHTED MEAN ───────────────────────────────────────────────────
+    // 2. POWER-WEIGHTED MEAN
     float getHighFreqPowerWeighted(int idx, const float* fftOut) {
         int lowB  = (idx > 0) ? (int)indexFreqs[idx - 1] + 1 : 0;
         int highB = (int)indexFreqs[idx];
@@ -1019,7 +764,7 @@ private:
         return (weightSum > 1e-30f) ? weightedSum / weightSum : MIN_DB;
     }
 
-    // ── 4. L-NORM ────────────────────────────────────────────────────────────────
+    // 3. L-NORM
     float getHighFreqLNorm(int idx, const float* fftOut, float p = 2.0f) {
         int lowB  = (idx > 0) ? (int)indexFreqs[idx - 1] + 1 : 0;
         int highB = (int)indexFreqs[idx];
@@ -1034,54 +779,6 @@ private:
         }
         float result = std::pow(sum / (float)count, 1.0f / p);
         return std::max(result, 1e-10f);
-    }
-
-    // ── 5. TRIMMED RMS ───────────────────────────────────────────────────────────
-    float getHighFreqTrimmedRMS(int idx, const float* fftOut,
-                                float trimRatio = 0.1f) {
-        int lowB  = (idx > 0) ? (int)indexFreqs[idx - 1] + 1 : 0;
-        int highB = (int)indexFreqs[idx];
-        int count = highB - lowB + 1;
-
-        if (count == 1) return fftOut[lowB];
-
-        int trimN = (int)(count * trimRatio);
-
-        // Fall back to standard RMS if trim would consume all bins
-        if (count - 2 * trimN < 1) {
-            float sumSq = 0.0f;
-            for (int i = lowB; i <= highB && i < fftSize; ++i) {
-                float g = dBToGain(fftOut[i]);
-                sumSq += g * g;
-            }
-            return std::sqrt(sumSq / (float)count);
-        }
-
-        constexpr int STACK_MAX = 64;
-        float  stackBuf[STACK_MAX];
-        std::vector<float> heapBuf;
-        float* buf;
-
-        if (count <= STACK_MAX) {
-            buf = stackBuf;
-        } else {
-            heapBuf.resize(count);
-            buf = heapBuf.data();
-        }
-
-        for (int k = 0; k < count; ++k)
-            buf[k] = fftOut[lowB + k];
-
-        std::sort(buf, buf + count);
-
-        float sumSq = 0.0f;
-        int   used  = 0;
-        for (int k = trimN; k < count - trimN; ++k) {
-            float g = dBToGain(buf[k]);
-            sumSq += g * g;
-            ++used;
-        }
-        return std::sqrt(sumSq / (float)used);
     }
 
     void audibleBinPlacement() {

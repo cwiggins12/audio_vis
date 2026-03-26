@@ -21,12 +21,6 @@ struct BaseUniforms {
 //would add some clarity
 class Shader {
 public:
-    GLuint          id       = 0;
-    bool            valid    = false;
-    std::string     errorLog = "";
-    BaseUniforms    uniforms;
-    std::unordered_map<std::string, GLint> samplerLocations;
-
     Shader() = default;
 
     Shader(const char* vertSrc, const char* fragSrc) {
@@ -74,6 +68,12 @@ public:
     }
 
     void use() { glUseProgram(id); }
+
+    GLuint          id       = 0;
+    bool            valid    = false;
+    std::string     errorLog = "";
+    BaseUniforms    uniforms;
+    std::unordered_map<std::string, GLint> samplerLocations;
 
 private:
     GLuint compile(GLenum type, const char* src, std::string& errOut) {

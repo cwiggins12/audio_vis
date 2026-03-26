@@ -17,15 +17,13 @@ add_executable(audio_vis
 
 target_include_directories(audio_vis PRIVATE
     src/include			#custom headers
-    src/external		#miniaudio.h is here
+    src/external		#stb style headers
     src/external/glad/include	#glad loader
 )
 
 target_link_libraries(audio_vis PRIVATE
     fftw3f          		#float FFTW
-    pthread         		#required by miniaudio
-    dl              		#required on Linux
-    m               		#math library
+    #dl              		#dynamic loading, not sure if needed, look into it more
     glfw	    		#glfw for windowing & event handling
     OpenGL::GL      		#OpenGL for context
     EGL             		#OpenGL dependency
@@ -33,7 +31,7 @@ target_link_libraries(audio_vis PRIVATE
 
 file(GLOB_RECURSE SHADER_FILES
     ${CMAKE_SOURCE_DIR}/src/shaders/*.glsl
-    ${CMAKE_SOURCE_DIR}/src/shaders/*.txt
+    ${CMAKE_SOURCE_DIR}/src/shaders/*.cfg
 )
 
 add_custom_target(copy_shaders ALL

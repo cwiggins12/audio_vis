@@ -42,7 +42,7 @@ public:
 
     //expects an analyze call after first true return;
     bool canAnalyze() {
-        uint64_t accumulated = capture.getAccumulatedFrames();
+        uint32_t accumulated = capture.getAccumulatedFrames();
         if (!firstWindowAccumulated) {
             if (accumulated < fftSize) {
                 return false;
@@ -79,7 +79,7 @@ public:
     }
 
     void swapSpec(AudioSpec& spec) {
-        capture.resetAccumulator();
+        resetAccumulator();
         for (int ch = 0; ch < channels; ++ch) {
             popPeak(ch);
             popRMS(ch);
@@ -97,6 +97,7 @@ public:
     void resetAccumulator() {
         capture.resetAccumulator();
         firstWindowAccumulated = false;
+        std::cout << "Accumulation reset" << std::endl;
     }
 
     uint32_t getNumChannels() {
@@ -116,7 +117,7 @@ public:
     }
 
     //if bypassing smoothedValue array, and want output buffer
-    const float* getFFTPtr() {
+    float* getFFTPtr() {
         return fft->getOutputBuffer();
     }
 
@@ -158,3 +159,4 @@ private:
     bool getsPeakRMSHolds = true;
     bool isPeakRMSMono = false;
 };
+

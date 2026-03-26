@@ -154,6 +154,7 @@ int main() {
 
     std::cout << "GL Version: " << glGetString(GL_VERSION) << "\n";
     std::cout << "GLSL Version: " << glGetString(GL_SHADING_LANGUAGE_VERSION) << "\n";
+    std::cout << "Found device frame rate: " << displayHz << std::endl;
 
     std::vector<ShaderPreset> presets = loadPresets(getAssetPath("shaders/"));
     if (presets.empty()) {

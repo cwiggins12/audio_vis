@@ -1,82 +1,78 @@
-NEXT PHASE:
-Make a few fun, abstract test shaders to test new features and QOL
-NEEDS TESTING: feedback buffer, hw/px/uv, bit-map font, textures, hot reload, multi monitor functionality, all the new low and high end modes, audible bins, full bins,
-mel-spectrogram shader
-shuffle button(when pressed, random next shader)
+bugs:
+L-Norm is doing some wild shit, also wtf to do with p
+hot reload errors for spec changes need to be passed to shader for error display!!!
+hermite tension and bias? Either find a way to use them, or remove it.
+nvim glsl not working :(
+
+Current phase:
+1. Shader to test feedback buffer
+2. Shader to test bitmap font
+3. shader to test tetxures
+4. test multi monitor setup
+5. run through low/high modes and cut whats unnecessary
+6. shader to test audible bins
+7. shader to test full bins
+8. mel-spectrogram shader
+9. shuffle button(when pressed, random next shader)
+10. rework spec based on h/w, new additions, and to prepare for fonts. notes for h/w below
 handle height & width case in AudioSpec more robustly
 have a percentage specific height and/or width case
 maybe instead of listing flags for sizing, have a uint state?
-finalize spec and injection after findings from the above shaders and resize rework
-when spec is finalized, finish specAssert logic in shader_loader
+11. when spec is finalized, finish specAssert logic in shader_loader
+12. update bridge logic to follow new spec
+13. update spec parsing to follow new spec
+14. update shaders if needed, and make a shader for each new h/w type
+15. refactor av_bridge
+16. add a way to not have the swap in custom size modes? all low, or all high?
+17. scalar to determine when swap happens?
+18. add an undersamp 2nd pass on high end using same method?
 
 FINAL PHASE TO 1.0.0:
-look into a wayland fullscreen and window pos workaround
-need Mesa's V3DV driver for this to work on a pi
-trim all but what is used from miniaudio.h at the very end of development
-need hella more documentation
+need hella more documentation in code and in repo for shader authors
 security check with all of these cstrings from glsl and file pathing
-refactor, profile, optimize, get it good as standalone for linux only (windows l8r)
+refactor, profile, optimize, get it good as standalone for linux
 test memory use: when program is running, in another console enter:
 cat /proc/$(pgrep audio_vis)/smaps_rollup
 look into speed diffs between clang and gcc (reminder: stb_image will only use SIMD on GCC when using the -msse2 flag)
+need Mesa's V3DV driver to test on a pi
+trim all but what is used from miniaudio.h
 
 Possible future work:
+stb_truetype integration for user defined fonts
+look into a wayland fullscreen and window pos workaround, or if its necessary at all
 timed shuffle mode(pressing a button opens a dialog box, user enters a time?)
 put hot reload notifictations on a bg thread with inotify/ReadDirectoryChangesW wrapper
-std_truetype integration for user defined fonts
-a windows build(capture will require the largest changes)
+windows build(capture and cmake will require the largest changes, but should be mostly painless)
 utility exes for device(audio & video) listing/choosing
-Allow export of current setup in standalone to VST3, with midi that can drive shader changes. no JUCE, straight up steinbergSDK use.
 dmx output for dmx based video walls(WOULD BE NIGHTMARE TO FIND DEVICE, make it up to users or DAWS in the case of a vst3?)
 Allow for user defined uniforms that could be adjusted by midi, key input, or ui
 pre-built widgets(meters, mel-bin, etc.)
+Allow export of current setup in standalone to VST3 with midi driven shader swaps. no JUCE, straight up steinbergSDK use.
 
 Done This Week:
-1. Extract the active shader into a ShaderPreset struct with hardcoded spec and the current test shader. Then verify. 
-DONE
-2. Add a std::vector<ShaderPreset> and an activeIdx int. Put two copies of the test preset in the list and wire the right arrow key to cycle activeIdx and call spec swap. Then verify.
-DONE
-3. Add a uniform struct that will be in each preset, each getting populated during use with the preset uniforms to hand to the user.
-DONE
-4. Write the injected header and the Shader constructor change that prepends it before compiling. Then verify.
-DONE
-5. Write the flat config file parser for AudioSpec. Point it at a hand-written file next to the test shader. Then verify.
-DONE
+1. Extract the active shader into a ShaderPreset struct with hardcoded spec and the current test shader
+2. Add a std::vector<ShaderPreset> and an activeIdx int. Put two copies of the test preset in the list and wire the right arrow key to cycle activeIdx and call spec swap
+3. Add a uniform struct that will be in each preset, each getting populated during use with the preset uniforms to hand to the user
+4. Write the injected header and the Shader constructor change that prepends it before compiling
+5. Write the flat config file parser for AudioSpec. Point it at a hand-written file next to the test shader
 6. Write the directory scanner that produces a vector<ShaderPreset> from a shaders/ folder. Move the test shader there, verify it loads and runs exactly as before.
-DONE
 7. Write a second real shader using only the injected helper functions. Drop it in shaders/. Verify cycling between the two works end to end including the spec swap and SSBO resize.
-DONE
 8. setup cmake to update build after each shader is updated. Need hot reloading next to not need to reconfigure the build every time a new shader is added.
-DONE
 9. Migration from SDL3 to glfw to make glad easier to deal with and remove the bloat from the binaries that will be made when I statically link the dependencies.
-DONE
 10. send all cerr and cout reporting to a log.txt file that is truncated each run.
-DONE
 11. ensure consistent lexicographic ordering of shaders in loader
-DONE
 12. full dynamic ssbo rework to a custom ssbo that is persistent, turning each frame's passes of data to the gpu into a couple of getters and a memcpy.
-DONE
 13. add left key to go back to prior shader
-DONE
 14. preset name display on window (glfwSetWindowTitle can do this on each swap)
-DONE
 15. Figured out full screen mode with glfw(start in max-sized, resizeable window. Allow non-windowed fullscreen on and off with a button press)
-DONE
 16. set up a feedback ssbo for the user to do what they would want with them
-DONE
 17. make the h/w pixel conventions forced through injection. Leave uv available for those that want it
-DONE
 18. injected bit-mapped font and render text
-DONE
 19. initial hot reloading iteration
-DONE
 20. error display for error on hot reloaded shader
-DONE
 21. texture usage functionality(stb_image)
-DONE
 22. get a peak instead of rms on high end in custom log size mode, and allow user to choose
-DONE
 23. look into different interpolation strategies for the low end. This cubic interp is rough
-TONS ADDED. SO MUCH TESTING NEEDED.
 24. allow user's to choose between the new high end and low end custom size options
-DONE
+officially in second to last phase!!!!!
+current loc(without spec.cfg's and frag.glsl's): 3711

@@ -1,4 +1,4 @@
-const float DB_MIN  = -96.0;
+const float DB_MIN  = -80.0;
 const float DB_MAX  =   0.0;
 const float OUTLINE =   2.0;
 const vec4 COL_FFT  = vec4(0.0, 1.0, 0.0, 1.0);

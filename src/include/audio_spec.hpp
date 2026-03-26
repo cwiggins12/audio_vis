@@ -5,29 +5,22 @@
 #include <string>
 
 enum LowMode {
-    LINEAR,
-    PCHIP,
-    LANCZOS,
-    GAUSSIAN,
-    CUBIC_B,
-    MIN_MAX_ENV,
-    AKIMA,
-    LOG_PCHIP,
-    COSINE,
-    HERMITE,
-    EXPONENTIAL,
-    STEFFEN,
-    CATMULL_ROM_3,
-    CATMULL_ROM_5
+    LINEAR,         //0. fine and cheap
+    PCHIP,          //1. mid
+    LANCZOS,        //2. kinda hate
+    GAUSSIAN,       //3. cool but boosts area a lot
+    CUBIC_B,        //4. cool and good peaks
+    AKIMA,          //5. not sure if necessary with the others, but looks good
+    HERMITE,        //6. not sure on difference between catmull rom
+    STEFFEN,        //7. all around fine, kind looks like some others though
+    CATMULL_ROM_3,  //8. a classic, and not too pricey
 };
 
 enum HighMode {
-    RMS,
-    PEAK,
-    MEDIAN,
-    POWER_MEAN,
-    L_NORM,
-    TRIMMED_RMS
+    RMS,        //0. cool
+    PEAK,       //1. cool
+    POWER_MEAN, //3. cool
+    L_NORM,     //4. needs fixing
 };
 
 //now that this includes feedback ssbos, AudioSpec is no longer a great name. Change l8r
@@ -40,7 +33,7 @@ struct AudioSpec {
     //If you don't want to deal with freq space, this entirely abstracts it away :)
     uint32_t customSize = 1000;
     HighMode highMode = RMS;
-    LowMode lowMode = LOG_PCHIP;
+    LowMode lowMode = GAUSSIAN;
     //if useFFTSmoothing == true, these will decide the attack and release values 
     //for asymmetrical smoothing. The values are in seconds and will be dropped to
     //the last frame shown before this time
@@ -48,11 +41,11 @@ struct AudioSpec {
     //upward in 3 frames. Generally, audio folks like a lower attack than release
     //if you set to 0.0, no smoothing will occur, even if the bool is true
     //if you set to negative, it will set it to 1 second as a fallback (don't do that)
-    float fftAtk = 0.35f;
-    float fftRls = 0.1f;
+    float fftAtk = 0.05f;
+    float fftRls = 0.3f;
     //same logic for peak/RMS meters as the fft 
-    float peakRMSAtk = 0.35f;
-    float peakRMSRls = 0.1f;
+    float peakRMSAtk = 0.05f;
+    float peakRMSRls = 0.3f;
     //Hold time value defines how long a peak is held in seconds before dropping
     float peakRMSHoldTime = 1.0f;
     float fftHoldTime = 1.0f;
