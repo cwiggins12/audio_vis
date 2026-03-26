@@ -7,6 +7,7 @@ const vec4 COL_RMS  = vec4(1.0, 0.0, 0.0, 1.0);
 const vec4 COL_HOLD = vec4(1.0, 1.0, 1.0, 1.0);
 const vec4 COL_OUT  = vec4(1.0, 1.0, 1.0, 1.0);
 const vec4 COL_BG   = vec4(0.0, 0.0, 0.0, 1.0);
+
 float dbToT(float db) {
     return clamp((db - DB_MIN) / (DB_MAX - DB_MIN), 0.0, 1.0);
 }

@@ -99,6 +99,18 @@ public:
         return getPeakRMSGPUSize() * sizeof(float);
     }
 
+    size_t getValFromHeightScalar(size_t size) {
+        return std::round(size * ((float)currentHeight / (float)initHeight));
+    }
+
+    size_t getValFromWidthScalar(size_t size) {
+        return std::round(size * ((float)currentWidth / (float)initWidth));
+    }
+
+    size_t getValFromResolutionScalar(size_t size) {
+        return std::round(size *((float)currentHeight * (float)currentWidth) / ((float)initHeight * (float)initWidth));
+    }
+
     //pls refactor
     void formatData() {
         const bool prMono = currSpec.isPeakRMSMono;

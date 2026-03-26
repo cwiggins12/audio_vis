@@ -164,6 +164,9 @@ inline bool parseSpec(const std::string& path, AudioSpec& out) {
         else if (key == "feedbackBufferInitValue") {
             out.feedbackBufferInitValue = std::stof(val);
         }
+        else if (key == "feedbackBufferScalesWithWindow") {
+            out.feedbackBufferScalesWithWindow = std::stoul(val);
+        }
         else if (key.rfind("texture.",0) == 0) {
             std::string uniformName = trimStr(key.substr(8));
             if (uniformName.empty()) {

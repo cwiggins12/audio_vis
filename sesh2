@@ -9,11 +9,11 @@ if expand('%') == '' && !&modified && line('$') <= 1 && getline(1) == ''
 endif
 let s:shortmess_save = &shortmess
 set shortmess+=aoO
-badd +331 src/main.cpp
+badd +359 src/main.cpp
 badd +37 src/include/audio.hpp
 badd +55 src/include/audio_capture.hpp
-badd +36 src/include/audio_spec.hpp
-badd +839 src/include/av_bridge.hpp
+badd +89 src/include/audio_spec.hpp
+badd +304 src/include/av_bridge.hpp
 badd +213 src/include/fft.hpp
 badd +137 src/include/hold_value.hpp
 badd +1 src/peak_rms.hpp
@@ -24,20 +24,29 @@ badd +77 src/include/shader.hpp
 badd +7 src/include/shader_preset.hpp
 badd +1 smooth_value.hpp
 badd +60 src/include/smooth_value.hpp
-badd +37 src/include/shader_loader.hpp
-badd +121 src/include/spec_parser.hpp
+badd +64 src/include/shader_loader.hpp
+badd +168 src/include/spec_parser.hpp
 badd +37 src/include/ssbo.hpp
 badd +1 scr/include/ssbo.hpp
 badd +17 src/include/bitmap.hpp
-badd +26 src/include/fragment_header.hpp
+badd +152 src/include/fragment_header.hpp
 badd +1464 src/external/stb_image.h
 badd +72 src/include/texture_loader.hpp
-badd +1 src/shaders/test/frag.glsl
-badd +5 src/shaders/test2/frag.glsl
+badd +37 src/shaders/test/frag.glsl
+badd +37 src/shaders/test2/frag.glsl
+badd +64 src/shaders/feedback_test.glsl
+badd +3 src/shaders/feedback_test/spec.cfg
+badd +0 src/shaders/spec.cfg
+badd +1 src/shaders/test/spec.cfg
+badd +1 src/shaders/test2/spec.cfg
+badd +0 build/shaders/fragment_test/frag.glsl
+badd +55 build/shaders/feedback_test/frag.glsl
 argglobal
 %argdel
 $argadd src/main.cpp
 set stal=2
+tabnew +setlocal\ bufhidden=wipe
+tabnew +setlocal\ bufhidden=wipe
 tabnew +setlocal\ bufhidden=wipe
 tabnew +setlocal\ bufhidden=wipe
 tabnew +setlocal\ bufhidden=wipe
@@ -60,12 +69,32 @@ setlocal foldnestmax=20
 setlocal foldenable
 silent! normal! zE
 let &fdl = &fdl
-let s:l = 331 - ((15 * winheight(0) + 21) / 42)
+let s:l = 359 - ((28 * winheight(0) + 21) / 42)
 if s:l < 1 | let s:l = 1 | endif
 keepjumps exe s:l
 normal! zt
-keepjumps 331
-normal! 032|
+keepjumps 359
+normal! 0
+tabnext
+edit src/include/av_bridge.hpp
+argglobal
+balt src/main.cpp
+setlocal foldmethod=manual
+setlocal foldexpr=0
+setlocal foldmarker={{{,}}}
+setlocal foldignore=#
+setlocal foldlevel=0
+setlocal foldminlines=1
+setlocal foldnestmax=20
+setlocal foldenable
+silent! normal! zE
+let &fdl = &fdl
+let s:l = 304 - ((5 * winheight(0) + 21) / 42)
+if s:l < 1 | let s:l = 1 | endif
+keepjumps exe s:l
+normal! zt
+keepjumps 304
+normal! 0
 tabnext
 edit src/include/shader_loader.hpp
 argglobal
@@ -100,72 +129,12 @@ setlocal foldnestmax=20
 setlocal foldenable
 silent! normal! zE
 let &fdl = &fdl
-let s:l = 37 - ((36 * winheight(0) + 21) / 42)
+let s:l = 154 - ((9 * winheight(0) + 21) / 42)
 if s:l < 1 | let s:l = 1 | endif
 keepjumps exe s:l
 normal! zt
-keepjumps 37
-normal! 026|
-tabnext
-edit src/include/texture_loader.hpp
-argglobal
-balt src/include/spec_parser.hpp
-setlocal foldmethod=manual
-setlocal foldexpr=0
-setlocal foldmarker={{{,}}}
-setlocal foldignore=#
-setlocal foldlevel=0
-setlocal foldminlines=1
-setlocal foldnestmax=20
-setlocal foldenable
-silent! normal! zE
-let &fdl = &fdl
-let s:l = 72 - ((5 * winheight(0) + 21) / 42)
-if s:l < 1 | let s:l = 1 | endif
-keepjumps exe s:l
-normal! zt
-keepjumps 72
-normal! 0
-tabnext
-edit src/include/shader.hpp
-argglobal
-balt src/include/miniaudio.h
-setlocal foldmethod=manual
-setlocal foldexpr=0
-setlocal foldmarker={{{,}}}
-setlocal foldignore=#
-setlocal foldlevel=0
-setlocal foldminlines=1
-setlocal foldnestmax=20
-setlocal foldenable
-silent! normal! zE
-let &fdl = &fdl
-let s:l = 77 - ((16 * winheight(0) + 21) / 42)
-if s:l < 1 | let s:l = 1 | endif
-keepjumps exe s:l
-normal! zt
-keepjumps 77
-normal! 0
-tabnext
-edit src/include/fragment_header.hpp
-argglobal
-balt src/include/shader.hpp
-setlocal foldmethod=manual
-setlocal foldexpr=0
-setlocal foldmarker={{{,}}}
-setlocal foldignore=#
-setlocal foldlevel=0
-setlocal foldminlines=1
-setlocal foldnestmax=20
-setlocal foldenable
-silent! normal! zE
-let &fdl = &fdl
-let s:l = 26 - ((25 * winheight(0) + 21) / 42)
-if s:l < 1 | let s:l = 1 | endif
-keepjumps exe s:l
-normal! zt
-keepjumps 26
-normal! 02|
+keepjumps 154
+normal! 013|
 tabnext
 edit src/include/audio_spec.hpp
 argglobal
@@ -180,14 +149,14 @@ setlocal foldnestmax=20
 setlocal foldenable
 silent! normal! zE
 let &fdl = &fdl
-let s:l = 36 - ((14 * winheight(0) + 21) / 42)
+let s:l = 45 - ((12 * winheight(0) + 21) / 42)
 if s:l < 1 | let s:l = 1 | endif
 keepjumps exe s:l
 normal! zt
-keepjumps 36
-normal! 030|
+keepjumps 45
+normal! 024|
 tabnext
-edit src/include/av_bridge.hpp
+edit src/include/fragment_header.hpp
 argglobal
 balt src/include/audio_spec.hpp
 setlocal foldmethod=manual
@@ -200,12 +169,12 @@ setlocal foldnestmax=20
 setlocal foldenable
 silent! normal! zE
 let &fdl = &fdl
-let s:l = 839 - ((36 * winheight(0) + 21) / 42)
+let s:l = 152 - ((10 * winheight(0) + 21) / 42)
 if s:l < 1 | let s:l = 1 | endif
 keepjumps exe s:l
 normal! zt
-keepjumps 839
-normal! 0
+keepjumps 152
+normal! 043|
 tabnext
 edit src/shaders/test/frag.glsl
 argglobal
@@ -225,7 +194,27 @@ if s:l < 1 | let s:l = 1 | endif
 keepjumps exe s:l
 normal! zt
 keepjumps 37
-normal! 028|
+normal! 0
+tabnext
+edit src/shaders/test/spec.cfg
+argglobal
+balt src/shaders/test/frag.glsl
+setlocal foldmethod=manual
+setlocal foldexpr=0
+setlocal foldmarker={{{,}}}
+setlocal foldignore=#
+setlocal foldlevel=0
+setlocal foldminlines=1
+setlocal foldnestmax=20
+setlocal foldenable
+silent! normal! zE
+let &fdl = &fdl
+let s:l = 1 - ((0 * winheight(0) + 21) / 42)
+if s:l < 1 | let s:l = 1 | endif
+keepjumps exe s:l
+normal! zt
+keepjumps 1
+normal! 0
 tabnext
 edit src/shaders/test2/frag.glsl
 argglobal
@@ -246,7 +235,67 @@ keepjumps exe s:l
 normal! zt
 keepjumps 37
 normal! 0
-tabnext 10
+tabnext
+edit src/shaders/test2/spec.cfg
+argglobal
+balt src/shaders/test2/frag.glsl
+setlocal foldmethod=manual
+setlocal foldexpr=0
+setlocal foldmarker={{{,}}}
+setlocal foldignore=#
+setlocal foldlevel=0
+setlocal foldminlines=1
+setlocal foldnestmax=20
+setlocal foldenable
+silent! normal! zE
+let &fdl = &fdl
+let s:l = 1 - ((0 * winheight(0) + 21) / 42)
+if s:l < 1 | let s:l = 1 | endif
+keepjumps exe s:l
+normal! zt
+keepjumps 1
+normal! 0
+tabnext
+edit build/shaders/feedback_test/frag.glsl
+argglobal
+balt src/shaders/test2/spec.cfg
+setlocal foldmethod=manual
+setlocal foldexpr=0
+setlocal foldmarker={{{,}}}
+setlocal foldignore=#
+setlocal foldlevel=0
+setlocal foldminlines=1
+setlocal foldnestmax=20
+setlocal foldenable
+silent! normal! zE
+let &fdl = &fdl
+let s:l = 55 - ((9 * winheight(0) + 21) / 42)
+if s:l < 1 | let s:l = 1 | endif
+keepjumps exe s:l
+normal! zt
+keepjumps 55
+normal! 0
+tabnext
+edit src/shaders/feedback_test/spec.cfg
+argglobal
+balt src/shaders/feedback_test.glsl
+setlocal foldmethod=manual
+setlocal foldexpr=0
+setlocal foldmarker={{{,}}}
+setlocal foldignore=#
+setlocal foldlevel=0
+setlocal foldminlines=1
+setlocal foldnestmax=20
+setlocal foldenable
+silent! normal! zE
+let &fdl = &fdl
+let s:l = 3 - ((2 * winheight(0) + 21) / 42)
+if s:l < 1 | let s:l = 1 | endif
+keepjumps exe s:l
+normal! zt
+keepjumps 3
+normal! 034|
+tabnext 1
 set stal=1
 if exists('s:wipebuf') && len(win_findbuf(s:wipebuf)) == 0 && getbufvar(s:wipebuf, '&buftype') isnot# 'terminal'
   silent exe 'bwipe ' . s:wipebuf

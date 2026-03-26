@@ -147,10 +147,25 @@ float renderChar(int charCode, vec2 origin, float size, vec2 fragPx) {
     return float((rowBits >> col) & 1u);
 }
 
+float renderCharRotated90(int charCode, vec2 origin, float size, vec2 fragPx) {
+    vec2 local = fragPx - origin;
+    if (local.x < 0.0 || local.x >= size ||
+        local.y < 0.0 || local.y >= size)
+        return 0.0;
+    vec2 rotated = vec2(size - 1.0 - local.y, local.x);
+    vec2 charUV = rotated / vec2(size);
+    if (charCode < 32 || charCode > 126) return 0.0;
+    int idx = (charCode - 32) * 8;
+    int row = int(charUV.y * 8.0);
+    int col = int(charUV.x * 8.0);
+    uint rowBits = font[idx + row];
+    return float((rowBits >> col) & 1u);
+}
+
 float renderText(int[128] chars, int len, vec2 origin, float size, vec2 fragPx) {
     float result = 0.0;
     for (int i = 0; i < len; i++) {
-        result = max(result, renderChar(chars[i],
+        result = max(result, renderCharRotated90(chars[i],
                      origin + vec2(float(i) * size, 0.0),
                      size, fragPx));
     }

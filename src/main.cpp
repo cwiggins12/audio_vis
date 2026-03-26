@@ -69,6 +69,20 @@ void doSwap(int activeIdx, std::vector<ShaderPreset>& presets,
     ssbos[2].resize(bridge.getPeakRMSGPUSizeInBytes()); ssbos[2].bind(2);
     ssbos[3].resize(bridge.getFFTGPUSizeInBytes());     ssbos[3].bind(3);
     size_t fbSize = presets[activeIdx].spec.feedbackBufferSize * sizeof(float);
+    switch (presets[activeIdx].spec.feedbackBufferScalesWithWindow) {
+        case 1: {
+            fbSize = bridge.getValFromWidthScalar(fbSize);
+            break;
+        }
+        case 2: {
+            fbSize = bridge.getValFromHeightScalar(fbSize);
+            break;
+        }
+        case 3: {
+            fbSize = bridge.getValFromResolutionScalar(fbSize);
+            break;
+        }
+    }
     float fbInit = presets[activeIdx].spec.feedbackBufferInitValue;
     ssbos[4].resize(fbSize);    ssbos[4].fill(fbInit);  ssbos[4].bind(4);
     ssbos[5].resize(fbSize);    ssbos[5].fill(fbInit);  ssbos[5].bind(5);
@@ -123,6 +137,8 @@ int main() {
     glfwWindowHint(GLFW_BLUE_BITS, mode->blueBits);
     glfwWindowHint(GLFW_REFRESH_RATE, displayHz);
     glfwWindowHint(GLFW_MAXIMIZED, GLFW_TRUE);
+    int initW = mode->width;
+    int initH = mode->height;
 
     GLFWwindow* window = glfwCreateWindow(mode->width, mode->height, "audio_vis",
                                           nullptr, nullptr);

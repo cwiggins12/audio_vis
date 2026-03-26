@@ -8,7 +8,7 @@ enum LowMode {
     LINEAR,         //0. fine and cheap
     PCHIP,          //1. mid
     LANCZOS,        //2. kinda hate
-    GAUSSIAN,       //3. cool but boosts area a lot
+    GAUSSIAN,       //3. cool but boosts area around peaks a lot
     CUBIC_B,        //4. cool and good peaks
     AKIMA,          //5. not sure if necessary with the others, but looks good
     HERMITE,        //6. not sure on difference between catmull rom
@@ -95,6 +95,9 @@ struct AudioSpec {
     //due to needing to double buffer for an in and out buffer.
     //shader will read from feedbackIn and write to feedbackOut each frame
     uint32_t feedbackBufferSize = 0;
+    //0 is off, 1 is width only scaling, 2 is height only scaling, 3 is resolution scaling
+    uint32_t feedbackBufferScalesWithWindow = 0;
+
     //if you want an initial value to the buffer elements. Set it here.
     float feedbackBufferInitValue = 0.0f;
     std::map<std::string, std::string> textures;
