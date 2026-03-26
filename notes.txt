@@ -1,5 +1,8 @@
+mel-spec notes: need frame count and sample rate uniforms, scalar based feedback buffer size, need power output setting for fft.
+spec: isdb = off, peakrms = off, holds = off, no textures, useAudibleSize = true, isPerceptual = false, is 
+
 bugs:
-L-Norm is buggy, also should p be exposed?
+L-Norm is buggy, needs more than 1 bin, also should p be exposed?
 hot reload errors for spec changes need to be passed to shader for error display!!!
 hermite: tension and bias? Either find a way to use them, or remove the mode entirely because without them its just catmull rom
 
@@ -17,13 +20,14 @@ maybe instead of listing flags for sizing, have a uint state?
 11. add a way to not have the swap in custom size modes? all low, or all high?
 12. scalar to determine when swap happens?
 13. add an undersamp 2nd pass on high end using same method as first pass option?
-14. finalize the spec
-15. finish specAssert logic in shader_loader
-16. update bridge logic to follow new spec
-17. update spec parsing to follow new spec
-18. update shaders if needed
-19. refactor av_bridge
-20. error handling(hot reloading especially) needs so much love
+14. allow for h/w/res specific numbers to have a scalar value, to not need a size and just need a scalar based on device/window specs
+15. finalize the spec
+16. finish specAssert logic in shader_loader
+17. update bridge logic to follow new spec
+18. update spec parsing to follow new spec
+19. update shaders if needed
+20. refactor av_bridge
+21. error handling(hot reloading especially) needs so much love
 
 FINAL PHASE TO 1.0.0:
 need hella more documentation in code and in repo for shader authors

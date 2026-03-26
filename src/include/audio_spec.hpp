@@ -95,7 +95,7 @@ struct AudioSpec {
     //due to needing to double buffer for an in and out buffer.
     //shader will read from feedbackIn and write to feedbackOut each frame
     uint32_t feedbackBufferSize = 0;
-    //0 is off, 1 is width only scaling, 2 is height only scaling, 3 is resolution scaling
+    //0 is off, 1 is width only, 2 is height only, 3 is resolution scaling
     uint32_t feedbackBufferScalesWithWindow = 0;
 
     //if you want an initial value to the buffer elements. Set it here.

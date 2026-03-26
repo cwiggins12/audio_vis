@@ -38,28 +38,18 @@ vec3 addPeakMeters(vec3 color, vec2 uv) {
 
     float thick  = 8.0;
     float rW     = W * 0.20;
-    float rH     = H * 0.15;          // 15% height
+    float rH     = H * 0.15;
     float margin = 40.0;
-    float drop   = H * 0.125;          // shift down 15%
+    float drop   = H * 0.125;
 
-    // Left rect: top-left, shifted down
     vec2 lLo = vec2(margin, H - margin - rH - drop);
     vec2 lHi = vec2(margin + rW, H - margin - drop);
 
-    // Right rect: top-right, mirrored, shifted down
     vec2 rLo = vec2(W - margin - rW, H - margin - rH - drop);
     vec2 rHi = vec2(W - margin, H - margin - drop);
 
     float lT = dbToT(peakRmsData[0]);
     float rT = dbToT(peakRmsData[2]);
-
-    // "03" — 10px from edges, 4x font size (32px), rotated 90 degrees
-    float fontSize = 64.0;
-    vec2  labelOrigin = vec2(100.0, H - 60.0 - fontSize);
-    int   ch0 = 48; // '0'
-    int   ch1 = 51; // '3'
-    float label = renderCharRotated90(ch0, labelOrigin,                       fontSize, px)
-                + renderCharRotated90(ch1, labelOrigin + vec2(fontSize + 4.0, 0.0), fontSize, px);
 
     vec3 green = vec3(0.0, 1.0, 0.3);
 
@@ -67,10 +57,21 @@ vec3 addPeakMeters(vec3 color, vec2 uv) {
         rectOutline(px, lLo, lHi, thick) +
         peakLine(px,   lLo, lHi, lT, 0.0, thick) +
         rectOutline(px, rLo, rHi, thick) +
-        peakLine(px,   rLo, rHi, rT, 1.0, thick) +
-        label;
+        peakLine(px,   rLo, rHi, rT, 1.0, thick);
 
     return mix(color, green, clamp(mask, 0.0, 1.0));
+}
+
+vec3 addChannelNum(vec3 color, vec2 uv) {
+    vec2 px = uv * vec2(W, H);
+    float fontSize = 64.0;
+    vec2  labelOrigin = vec2(100.0, H - 60.0 - fontSize);
+    int   ch0 = 48; // '0'
+    int   ch1 = 51; // '3'
+    float label = renderCharRotated90(ch0, labelOrigin,                       fontSize, px)
+                + renderCharRotated90(ch1, labelOrigin + vec2(fontSize + 4.0, 0.0), fontSize, px);
+    vec3 green = vec3(0.0, 1.0, 0.3);
+    return mix(color, green, clamp(label, 0.0, 1.0));
 }
 
 vec3 addFFTBars(vec3 color, vec2 uv) {
@@ -78,7 +79,7 @@ vec3 addFFTBars(vec3 color, vec2 uv) {
 
     int   bars    = 32;
     float totalW  = W * 0.75;
-    float startX  = (W - totalW) * 0.5;   // centered
+    float startX  = (W - totalW) * 0.5;
     float gapX    = 4.0;
     float barW    = (totalW - gapX * float(bars + 1)) / float(bars);
     float bottomY = 20.0;
@@ -106,7 +107,6 @@ vec3 addFFTBars(vec3 color, vec2 uv) {
 vec3 addScanning(vec3 color, vec2 uv) {
     vec2 px = uv * vec2(W, H);
 
-    // blink on/off — visible for ~0.6s, off for ~0.4s of every 2s cycle
     float cycle = mod(time, 2.0);
     if (cycle > 1.2) return color;
 
@@ -134,6 +134,7 @@ vec3 addScanning(vec3 color, vec2 uv) {
     vec3 green = vec3(0.0, 1.0, 0.3);
     return mix(color, green, clamp(mask, 0.0, 1.0));
 }
+
 float noise(vec2 p) {
     float s = texture(noise_tex, vec2(1.0, 2.0 * cos(time)) * time * 8.0 + p * 1.0).x;
     s *= s;
@@ -187,6 +188,16 @@ vec2 screenDistort(vec2 uvIn) {
     return uvIn;
 }
 
+void writeFeedback(vec3 video, vec2 rawUV) {
+    ivec2 px = ivec2(rawUV * vec2(W, H));
+    px = clamp(px, ivec2(0), ivec2(int(W) - 1, int(H) - 1));
+    int idx = (px.y * int(W) + px.x) * 4;
+    feedbackOut[idx + 0] = video.r;
+    feedbackOut[idx + 1] = video.g * 0.4;
+    feedbackOut[idx + 2] = video.b * 0.4;
+    feedbackOut[idx + 3] = 0.9;
+}
+
 void main() {
     vec2 rawUV = toPx() / vec2(W, H);
     vec2 uv = screenDistort(rawUV);
@@ -201,20 +212,12 @@ void main() {
     video = addPeakMeters(video, rawUV);
     video = addFFTBars(video, rawUV);
     video = addScanning(video, rawUV);
+    video = addChannelNum(video, rawUV);
     video += stripes(uv);
     video *= vignette;
     video *= (12.0 + mod(uv.y * 30.0 + time, 1.0)) / 13.0;
-    video *= 0.6;
-    video *= vec3(0.7, 0.9, 0.9);
-
-    // write to feedback using raw (undistorted) coords
-    ivec2 px = ivec2(rawUV * vec2(W, H));
-    px = clamp(px, ivec2(0), ivec2(int(W) - 1, int(H) - 1));
-    int idx = (px.y * int(W) + px.x) * 4;
-    feedbackOut[idx + 0] = video.r;
-    feedbackOut[idx + 1] = video.g;
-    feedbackOut[idx + 2] = video.b;
-    feedbackOut[idx + 3] = 0.9;
+    video *= vec3(0.5, 1.0, 0.9);
+    writeFeedback(video, rawUV);
 
     FragColor = vec4(video, 0.9);
 }
