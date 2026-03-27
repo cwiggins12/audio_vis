@@ -3,6 +3,8 @@
 #include <cstdint>
 #include <map>
 #include <string>
+#include <bitset>
+#include "expr_eval.hpp"
 
 enum Interps {
     LINEAR,         //0. fine, jagged, and cheap
@@ -47,16 +49,7 @@ enum FFTMeasurement {
     DECIBELS,
 };
 
-enum ExprVariable {
-    WINDOW_WIDTH,
-    WINDOW_HEIGHT,
-    NUM_BINS,
-    NUM_CHANNELS,
-    DISPLAY_HZ,
-    SAMPLE_RATE,
-    FFT_SIZE,
-};
-
+//reorder this to save a bit of space later on. User shouldn't need this file for docs
 struct Spec {
     //0 = full direct bin amt(no high/low mode processing), 1 = audbileBins only,
     //2 = customFFTSize related output
@@ -66,12 +59,15 @@ struct Spec {
     //If you don't want to deal with freq space, this entirely abstracts it away :)
     uint32_t customFFTSize = 1000;
     std::string customFFTSizeExpr = "";
+    //this is not used by a user, this check for usage of ExprVariable's in the above string
+    //then the system can check this to see if the size needs an update on change of this var
+    std::bitset<EXPR_VAR_AMT> fftUsesExprVar{};
     //0 is no scaling, 1 is width only, 2 is height only, 3 is resolution
     WindowScalingMode customFFTSizeScalesWithWindow = NO_SCALE;
     //collates and interps listed above, interp sparse bins
     //mode will switch to high dynamically based on the point where each index will
     //have at least one bin. A second pass on the high end is available to further
-    //smooth it to match the low end better
+    //smooth it to match the low end below, and is optional
     Collates highMode = RMS;
     Interps lowMode = GAUSSIAN;
     //if, after the first high mode run, you want it as smooth as the low end
@@ -131,6 +127,7 @@ struct Spec {
     //shader will read from feedbackIn and write to feedbackOut each frame
     uint32_t feedbackBufferSize = 0;
     std::string feedbackBufferSizeExpr = "";
+    std::bitset<EXPR_VAR_AMT> feedbackUsesExprVar{};
     //0 is off, 1 is width only, 2 is height only, 3 is resolution scaling, 4 is scaling off of init Values
     WindowScalingMode feedbackBufferScalesWithWindow = NO_SCALE;
     //if you want an initial value to the buffer elements. Set it here.

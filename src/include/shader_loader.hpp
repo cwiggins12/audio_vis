@@ -16,13 +16,6 @@ inline std::string loadFile(const std::string& path) {
     return ss.str();
 }
 
-//TODO if a possible logic error could happen in the spec settings, handle it here
-//currently does nothing to not have to adjust on every iteration
-//put new line at end of any spec error pls
-inline std::string specAssertHell(Spec& spec) {
-    return "";
-}
-
 inline const char* errorFragSrc = R"(
 void main() {
     vec2 fragPx = toPx();
@@ -83,12 +76,33 @@ inline std::vector<ShaderPreset> loadPresets(const std::string& shadersDir) {
                           << " - spec parse failed\n";
                 continue;
             }
-            std::string specErr = specAssertHell(p.spec);
-            if (specErr != "") {
-                std::cerr << "loadPresets: skipping " << p.name
-                          << " - spec logic error found - " <<
-                          specErr;
-            }
+        }
+        //set limits on buffer sizes and warn about double dependencies here
+        if (p.spec.customFFTSize > 8192) {
+            std::cerr << "loadPresets: skipping " << p.name
+                      << " - customFFTSize cannot exceed max FFT size (8192)";
+        }
+        if (p.spec.feedbackBufferSize > 33177600) {
+            std::cerr << "loadPresets: skipping " << p.name
+                      << " - feedback buffer size cannot exceed 4k frame buffer size (33177600)";
+        }
+        const int fftScaleMode = p.spec.customFFTSizeScalesWithWindow;
+        if (p.spec.fftUsesExprVar[WINDOW_WIDTH] && (fftScaleMode == WIDTH_SCALE || fftScaleMode == RESOLUTION_SCALE)) {
+            std::cout << "WARNING: " << p.name <<
+                "FFT custom size doubly scaled by WINDOW_WIDTH due to scale mode and width expression variable usage\n";
+        }
+        if (p.spec.fftUsesExprVar[WINDOW_HEIGHT] && (fftScaleMode == HEIGHT_SCALE || fftScaleMode == RESOLUTION_SCALE)) {
+            std::cout << "WARNING: " << p.name <<
+                "FFT custom size doubly scaled by WINDOW_HEIGHT due to scale mode and height expression variable usage\n";
+        }
+        const int feedbackScaleMode = p.spec.feedbackBufferScalesWithWindow;
+        if (p.spec.feedbackUsesExprVar[WINDOW_WIDTH] && (feedbackScaleMode == WIDTH_SCALE || feedbackScaleMode == RESOLUTION_SCALE)) {
+            std::cout << "WARNING: " << p.name <<
+                "Feedback buffer doubly scaled by WINDOW_WIDTH due to scale mode and width expression variable usage\n";
+        }
+        if (p.spec.feedbackUsesExprVar[WINDOW_HEIGHT] && (feedbackScaleMode == HEIGHT_SCALE || feedbackScaleMode == RESOLUTION_SCALE)) {
+            std::cout << "WARNING: " << p.name <<
+                "Feedback buffer doubly scaled by WINDOW_HEIGHT due to scale mode and height expression variable usage\n";
         }
 
         p.shader = Shader(vertexSrc, fragSrc.c_str());

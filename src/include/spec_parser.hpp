@@ -123,7 +123,7 @@ inline bool parseSpec(const std::string& path, Spec& out) {
         else if (key == "customFFTSize") {
             out.customFFTSizeExpr = val;
             ExprContext ctx{};
-            if (!evalExpr(val, ctx, out.customFFTSize, lineNum)) return false;
+            if (!evalExpr(val, ctx, out.customFFTSize, out.fftUsesExprVar, lineNum)) return false;
         }
         else if (key == "customFFTSizeScalesWithWindow") {
             if (!parseWindowScalingMode(val, lineNum, out.customFFTSizeScalesWithWindow)) return false;
@@ -194,7 +194,7 @@ inline bool parseSpec(const std::string& path, Spec& out) {
         else if (key == "feedbackBufferSize") {
             out.feedbackBufferSizeExpr = val;
             ExprContext ctx{};
-            if (!evalExpr(val, ctx, out.feedbackBufferSize, lineNum)) return false;
+            if (!evalExpr(val, ctx, out.feedbackBufferSize, out.feedbackUsesExprVar, lineNum)) return false;
         }
         else if (key == "feedbackBufferScalesWithWindow") {
             if (!parseWindowScalingMode(val, lineNum, out.feedbackBufferScalesWithWindow)) return false;

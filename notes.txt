@@ -1,39 +1,40 @@
-Tomorrow:
-hot reload errors for spec changes need to be passed to shader for error display properly
-Failed spec and shader compilation should fallback to compiling the error shader and displaying the error for hot reload!!!
-need to handle sample rate change
-need to handle displayhz change
-finish specAssert logic in shader_loader(logical no nos that I have a warnig about in the spec comments)
+THE NOT FUN PART:
+2. for any of the bottom 3 to work, a full error handling and shader loading refactor has to happen. This is what I get for having an AI do some boiler plate. The whole thing has to get remade. Never again.
+3. assert custom buffer sizes on resize
+4. hot reload errors for spec changes, and general compliation errors, need to be passed to shader for error display properly rather than skipped
+5. Failed spec parsing and shader compilation should just set error bool and place in vector for the error shader display to allow hot reload
 
-Current phase:
-7. do one more run of finalizing which low/high modes will be available
-8. update shaders after all the fixes to use as examples for users
+THE FUN PART:
+7. update shaders after all the fixes to use as examples for users
+8. do one more run of finalizing which low/high modes will be available
 9. mel-spectrogram shader(audible bins usage), spec: isdb = off, peakrms = off, holds = off, no textures, useAudibleSize = true, isPerceptual = false, 
-10. shader to test full bin output
+10. example shader with full bin output
 11. shuffle button(when pressed, random next shader)
-12. 7. test multi monitor setup
+12. test multi monitor setup(should be fine when framebuffer callback is set up)
 
-FINAL PHASE TO 1.0.0:
-need hella more documentation in code and in repo for shader authors
-proper security check with all of these cstrings from glsl and file pathing
-refactor, profile, optimize, get it good as standalone for linux
-test memory use: when program is running, in another console enter:
+FINAL POLISH FOR 1.0.0:
+1. proper security pass for all of these strings from glsl, spec, and file pathing
+2. refactor, profile, and optimize to finish as standalone for linux
+3. test memory use: when program is running, in another console enter:
 cat /proc/$(pgrep audio_vis)/smaps_rollup
-look into speed diffs between clang and gcc (reminder: stb_image might only use SIMD on GCC when using the -msse2 flag)
-need Mesa's V3DV driver to test on a pi
+4. look into speed diffs between clang and gcc (reminder: stb_image might only use SIMD on GCC when using the -msse2 flag)
+5. pi target notes: need Mesa's V3DV driver, how will audio pass through happen, check its device listings,
+6. need hella more documentation in code and in repo for shader authors
 
-Possible future work:
-stb_truetype integration for user defined fonts
-look into a wayland fullscreen and window pos workaround, or if its necessary at all
-timed shuffle mode(pressing a button opens a dialog box, user enters a time?)
-put hot reload notifictations on a bg thread with inotify/ReadDirectoryChangesW wrapper
-windows build(capture and cmake will require the largest changes, but should be mostly painless)
-utility exes and a config.ini for device(audio & video) listing/choosing
-trim all but what is used from miniaudio.h
-dmx output for dmx based video walls(WOULD BE NIGHTMARE TO FIND DEVICE, make it up to users or DAWS in the case of a vst3?)
-Allow for user defined uniforms that could be adjusted by midi, key input, or ui
+Possible future additions:
+1. get parentheses working better in the expression parser
+2. stb_truetype integration for user defined fonts
+3. look into a wayland fullscreen and window pos workaround, or if its necessary at all
+4. timed shuffle mode(pressing a button opens a dialog box, user enters a time?)
+5. put hot reload notifictations on a bg thread with inotify/ReadDirectoryChangesW wrapper (profile this and make sure the context switches don't outweigh the savings)
+6. windows build(AudioCapture and CMake will require the largest changes, but should be mostly painless)
+7. utility exes and a config.ini for device(audio & video) listing/choosing
+8. better sample rate changes(disallow resampling at any level and detect changes)(this would only be necessary or relevant for a user that needs the highest quality, but is changing their hardware sample rate mid session. The analysis still works, but it will be analyzing resampled audio by either the OS internal audio processes(pipewire, pulse, winapi) or miniaudio will do it itself(alsa, certain windows configs))
+9. trim all but what is used from miniaudio.h
+10. dmx output for dmx based video walls(WOULD BE NIGHTMARE TO FIND DEVICE, make it up to users or DAWS in the case of a vst3?)
+11. Allow for user defined uniforms that could be adjusted by midi, key input, or ui
 pre-built widgets(meters, mel-bin, etc.)
-Allow export of current setup in standalone to VST3 with midi driven shader swaps. no JUCE, straight up steinbergSDK use.
+12. Allow export of current setup in standalone to VST3 with midi driven shader swaps. no JUCE, straight up steinbergSDK use.
 
 Done This Week:
 1. Shader to test feedback buffer, bitmap font, and textures
@@ -47,7 +48,12 @@ Done This Week:
 8. big ole 400 line refactor out of av_bridge
 9. expression evaluation now works for the sizes and can use select variables that aren't known at compile time
 10. HOPEFULLY finalized spec and spec parser aside from reworking the error handling and possibly trimming down some of the enum options
-11. 
+11. main refactoring, will still need more later, but no use until its finalized
+12. now keep track of h/w and displayhz dependencies to decide if swap is necessary
+13. removed possibility of multiple swaps per frame
+14. set usage bitset with each bit related to each user defined var used in parser, eval, spec, and main to more effictively know when to swap and easily scale
+15. finished specAssert logic in shader_loader: bounds checking on numeric values is all thats needed, everything else is handled in the parsing. Just warnings for double reliance on width and height by using the scale mode and having the var in the expression, and hard limits on custom buffer sizes (fft size for custom fft and a 4k frame buffer for feedback(which is probably way more than should be allowed))
+16. 
 
 officially in second to last phase!!!!!
 current loc(without spec.cfg's and frag.glsl's): 3711
