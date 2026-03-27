@@ -19,7 +19,7 @@ inline std::string loadFile(const std::string& path) {
 //TODO if a possible logic error could happen in the spec settings, handle it here
 //currently does nothing to not have to adjust on every iteration
 //put new line at end of any spec error pls
-inline std::string specAssertHell(AudioSpec& spec) {
+inline std::string specAssertHell(Spec& spec) {
     return "";
 }
 
@@ -75,7 +75,7 @@ inline std::vector<ShaderPreset> loadPresets(const std::string& shadersDir) {
 
         ShaderPreset p;
         p.name = entry.path().filename().string();
-        p.spec = AudioSpec{};
+        p.spec = Spec{};
 
         if (std::filesystem::exists(specPath)) {
             if (!parseSpec(specPath.string(), p.spec)) {
@@ -123,7 +123,7 @@ inline void reloadPreset(ShaderPreset& p) {
     }
 
     // re-parse spec if it exists
-    AudioSpec newSpec{};
+    Spec newSpec{};
     if (!p.specPath.empty() && std::filesystem::exists(p.specPath)) {
         if (!parseSpec(p.specPath, newSpec)) {
             p.hasError     = true;

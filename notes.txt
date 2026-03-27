@@ -1,43 +1,26 @@
-mel-spec notes: need frame count and sample rate uniforms, scalar based feedback buffer size, need power output setting for fft.
-spec: isdb = off, peakrms = off, holds = off, no textures, useAudibleSize = true, isPerceptual = false, is 
-
-bugs:
-L-Norm is buggy, needs more than 1 bin, also should p be exposed?
-hot reload errors for spec changes need to be passed to shader for error display!!!
-hermite: tension and bias? Either find a way to use them, or remove the mode entirely because without them its just catmull rom
+Tomorrow:
+hot reload errors for spec changes need to be passed to shader for error display properly
+Failed spec and shader compilation should fallback to compiling the error shader and displaying the error for hot reload!!!
+need to handle sample rate change
+need to handle displayhz change
+finish specAssert logic in shader_loader(logical no nos that I have a warnig about in the spec comments)
 
 Current phase:
-4. test multi monitor setup
-6. shader to test audible bins
-7. shader to test full bins
-8. mel-spectrogram shader
-9. shuffle button(when pressed, random next shader)
-do one more run of finalizing which low/high modes will be available
-10. rework spec based on h/w, new additions, and to prepare for fonts. notes for h/w below
-handle height & width case in AudioSpec more robustly
-have a percentage specific height and/or width case
-maybe instead of listing flags for sizing, have a uint state?
-11. add a way to not have the swap in custom size modes? all low, or all high?
-12. scalar to determine when swap happens?
-13. add an undersamp 2nd pass on high end using same method as first pass option?
-14. allow for h/w/res specific numbers to have a scalar value, to not need a size and just need a scalar based on device/window specs
-15. finalize the spec
-16. finish specAssert logic in shader_loader
-17. update bridge logic to follow new spec
-18. update spec parsing to follow new spec
-19. update shaders if needed
-20. refactor av_bridge
-21. error handling(hot reloading especially) needs so much love
+7. do one more run of finalizing which low/high modes will be available
+8. update shaders after all the fixes to use as examples for users
+9. mel-spectrogram shader(audible bins usage), spec: isdb = off, peakrms = off, holds = off, no textures, useAudibleSize = true, isPerceptual = false, 
+10. shader to test full bin output
+11. shuffle button(when pressed, random next shader)
+12. 7. test multi monitor setup
 
 FINAL PHASE TO 1.0.0:
 need hella more documentation in code and in repo for shader authors
-security check with all of these cstrings from glsl and file pathing
+proper security check with all of these cstrings from glsl and file pathing
 refactor, profile, optimize, get it good as standalone for linux
 test memory use: when program is running, in another console enter:
 cat /proc/$(pgrep audio_vis)/smaps_rollup
-look into speed diffs between clang and gcc (reminder: stb_image will only use SIMD on GCC when using the -msse2 flag)
+look into speed diffs between clang and gcc (reminder: stb_image might only use SIMD on GCC when using the -msse2 flag)
 need Mesa's V3DV driver to test on a pi
-trim all but what is used from miniaudio.h
 
 Possible future work:
 stb_truetype integration for user defined fonts
@@ -45,7 +28,8 @@ look into a wayland fullscreen and window pos workaround, or if its necessary at
 timed shuffle mode(pressing a button opens a dialog box, user enters a time?)
 put hot reload notifictations on a bg thread with inotify/ReadDirectoryChangesW wrapper
 windows build(capture and cmake will require the largest changes, but should be mostly painless)
-utility exes for device(audio & video) listing/choosing
+utility exes and a config.ini for device(audio & video) listing/choosing
+trim all but what is used from miniaudio.h
 dmx output for dmx based video walls(WOULD BE NIGHTMARE TO FIND DEVICE, make it up to users or DAWS in the case of a vst3?)
 Allow for user defined uniforms that could be adjusted by midi, key input, or ui
 pre-built widgets(meters, mel-bin, etc.)
@@ -53,10 +37,17 @@ Allow export of current setup in standalone to VST3 with midi driven shader swap
 
 Done This Week:
 1. Shader to test feedback buffer, bitmap font, and textures
-2. make feedback buffer scale with width, height, or resolution
-3. Cleaned up customSize modes dramatically
+2. made feedback buffer scale with width, height, or resolution
+3. did the same for the customFFTSize
+3. Cleaned up customFFTSize modes dramatically
 4. fixed smooth value and bitmap text bugs
-5. 
+5. fft now has ability to ouput power, along with magnitude and decibels
+6. Power, mag, or db setting can be configured in the spec now
+7. added high end interpolation smoothing second pass strats. still needs testing
+8. big ole 400 line refactor out of av_bridge
+9. expression evaluation now works for the sizes and can use select variables that aren't known at compile time
+10. HOPEFULLY finalized spec and spec parser aside from reworking the error handling and possibly trimming down some of the enum options
+11. 
 
 officially in second to last phase!!!!!
 current loc(without spec.cfg's and frag.glsl's): 3711

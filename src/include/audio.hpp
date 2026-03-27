@@ -18,7 +18,7 @@ public:
 	Audio(Audio&&) = delete;
 	Audio& operator=(Audio&&) = delete;
 
-    bool init(AudioSpec& spec) {
+    bool init(Spec& spec) {
         fftSize = 1 << fftOrder;
         hopSize = fftSize / hopAmt;
         const int frameAmount = fftSize * 2;
@@ -33,8 +33,8 @@ public:
 
         peak = std::make_unique<PeakMeter[]>(channels);
         rms = std::make_unique<RMSMeter[]>(channels);
-        fft = std::make_unique<FFT>(fftSize, spec.isPerceptual, spec.isHannWindowed, 
-                                    spec.isFFTdB, true, spec.perceptualSlopeDegrees);
+        fft = std::make_unique<FFT>(fftSize, spec.perceptualSlopeDegrees != 0.0f, spec.isFFTHannWindowed,
+                                    spec.fftOutputMeasurement, true, spec.perceptualSlopeDegrees);
         fft->initFFT(sampleRate);
 
         return true;
@@ -78,7 +78,7 @@ public:
         capture.moveAccumulator(hopSize);
     }
 
-    void swapSpec(AudioSpec& spec) {
+    void swapSpec(Spec& spec) {
         resetAccumulator();
         for (int ch = 0; ch < channels; ++ch) {
             popPeak(ch);
@@ -88,9 +88,7 @@ public:
 
         //set this way to account for arb sized array being more efficient to
         //just get db the convert after sizing
-        bool db = (spec.customSize != 0 && !spec.useAudibleSize) 
-                   ? true : spec.isFFTdB;
-        fft->swapSpec(spec.isPerceptual, spec.isHannWindowed, db,
+        fft->swapSpec(spec.perceptualSlopeDegrees != 0.0f, spec.isFFTHannWindowed, spec.fftOutputMeasurement,
                       spec.perceptualSlopeDegrees, sampleRate);
     }
 
@@ -139,24 +137,13 @@ private:
     const uint32_t fftOrder;
     const uint32_t hopAmt;
 
-    bool firstWindowAccumulated = false;
-
     uint32_t fftSize = 0;
     uint32_t hopSize = 0;
 
     uint32_t channels = 0;
     uint32_t sampleRate = 0;
 
-    //spec given/current values
-    //fft configs
-    bool isPerceptual = true;
-    bool isHannWindowed = true;
-    bool isDB = true;
-    bool isSingleSided = true;
-    float slope = 4.5;
-    bool getsFFTHolds = true;
-    //peak/rms configs
-    bool getsPeakRMSHolds = true;
+    bool firstWindowAccumulated = false;
     bool isPeakRMSMono = false;
 };
 

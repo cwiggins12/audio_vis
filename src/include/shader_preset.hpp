@@ -21,7 +21,7 @@ struct ShaderPreset {
     std::string fragPath = "";
     std::string specPath = "";
     std::string shaderDir = "";
-    AudioSpec   spec;
+    Spec   spec;
     Shader      shader;
     FileTime    lastFragWrite;
     FileTime    lastSpecWrite;

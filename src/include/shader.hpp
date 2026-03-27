@@ -12,6 +12,8 @@ struct BaseUniforms {
     GLint H = -1;
     GLint numBins = -1;
     GLint numChannels = -1;
+    GLint frameCount = -1;
+    GLint sampleRate = -1;
     GLint errorChars = -1;
     GLint errorLen = -1;
     GLint showError = -1;
@@ -51,6 +53,8 @@ public:
             uniforms.H           = glGetUniformLocation(id, "H");
             uniforms.numBins     = glGetUniformLocation(id, "numBins");
             uniforms.numChannels = glGetUniformLocation(id, "numChannels");
+            uniforms.frameCount  = glGetUniformLocation(id, "frameCount");
+            uniforms.sampleRate  = glGetUniformLocation(id, "sampleRate");
             uniforms.errorChars  = glGetUniformLocation(id, "errorChars");
             uniforms.errorLen    = glGetUniformLocation(id, "errorLen");
             uniforms.showError   = glGetUniformLocation(id, "showError");

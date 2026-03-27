@@ -69,24 +69,28 @@ void doSwap(int activeIdx, std::vector<ShaderPreset>& presets,
     ssbos[2].resize(bridge.getPeakRMSGPUSizeInBytes()); ssbos[2].bind(2);
     ssbos[3].resize(bridge.getFFTGPUSizeInBytes());     ssbos[3].bind(3);
     size_t fbSize = presets[activeIdx].spec.feedbackBufferSize * sizeof(float);
-    switch (presets[activeIdx].spec.feedbackBufferScalesWithWindow) {
-        case 1: {
-            fbSize = bridge.getValFromWidthScalar(fbSize);
-            break;
-        }
-        case 2: {
-            fbSize = bridge.getValFromHeightScalar(fbSize);
-            break;
-        }
-        case 3: {
-            fbSize = bridge.getValFromResolutionScalar(fbSize);
-            break;
-        }
-    }
+    int mode = presets[activeIdx].spec.feedbackBufferScalesWithWindow;
+    fbSize = bridge.getSizeFromModeSwitch(fbSize, mode);
     float fbInit = presets[activeIdx].spec.feedbackBufferInitValue;
     ssbos[4].resize(fbSize);    ssbos[4].fill(fbInit);  ssbos[4].bind(4);
     ssbos[5].resize(fbSize);    ssbos[5].fill(fbInit);  ssbos[5].bind(5);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+}
+
+ExprContext makeExprContext(int w, int h, int displayHz, Audio& audio) {
+    ExprContext ctx;
+    ctx.windowWidth  = w;
+    ctx.windowHeight = h;
+    ctx.numChannels  = audio.getNumChannels();
+    ctx.displayHz    = displayHz;
+    ctx.sampleRate   = audio.getSampleRate();
+    ctx.fftSize      = audio.getFFTSize();
+    return ctx;
+}
+
+void evalSpecExprs(Spec& spec, const ExprContext& ctx) {
+    evalExpr(spec.customFFTSizeExpr,       ctx, spec.customFFTSize);
+    evalExpr(spec.feedbackBufferSizeExpr,  ctx, spec.feedbackBufferSize);
 }
 
 int main() {
@@ -198,6 +202,10 @@ int main() {
     }
     bridge.init(displayHz, w, h);
     setTitleBarForPreset(window, activeIdx, presets[activeIdx].name);
+    int sampleRate = audio.getSampleRate();
+    //hate this
+    ExprContext ctx = makeExprContext(w, h, displayHz, audio);
+    evalSpecExprs(presets[0].spec, ctx);
 
     GLuint vao;
     glGenVertexArrays(1, &vao);
@@ -222,6 +230,7 @@ int main() {
     int prevFSKey = GLFW_RELEASE;
     bool isFullscreen = false;
     bool feedbackFlip = false;
+    int frameCounter = 0;
 
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
@@ -233,6 +242,8 @@ int main() {
         int rightKey = glfwGetKey(window, GLFW_KEY_RIGHT);
         if (rightKey == GLFW_PRESS && prevRightKey == GLFW_RELEASE) {
             activeIdx = (activeIdx + 1) % presets.size();
+            ExprContext ctx = makeExprContext(w, h, displayHz, audio);
+            evalSpecExprs(presets[activeIdx].spec, ctx);
             doSwap(activeIdx, presets, bridge, ssbos);
             setTitleBarForPreset(window, activeIdx, presets[activeIdx].name);
             glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
@@ -242,6 +253,8 @@ int main() {
         int leftKey = glfwGetKey(window, GLFW_KEY_LEFT);
         if (leftKey == GLFW_PRESS && prevLeftKey == GLFW_RELEASE) {
             activeIdx = ((activeIdx - 1) + (int)presets.size()) % (int)presets.size();
+            ExprContext ctx = makeExprContext(w, h, displayHz, audio);
+            evalSpecExprs(presets[activeIdx].spec, ctx);
             doSwap(activeIdx, presets, bridge, ssbos);
             setTitleBarForPreset(window, activeIdx, presets[activeIdx].name);
             glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
@@ -274,6 +287,9 @@ int main() {
             h = newH;
             glViewport(0, 0, w, h);
             bridge.resize(w, h);
+            ExprContext ctx = makeExprContext(w, h, displayHz, audio);
+            evalSpecExprs(presets[activeIdx].spec, ctx);
+            doSwap(activeIdx, presets, bridge, ssbos);
         }
 
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
@@ -298,6 +314,8 @@ int main() {
             std::cout << "hot reload: " << active.name << "\n";
             reloadPreset(active);
             if (!active.hasError) {
+                ExprContext ctx = makeExprContext(w, h, displayHz, audio);
+                evalSpecExprs(presets[activeIdx].spec, ctx);
                 doSwap(activeIdx, presets, bridge, ssbos);
             }
         }
@@ -325,6 +343,8 @@ int main() {
             glUniform1i(getErrorShader().uniforms.numChannels, channels);
             glUniform1f(getErrorShader().uniforms.H,           (float)h);
             glUniform1f(getErrorShader().uniforms.W,           (float)w);
+            glUniform1i(getErrorShader().uniforms.frameCount,  frameCounter);
+            glUniform1i(getErrorShader().uniforms.sampleRate,  sampleRate);
             uploadError(presets[activeIdx], presets[activeIdx].errorMessage);
         } else {
             presets[activeIdx].shader.use();
@@ -333,6 +353,8 @@ int main() {
             glUniform1i(presets[activeIdx].shader.uniforms.numChannels, channels);
             glUniform1f(presets[activeIdx].shader.uniforms.H,           (float)h);
             glUniform1f(presets[activeIdx].shader.uniforms.W,           (float)w);
+            glUniform1i(presets[activeIdx].shader.uniforms.frameCount,  frameCounter);
+            glUniform1i(presets[activeIdx].shader.uniforms.sampleRate,  sampleRate);
             glUniform1i(presets[activeIdx].shader.uniforms.showError,   0);
             glUniform1i(presets[activeIdx].shader.uniforms.errorLen,    0);
             bindTextures(presets[activeIdx]);
@@ -345,6 +367,7 @@ int main() {
         unbindTextures(presets[activeIdx]);
 
         glfwSwapBuffers(window);
+        frameCounter = (++frameCounter) % displayHz;
     }
 
     glDeleteVertexArrays(1, &vao);

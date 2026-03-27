@@ -8,10 +8,10 @@
 static constexpr float PI = 3.14159265358979323846f;
 
 struct FFT{
-    FFT(int N, bool per = true, bool win = true, 
-        bool dB = true, bool ss = true, float slope = 0.0f) : 
+    FFT(int N, bool per = true, bool win = true, int powerMagOrDB = 2,
+        bool ss = true, float slope = 0.0f) : 
         n(N), isPerceptual(per), isWindowed(win), 
-        isDB(dB), isSingleSided(ss), perceptualSlope(slope) {
+        outputMeasurement(powerMagOrDB), isSingleSided(ss), perceptualSlope(slope) {
         binAmt = n / 2 + 1;
         //initialize fft and precompute table
         in = (float *)fftwf_malloc(sizeof(float) * n);
@@ -38,7 +38,8 @@ struct FFT{
     FFT(FFT&& other) noexcept : in(other.in), out(other.out), p(other.p),
                                 placement(other.placement), n(other.n),
                                 binAmt(other.binAmt), isPerceptual(other.isPerceptual),
-                                isWindowed(other.isWindowed), isDB(other.isDB),
+                                isWindowed(other.isWindowed),
+                                outputMeasurement(other.outputMeasurement),
                                 isSingleSided(other.isSingleSided),
                                 perceptualSlope(other.perceptualSlope),
                                 windowingTable(std::move(other.windowingTable)),
@@ -62,7 +63,7 @@ struct FFT{
             binAmt = other.binAmt;
             isPerceptual = other.isPerceptual;
             isWindowed = other.isWindowed;
-            isDB = other.isDB;
+            outputMeasurement = other.outputMeasurement;
             isSingleSided = other.isSingleSided;
             perceptualSlope = other.perceptualSlope;
             windowingTable = std::move(other.windowingTable);
@@ -112,23 +113,21 @@ struct FFT{
         }
     }
 
-    void swapSpec(bool isPer, bool isWin, bool isDec, float slope, uint32_t sr) {
-        //any change other than isDec & isWin will cause 
+    void swapSpec(bool isPer, bool isWin, int outputMeas, float slope, uint32_t sr) {
+        //any change other than isWin will cause 
         //a recompute of the scalar table,
-        //isDec and isWin only change future processing cost, 
+        //isWin only changes future processing cost, 
         //unless windowing table hasn't been filled yet
-        if (isPer != isPerceptual || slope != perceptualSlope) {
+        if (isPer != isPerceptual || slope != perceptualSlope
+                                  || outputMeasurement != outputMeas) {
             isPerceptual = isPer;
             perceptualSlope = slope;
+            outputMeasurement = outputMeas;
             fillScalarTable(sr);
         }
         if (isWin && !windowTableFilled) {
             fillWindowingTable();
         }
-        //since arbitrarily sized output ops need dB as input, 
-        //its cheaper to convert after those,
-        //sent bool is set accordingly in audio.swapSpec()
-        isDB = isDec;
     }
 
     void runFFT() {
@@ -136,10 +135,11 @@ struct FFT{
             multiplyWithWindowingTable();
         }
         fftwf_execute(p);
-        convertToMag();
-        multiplyWithScalarTable();
-        if (isDB) {
-            convertToDB();
+        switch (outputMeasurement) {
+            case 0:  convertToPower(); multiplyWithScalarTable(); break;
+            case 1:  convertToMag();   multiplyWithScalarTable(); break;
+            case 2:  convertToPower(); multiplyWithScalarTable(); convertToDB(); break;
+            default: convertToPower(); multiplyWithScalarTable(); convertToDB(); break;
         }
     }
 
@@ -168,12 +168,13 @@ private:
     void fillScalarTable(uint32_t sr) {
         //NOTE: accounts for single sided and loss from FFT ops at 2.0f each. 
         //Scale has been tested, it is consistently in line with peak and RMS
+        const bool isMagnitude = (outputMeasurement == 1);
         float scaleNumerator = (isSingleSided) ? 4.0f : 2.0f;
-        const float scale = scaleNumerator / (float)n;
-        const float tiltExponent = (isPerceptual) ? perceptualSlope / 6.0206f : 0.0f;
+        float scale = scaleNumerator / (float)n;
+        scale = (isMagnitude) ? scale : scale * scale;
+        float tiltExponent = (isPerceptual) ? perceptualSlope / 6.0206f : 0.0f;
+        tiltExponent = (isMagnitude) ? tiltExponent : tiltExponent * 2;
         const float binMult = (float)sr / (float)n;
-        bool firstAudibleSet = false;
-        bool lastAudibleSet = false;
 
         scalarTable[0] = scale / 2.0f;
         for (uint32_t i = 1; i < binAmt - 1; ++i) {
@@ -201,6 +202,15 @@ private:
         }
     }
 
+    void convertToPower() {
+        for (uint32_t i = 0; i < binAmt; ++i) {
+            float real = out[i][0];
+            float imag = out[i][1];
+            float pow = real * real + imag * imag;
+            placement[i] = pow;
+        }
+    }
+
     void multiplyWithScalarTable() {
         for (uint32_t i = 0; i < binAmt; ++i) {
             placement[i] *= scalarTable[i];
@@ -209,7 +219,7 @@ private:
 
     void convertToDB() {
         for (uint32_t i = 0; i < binAmt; ++i) {
-            float mag = 20.0f * std::log10(placement[i]);
+            float mag = 10.0f * std::log10(placement[i]);
             placement[i] = std::max(mag, -96.0f);
         }
     }
@@ -227,7 +237,7 @@ private:
     bool windowTableFilled = false;
     bool isPerceptual;
     bool isWindowed;
-    bool isDB;
+    int outputMeasurement;
     bool isSingleSided;
     float perceptualSlope;
     uint32_t n;
