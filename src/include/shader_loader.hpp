@@ -3,7 +3,7 @@
 #include "shader_preset.hpp"
 #include "spec_parser.hpp"
 #include "texture_loader.hpp"
-#include <algorithm> //just using this for sort
+#include <algorithm>
 
 inline std::string loadFile(const std::string& path) {
     std::ifstream f(path);
@@ -24,16 +24,10 @@ void main() {
         FragColor = bg;
         return;
     }
-    float text = renderText(errorChars, errorLen,
-                            vec2(16.0, 16.0), 12.0, fragPx);
-    FragColor = mix(bg, vec4(1.0, 0.3, 0.3, 1.0), text);
+    float text = renderText(errorChars, errorLen, vec2(16.0, 16.0), 24.0, fragPx);
+    FragColor = mix(bg, vec4(1.0, 0.1, 0.1, 1.0), text);
 }
 )";
-
-inline Shader& getErrorShader() {
-    static Shader s(vertexSrc, errorFragSrc);
-    return s;
-}
 
 inline std::vector<ShaderPreset> loadPresets(const std::string& shadersDir) {
     std::vector<ShaderPreset> presets;
@@ -57,58 +51,70 @@ inline std::vector<ShaderPreset> loadPresets(const std::string& shadersDir) {
         auto fragPath = entry.path() / "frag.glsl";
         auto specPath = entry.path() / "spec.cfg";
 
+        std::string ret = "";
         if (!std::filesystem::exists(fragPath)) {
-            std::cerr << "loadPresets: skipping " << entry.path().filename()
-                      << " - no frag.glsl found\n";
+            std::cerr << "loadPresets: Error in " << entry.path().filename()
+                      << " - no frag.glsl found. Skipping\n";
             continue;
         }
-
         std::string fragSrc = loadFile(fragPath.string());
-        if (fragSrc.empty()) continue;
+        if (fragSrc.empty()) {
+            std::cerr << "loadPresets: Error in " << entry.path().filename()
+                      << " - frag.glsl could not be opened. Skipping\n";
+            continue;
+        }
 
         ShaderPreset p;
         p.name = entry.path().filename().string();
         p.spec = Spec{};
 
         if (std::filesystem::exists(specPath)) {
-            if (!parseSpec(specPath.string(), p.spec)) {
-                std::cerr << "loadPresets: skipping " << p.name
-                          << " - spec parse failed\n";
+            ret = parseSpec(specPath.string(), p.spec);
+            if (ret != "") {
+                ret = "loadPresets: Error in " + p.name +
+                      " spec.cfg - " + ret;
+                std::cerr << ret;
+                p.errorMessage = ret;
+                p.hasError = true;
+                presets.push_back(std::move(p));
+                std::cout << "loadPresets: using ErrorShader in" << p.name << "\n";
                 continue;
             }
         }
-        //set limits on buffer sizes and warn about double dependencies here
-        if (p.spec.customFFTSize > 8192) {
-            std::cerr << "loadPresets: skipping " << p.name
-                      << " - customFFTSize cannot exceed max FFT size (8192)";
-        }
-        if (p.spec.feedbackBufferSize > 33177600) {
-            std::cerr << "loadPresets: skipping " << p.name
-                      << " - feedback buffer size cannot exceed 4k frame buffer size (33177600)";
-        }
         const int fftScaleMode = p.spec.customFFTSizeScalesWithWindow;
-        if (p.spec.fftUsesExprVar[WINDOW_WIDTH] && (fftScaleMode == WIDTH_SCALE || fftScaleMode == RESOLUTION_SCALE)) {
+        if (p.spec.fftUsesExprVar[WINDOW_WIDTH] &&
+           (fftScaleMode == WIDTH_SCALE || fftScaleMode == RESOLUTION_SCALE)) {
             std::cout << "WARNING: " << p.name <<
                 "FFT custom size doubly scaled by WINDOW_WIDTH due to scale mode and width expression variable usage\n";
         }
-        if (p.spec.fftUsesExprVar[WINDOW_HEIGHT] && (fftScaleMode == HEIGHT_SCALE || fftScaleMode == RESOLUTION_SCALE)) {
+        if (p.spec.fftUsesExprVar[WINDOW_HEIGHT] &&
+           (fftScaleMode == HEIGHT_SCALE || fftScaleMode == RESOLUTION_SCALE)) {
             std::cout << "WARNING: " << p.name <<
                 "FFT custom size doubly scaled by WINDOW_HEIGHT due to scale mode and height expression variable usage\n";
         }
         const int feedbackScaleMode = p.spec.feedbackBufferScalesWithWindow;
-        if (p.spec.feedbackUsesExprVar[WINDOW_WIDTH] && (feedbackScaleMode == WIDTH_SCALE || feedbackScaleMode == RESOLUTION_SCALE)) {
+        if (p.spec.feedbackUsesExprVar[WINDOW_WIDTH] &&
+           (feedbackScaleMode == WIDTH_SCALE ||
+            feedbackScaleMode == RESOLUTION_SCALE)) {
             std::cout << "WARNING: " << p.name <<
                 "Feedback buffer doubly scaled by WINDOW_WIDTH due to scale mode and width expression variable usage\n";
         }
-        if (p.spec.feedbackUsesExprVar[WINDOW_HEIGHT] && (feedbackScaleMode == HEIGHT_SCALE || feedbackScaleMode == RESOLUTION_SCALE)) {
+        if (p.spec.feedbackUsesExprVar[WINDOW_HEIGHT] &&
+           (feedbackScaleMode == HEIGHT_SCALE ||
+            feedbackScaleMode == RESOLUTION_SCALE)) {
             std::cout << "WARNING: " << p.name <<
                 "Feedback buffer doubly scaled by WINDOW_HEIGHT due to scale mode and height expression variable usage\n";
         }
 
         p.shader = Shader(vertexSrc, fragSrc.c_str());
         if (!p.shader.valid) {
-            std::cerr << "loadPresets: skipping " << p.name
-                      << " - shader compile failed\n";
+            ret = "loadPresets: skipping " + p.name +
+                  " - shader compile failed - " + p.shader.errorLog;
+            std::cerr << ret;
+            p.errorMessage = ret;
+            p.hasError = true;
+            presets.push_back(std::move(p));
+            std::cout << "loadPresets: using ErrorShader in" << p.name << "\n";
             continue;
         }
 
@@ -118,8 +124,8 @@ inline std::vector<ShaderPreset> loadPresets(const std::string& shadersDir) {
         p.specPath = specPath.string();
         p.lastFragWrite = std::filesystem::last_write_time(fragPath);
         p.lastSpecWrite = std::filesystem::exists(specPath)
-                          ? std::filesystem::last_write_time(specPath)
-                          : std::filesystem::file_time_type{};
+                        ? std::filesystem::last_write_time(specPath)
+                        : std::filesystem::file_time_type{};
         buildTextures(p);
         presets.push_back(std::move(p));
         std::cout << "loadPresets: loaded " << loadedName << "\n";
@@ -132,16 +138,20 @@ inline void reloadPreset(ShaderPreset& p) {
     std::string fragSrc = loadFile(p.fragPath);
     if (fragSrc.empty()) {
         p.hasError     = true;
-        p.errorMessage = "failed to read frag.glsl";
+        p.errorMessage = "Hot Reload - " + p.name + 
+                         " failed to open file - frag.glsl\n";
         return;
     }
 
-    // re-parse spec if it exists
     Spec newSpec{};
+    std::string errLog = "";
     if (!p.specPath.empty() && std::filesystem::exists(p.specPath)) {
-        if (!parseSpec(p.specPath, newSpec)) {
+        errLog = parseSpec(p.specPath, newSpec);
+        if (errLog != "") {
             p.hasError     = true;
-            p.errorMessage = "spec parse failed";
+            p.errorMessage = "Hot Reload - " + p.name + 
+                             " spec parse failed - " + errLog;
+            p.spec = newSpec;
             return;
         }
     }
@@ -149,7 +159,8 @@ inline void reloadPreset(ShaderPreset& p) {
     Shader newShader(vertexSrc, fragSrc.c_str());
     if (!newShader.valid) {
         p.hasError     = true;
-        p.errorMessage = newShader.errorLog;
+        p.errorMessage = "Hot Reload - " + p.name + newShader.errorLog + "\n";
+        p.spec = newSpec;
         return;
     }
 
@@ -161,3 +172,26 @@ inline void reloadPreset(ShaderPreset& p) {
     buildTextures(p);
 }
 
+inline bool assertUserDefinedBufferSizes(ShaderPreset& p) {
+    std::string ret = "";
+    //set limits on buffer sizes and warn about double dependencies here
+    if (p.spec.customFFTSize > 8192) {
+        ret = "loadPresets: skipping " + p.name +
+              " - customFFTSize cannot exceed max FFT size (8192)\n";
+        std::cerr << ret;
+        p.errorMessage = ret;
+        p.hasError = true;
+        std::cout << "loadPresets: using ErrorShader in" << p.name << "\n";
+        return false;
+    }
+    if (p.spec.feedbackBufferSize > 33177600) {
+        ret = "loadPresets: skipping " + p.name +
+              " - feedback buffer size cannot exceed 4k frame buffer size (33177600)\n";
+        std::cerr << ret;
+        p.errorMessage = ret;
+        p.hasError = true;
+        std::cout << "loadPresets: using ErrorShader in" << p.name << "\n";
+        return false;
+    }
+    return true;
+}

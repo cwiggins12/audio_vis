@@ -20,9 +20,6 @@ void setTitleBarForPreset(GLFWwindow* window, int i, std::string& s) {
     glfwSetWindowTitle(window, newTitle.c_str());
 }
 
-//h8 this, but there is no current glfw ops to get the monitor the window is most on
-//almost certain this among other related things will break on Wayland,
-//since it, to my knowledge, doesn't expose window positioning
 GLFWmonitor* getCurrentMonitor(GLFWwindow* window) {
     int wx, wy, ww, wh;
     glfwGetWindowPos(window, &wx, &wy);
@@ -49,17 +46,6 @@ GLFWmonitor* getCurrentMonitor(GLFWwindow* window) {
         }
     }
     return best;
-}
-
-void uploadError(const ShaderPreset& p, const std::string& msg) {
-    int chars[128] = {};
-    int len = std::min((int)msg.size(), 128);
-    for (int i = 0; i < len; i++) {
-        chars[i] = (int)msg[i];
-    }
-    glUniform1iv(p.shader.uniforms.errorChars, 128, chars);
-    glUniform1i(p.shader.uniforms.errorLen,   len);
-    glUniform1i(p.shader.uniforms.showError,  1);
 }
 
 void doSwap(int activeIdx, std::vector<ShaderPreset>& presets,
@@ -89,14 +75,24 @@ ExprContext makeExprContext(int w, int h, int displayHz, Audio& audio) {
     return ctx;
 }
 
-void evalSpecExprs(Spec& spec, ExprContext& ctx) {
-    evalExpr(spec.customFFTSizeExpr, ctx, spec.customFFTSize, spec.fftUsesExprVar);
-    evalExpr(spec.feedbackBufferSizeExpr, ctx, spec.feedbackBufferSize, spec.feedbackUsesExprVar);
+std::string evalSpecExprs(Spec& spec, ExprContext& ctx) {
+    std::string ret = evalExpr(spec.customFFTSizeExpr, ctx,
+                               spec.customFFTSize, spec.fftUsesExprVar);
+    if (!ret.empty()) return ret;
+    ret = evalExpr(spec.feedbackBufferSizeExpr, ctx,
+                   spec.feedbackBufferSize, spec.feedbackUsesExprVar);
+    return ret;
 }
 
-void evalPresetExprs(int w, int h, int hz, Audio& audio, ShaderPreset& pre) {
+bool evalPresetExprs(int w, int h, int hz, Audio& audio, ShaderPreset& pre) {
     ExprContext ctx = makeExprContext(w, h, hz, audio);
-    evalSpecExprs(pre.spec, ctx);
+    std::string ret = evalSpecExprs(pre.spec, ctx);
+    if (!ret.empty()) {
+        pre.errorMessage = ret;
+        pre.hasError = true;
+        return false;
+    }
+    return true;
 }
 
 int main() {
@@ -185,6 +181,7 @@ int main() {
         logFile.close();
         return -1;
     }
+    Shader errorShader(vertexSrc, errorFragSrc);
     int activeIdx = 0;
     //set up a way to define these based on displayHz?
     const int fft_order = 13;
@@ -201,21 +198,24 @@ int main() {
     bridge.init(displayHz, w, h);
     setTitleBarForPreset(window, activeIdx, presets[activeIdx].name);
     int sampleRate = audio.getSampleRate();
-    evalPresetExprs(w, h, displayHz, audio, presets[0]);
     //init gpu verts and buffers
     GLuint vao;
     glGenVertexArrays(1, &vao);
     glBindVertexArray(vao);
     SSBO ssbos[6];
-    ssbos[0].alloc(bridge.getPeakRMSGPUSizeInBytes());          ssbos[0].bind(0);
-    ssbos[1].alloc(bridge.getFFTGPUSizeInBytes());              ssbos[1].bind(1);
-    ssbos[2].alloc(bridge.getPeakRMSGPUSizeInBytes());          ssbos[2].bind(2);
-    ssbos[3].alloc(bridge.getFFTGPUSizeInBytes());              ssbos[3].bind(3);
-    size_t fbSize = presets[0].spec.feedbackBufferSize * sizeof(float);
+    ssbos[0].alloc(16);         ssbos[0].bind(0);
+    ssbos[1].alloc(16);         ssbos[1].bind(1);
+    ssbos[2].alloc(16);         ssbos[2].bind(2);
+    ssbos[3].alloc(16);         ssbos[3].bind(3);
     float fbInitVal = presets[0].spec.feedbackBufferInitValue;
-    ssbos[4].alloc(fbSize);     ssbos[4].fill(fbInitVal);       ssbos[4].bind(4);
-    ssbos[5].alloc(fbSize);     ssbos[5].fill(fbInitVal);       ssbos[5].bind(5);
+    ssbos[4].alloc(16);     ssbos[4].fill(fbInitVal);       ssbos[4].bind(4);
+    ssbos[5].alloc(16);     ssbos[5].fill(fbInitVal);       ssbos[5].bind(5);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+    //swap all configs to first preset, unless eval error, then use errorShader
+    if (evalPresetExprs(w, h, displayHz, audio, presets[0]) &&
+        assertUserDefinedBufferSizes(presets[0])) {
+        doSwap(0, presets, bridge, ssbos);
+    }
     //full setup of vars to check for resize and fullscreen swaps
     int windowedX = 0, windowedY = 0, windowedW = w, windowedH = h;
     glfwGetWindowPos(window, &windowedX, &windowedY);
@@ -297,26 +297,31 @@ int main() {
             }
         }
         // hot reload if necessary
-        auto& active = presets[activeIdx];
-        auto fragTime = std::filesystem::last_write_time(active.fragPath);
-        std::filesystem::file_time_type specTime{};
-        if (!active.specPath.empty() && std::filesystem::exists(active.specPath)) {
-            specTime = std::filesystem::last_write_time(active.specPath);
-        }
-        if (fragTime != active.lastFragWrite || specTime != active.lastSpecWrite) {
-            active.lastFragWrite = fragTime;
-            active.lastSpecWrite = specTime;
-            std::cout << "hot reload: " << active.name << "\n";
-            reloadPreset(active);
-            //fairly certain this is wrong
-            if (!active.hasError) {
-                needsSwap = true;
+        if (!presets[activeIdx].fragPath.empty()
+            && std::filesystem::exists(presets[activeIdx].fragPath)) {
+            auto fragTime = std::filesystem::last_write_time(presets[activeIdx].fragPath);
+            std::filesystem::file_time_type specTime{};
+            if (!presets[activeIdx].specPath.empty() 
+                && std::filesystem::exists(presets[activeIdx].specPath)) {
+                specTime = std::filesystem::last_write_time(presets[activeIdx].specPath);
+            }
+            if (fragTime != presets[activeIdx].lastFragWrite
+                || specTime != presets[activeIdx].lastSpecWrite) {
+                presets[activeIdx].lastFragWrite = fragTime;
+                presets[activeIdx].lastSpecWrite = specTime;
+                std::cout << "hot reload: " << presets[activeIdx].name << "\n";
+                reloadPreset(presets[activeIdx]);
+                if (!presets[activeIdx].hasError) {
+                    needsSwap = true;
+                }
             }
         }
-        //do swap if necessary
+        //do swap if necessary, if eval fails, update activeIndex error msg
         if (needsSwap) {
-            evalPresetExprs(w, h, displayHz, audio, presets[activeIdx]);
-            doSwap(activeIdx, presets, bridge, ssbos);
+            if (evalPresetExprs(w, h, displayHz, audio, presets[activeIdx]) &&
+                assertUserDefinedBufferSizes(presets[activeIdx])) {
+                doSwap(activeIdx, presets, bridge, ssbos);
+            }
             setTitleBarForPreset(window, activeIdx, presets[activeIdx].name);
             glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
         }
@@ -347,15 +352,23 @@ int main() {
         size_t channels = audio.getNumChannels();
         //use shader based on error state
         if (presets[activeIdx].hasError) {
-            getErrorShader().use();
-            glUniform1f(getErrorShader().uniforms.time,        t);
-            glUniform1i(getErrorShader().uniforms.numBins,     bins);
-            glUniform1i(getErrorShader().uniforms.numChannels, channels);
-            glUniform1f(getErrorShader().uniforms.H,           (float)h);
-            glUniform1f(getErrorShader().uniforms.W,           (float)w);
-            glUniform1i(getErrorShader().uniforms.frameCount,  frameCounter);
-            glUniform1i(getErrorShader().uniforms.sampleRate,  sampleRate);
-            uploadError(presets[activeIdx], presets[activeIdx].errorMessage);
+            errorShader.use();
+            glUniform1f(errorShader.uniforms.time,        t);
+            glUniform1i(errorShader.uniforms.numBins,     bins);
+            glUniform1i(errorShader.uniforms.numChannels, channels);
+            glUniform1f(errorShader.uniforms.H,           (float)h);
+            glUniform1f(errorShader.uniforms.W,           (float)w);
+            glUniform1i(errorShader.uniforms.frameCount,  frameCounter);
+            glUniform1i(errorShader.uniforms.sampleRate,  sampleRate);
+            int chars[128] = {};
+            std::string msg = presets[activeIdx].errorMessage;
+            int len = std::min((int)msg.size(), 128);
+            for (int i = 0; i < len; i++) {
+                chars[i] = (int)msg[i];
+            }
+            glUniform1iv(presets[activeIdx].shader.uniforms.errorChars, 128, chars);
+            glUniform1i(presets[activeIdx].shader.uniforms.errorLen,    len);
+            glUniform1i(presets[activeIdx].shader.uniforms.showError,   1);
         } else {
             presets[activeIdx].shader.use();
             glUniform1f(presets[activeIdx].shader.uniforms.time,        t);

@@ -59,7 +59,6 @@ public:
             uniforms.errorLen    = glGetUniformLocation(id, "errorLen");
             uniforms.showError   = glGetUniformLocation(id, "showError");
         }
-
         glDeleteShader(vert);
         glDeleteShader(frag);
     }

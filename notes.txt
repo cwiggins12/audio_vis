@@ -1,16 +1,10 @@
-THE NOT FUN PART:
-2. for any of the bottom 3 to work, a full error handling and shader loading refactor has to happen. This is what I get for having an AI do some boiler plate. The whole thing has to get remade. Never again.
-3. assert custom buffer sizes on resize
-4. hot reload errors for spec changes, and general compliation errors, need to be passed to shader for error display properly rather than skipped
-5. Failed spec parsing and shader compilation should just set error bool and place in vector for the error shader display to allow hot reload
-
-THE FUN PART:
-7. update shaders after all the fixes to use as examples for users
-8. do one more run of finalizing which low/high modes will be available
+6. update shaders after all the fixes to use as examples for users
+7. test all error handling functionality
+8. do one more run of finalizing which Interp/Collate modes will be available
 9. mel-spectrogram shader(audible bins usage), spec: isdb = off, peakrms = off, holds = off, no textures, useAudibleSize = true, isPerceptual = false, 
-10. example shader with full bin output
+10. example shader with full bin output? at least do one more example
 11. shuffle button(when pressed, random next shader)
-12. test multi monitor setup(should be fine when framebuffer callback is set up)
+12. test multi monitor setup(should be fine)
 
 FINAL POLISH FOR 1.0.0:
 1. proper security pass for all of these strings from glsl, spec, and file pathing
@@ -22,11 +16,11 @@ cat /proc/$(pgrep audio_vis)/smaps_rollup
 6. need hella more documentation in code and in repo for shader authors
 
 Possible future additions:
-1. get parentheses working better in the expression parser
+1. get parentheses actually working in the expression parser
 2. stb_truetype integration for user defined fonts
 3. look into a wayland fullscreen and window pos workaround, or if its necessary at all
 4. timed shuffle mode(pressing a button opens a dialog box, user enters a time?)
-5. put hot reload notifictations on a bg thread with inotify/ReadDirectoryChangesW wrapper (profile this and make sure the context switches don't outweigh the savings)
+5. put hot reload notifictations on a bg thread with inotify/ReadDirectoryChangesW wrapper (profile this and make sure the context switches don't outweigh the savings). Also, try and get it to recognize a new directory being created and add it to presets array
 6. windows build(AudioCapture and CMake will require the largest changes, but should be mostly painless)
 7. utility exes and a config.ini for device(audio & video) listing/choosing
 8. better sample rate changes(disallow resampling at any level and detect changes)(this would only be necessary or relevant for a user that needs the highest quality, but is changing their hardware sample rate mid session. The analysis still works, but it will be analyzing resampled audio by either the OS internal audio processes(pipewire, pulse, winapi) or miniaudio will do it itself(alsa, certain windows configs))
@@ -53,7 +47,9 @@ Done This Week:
 13. removed possibility of multiple swaps per frame
 14. set usage bitset with each bit related to each user defined var used in parser, eval, spec, and main to more effictively know when to swap and easily scale
 15. finished specAssert logic in shader_loader: bounds checking on numeric values is all thats needed, everything else is handled in the parsing. Just warnings for double reliance on width and height by using the scale mode and having the var in the expression, and hard limits on custom buffer sizes (fft size for custom fft and a 4k frame buffer for feedback(which is probably way more than should be allowed))
-16. 
+16. size assertions for user defined buffer sizes on every swap
+17. complete rework of parsing, hot reloading, error handling, and error display. :(
+18. expression parsing now exception free by using member string to pass in error message
 
 officially in second to last phase!!!!!
 current loc(without spec.cfg's and frag.glsl's): 3711

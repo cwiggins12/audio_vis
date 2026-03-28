@@ -1,8 +1,6 @@
 #pragma once
 
 #include <string>
-#include <stdexcept>
-#include <cctype>
 #include <iostream>
 #include <cstdint>
 #include <bitset>
@@ -36,6 +34,7 @@ struct ExprParser {
     const std::string& src;
     ExprContext& ctx;
     size_t pos = 0;
+    std::string errorMsg = "";
 
     ExprParser(const std::string& s, ExprContext& c)
         : src(s), ctx(c), pos(0) {}
@@ -46,16 +45,20 @@ struct ExprParser {
 
     uint32_t parsePrimary() {
         skipWhitespace();
-        if (pos >= src.size())
-            throw std::runtime_error("unexpected end of expression");
+        if (pos >= src.size()) {
+            errorMsg = "unexpected end of expression";
+            return 0;
+        }
 
         // parentheses
         if (src[pos] == '(') {
             pos++;
             uint32_t val = parseAddSub();
             skipWhitespace();
-            if (pos >= src.size() || src[pos] != ')')
-                throw std::runtime_error("missing closing parenthesis");
+            if (pos >= src.size() || src[pos] != ')') {
+                errorMsg = "missing closing parenthesis";
+                return 0;
+            }
             pos++;
             return val;
         }
@@ -75,18 +78,19 @@ struct ExprParser {
                 pos++;
             std::string name = src.substr(start, pos - start);
 
-            if (name == "WINDOW_WIDTH")  ctx.uses[WINDOW_WIDTH] = true;    return ctx.windowWidth;
-            if (name == "WINDOW_HEIGHT") ctx.uses[WINDOW_HEIGHT] = true;   return ctx.windowHeight;
+            if (name == "WINDOW_WIDTH")  ctx.uses[WINDOW_WIDTH] = true;     return ctx.windowWidth;
+            if (name == "WINDOW_HEIGHT") ctx.uses[WINDOW_HEIGHT] = true;    return ctx.windowHeight;
             if (name == "DISPLAY_HZ")    ctx.uses[DISPLAY_HZ] = true;       return ctx.displayHz;
-            if (name == "NUM_CHANNELS")  ctx.uses[NUM_CHANNELS] = true; return ctx.numChannels;
-            if (name == "SAMPLE_RATE")   ctx.uses[SAMPLE_RATE] = true;       return ctx.sampleRate;
-            if (name == "FFT_SIZE")      ctx.uses[FFT_SIZE] = true;      return ctx.fftSize;
+            if (name == "NUM_CHANNELS")  ctx.uses[NUM_CHANNELS] = true;     return ctx.numChannels;
+            if (name == "SAMPLE_RATE")   ctx.uses[SAMPLE_RATE] = true;      return ctx.sampleRate;
+            if (name == "FFT_SIZE")      ctx.uses[FFT_SIZE] = true;         return ctx.fftSize;
 
-            throw std::runtime_error("unknown variable: " + name);
+            errorMsg = "unknown variable: " + name;
+            return 0;
         }
 
-        throw std::runtime_error(
-            std::string("unexpected character: ") + src[pos]);
+        errorMsg = "unexpected character: " + std::to_string(src[pos]);
+        return 0;
     }
 
     uint32_t parseMulDiv() {
@@ -101,8 +105,10 @@ struct ExprParser {
             if (op == '*') {
                 left *= right;
             } else {
-                if (right == 0)
-                    throw std::runtime_error("division by zero");
+                if (right == 0) {
+                    errorMsg = "division by zero";
+                    return 0;
+                }
                 left /= right;
             }
         }
@@ -130,31 +136,33 @@ struct ExprParser {
     uint32_t evaluate() {
         uint32_t result = parseAddSub();
         skipWhitespace();
-        if (pos < src.size())
-            throw std::runtime_error(
-                std::string("unexpected character after expression: ") + src[pos]);
+        if (pos < src.size()) {
+            errorMsg = "unexpected character after expression: " + std::to_string(src[pos]);
+            return 0;
+        }
         return result;
     }
 };
 
 // returns false and logs on failure, writes result to out on success
-inline bool evalExpr(const std::string& expr, ExprContext& ctx,
+inline std::string evalExpr(const std::string& expr, ExprContext& ctx,
                      uint32_t& out, std::bitset<EXPR_VAR_AMT>& uses, int lineNum = -1) {
-    try {
-        ExprParser p(expr, ctx);
-        uint32_t result = p.evaluate();
-        out = result;
-        uses = ctx.uses;
-        return true;
-    } catch (const std::exception& e) {
-        if (lineNum >= 0)
-            std::cerr << "parseSpec: line " << lineNum
-                      << ": expression error: " << e.what()
-                      << " in \"" << expr << "\"\n";
-        else
-            std::cerr << "evalExpr: " << e.what()
-                      << " in \"" << expr << "\"\n";
-        return false;
+    ExprParser p(expr, ctx);
+    uint32_t result = p.evaluate();
+    out = result;
+    uses = ctx.uses;
+    std::string ret = p.errorMsg;
+    if (!ret.empty()) {
+        if (lineNum >= 0) {
+            ret = "parseSpec: line " + std::to_string(lineNum) +
+                  ": expression error: " + ret +
+                  " in \"" + expr + "\"\n";
+        }
+        else {
+            ret = "evalExpr: " + ret + " in \"" + expr + "\"\n";
+        }
+        std::cerr << ret;
     }
+    return ret;
 }
 
