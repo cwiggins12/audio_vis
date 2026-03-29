@@ -320,6 +320,11 @@ int main() {
         if (needsSwap) {
             if (evalPresetExprs(w, h, displayHz, audio, presets[activeIdx]) &&
                 assertUserDefinedBufferSizes(presets[activeIdx])) {
+                std::cout << "Swapping to: " << presets[activeIdx].name << "\n";
+                std::cout << "Custom FFT size = " <<
+                          presets[activeIdx].spec.customFFTSize <<
+                          ", Feedback buffer size = " <<
+                          presets[activeIdx].spec.feedbackBufferSize << "\n";
                 doSwap(activeIdx, presets, bridge, ssbos);
             }
             setTitleBarForPreset(window, activeIdx, presets[activeIdx].name);
@@ -366,10 +371,11 @@ int main() {
             for (int i = 0; i < len; i++) {
                 chars[i] = (int)msg[i];
             }
-            glUniform1iv(presets[activeIdx].shader.uniforms.errorChars, 128, chars);
-            glUniform1i(presets[activeIdx].shader.uniforms.errorLen,    len);
-            glUniform1i(presets[activeIdx].shader.uniforms.showError,   1);
-        } else {
+            glUniform1iv(errorShader.uniforms.errorChars, 128, chars);
+            glUniform1i(errorShader.uniforms.errorLen,    len);
+            glUniform1i(errorShader.uniforms.showError,   1);
+        }
+        else {
             presets[activeIdx].shader.use();
             glUniform1f(presets[activeIdx].shader.uniforms.time,        t);
             glUniform1i(presets[activeIdx].shader.uniforms.numBins,     bins);

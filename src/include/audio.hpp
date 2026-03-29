@@ -3,7 +3,7 @@
 #include "audio_capture.hpp"
 #include "peak_rms.hpp"
 #include "fft.hpp"
-#include "audio_spec.hpp"
+#include "spec.hpp"
 #include <cstdint>
 #include <memory>
 #include <iostream>
@@ -114,8 +114,7 @@ public:
         fft->getAudibleRange(sampleRate, start, size);
     }
 
-    //if bypassing smoothedValue array, and want output buffer
-    float* getFFTPtr() {
+    const float* getFFTPtr() {
         return fft->getOutputBuffer();
     }
 

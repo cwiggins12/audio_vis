@@ -35,11 +35,14 @@ enum WindowScalingMode {
     RESOLUTION_SCALE
 };
 
+//not gonna work :(
+/*
 enum SecondPassMode {
     NO_SECOND_PASS,
     USE_LOW_END_INTERP,
     USE_SEPARATE_INTERP
 };
+*/
 
 enum FFTMeasurement {
     POWER,
@@ -52,7 +55,7 @@ struct Spec {
     //0 = full direct bin amt(no high/low mode processing), 1 = audbileBins only,
     //2 = customFFTSize related output
     //Amount sent each frame will always be passed to the numBins uniform
-    FFTOutputMode fftOutputMode = FULL_BIN;
+    FFTOutputMode fftOutputMode = CUSTOM_SIZE;
     //for custom sized pixel aligned fftOutputs.
     //If you don't want to deal with freq space, this entirely abstracts it away :)
     uint32_t customFFTSize = 1000;
@@ -70,10 +73,10 @@ struct Spec {
     Interps lowMode = GAUSSIAN;
     //if, after the first high mode run, you want it as smooth as the low end
     //0 = no high end second pass
-    //1 = high end uses current low end interpolation strategy, 
+    //1 = high end uses current low end interpolation strategy,
     //2 = uses separate chosen interp chosen below
-    SecondPassMode highSecondPassMode = NO_SECOND_PASS;
-    Interps highSecondPassInterp = GAUSSIAN;
+    //SecondPassMode highSecondPassMode = NO_SECOND_PASS;
+    //Interps highSecondPassInterp = GAUSSIAN;
     //outputs fft output in db rather than 0 to 1 amplitude value.
     //generally, if you are looking for something to map more clearly to a
     //linear space similar to how we hear it, get dB then map to pixels
@@ -126,7 +129,7 @@ struct Spec {
     uint32_t feedbackBufferSize = 0;
     std::string feedbackBufferSizeExpr = "";
     std::bitset<EXPR_VAR_AMT> feedbackUsesExprVar{};
-    //0 is off, 1 is width only, 2 is height only, 3 is resolution scaling, 4 is scaling off of init Values
+    //0 is off, 1 is width only, 2 is height only, 3 is resolution scaling
     WindowScalingMode feedbackBufferScalesWithWindow = NO_SCALE;
     //if you want an initial value to the buffer elements. Set it here.
     float feedbackBufferInitValue = 0.0f;

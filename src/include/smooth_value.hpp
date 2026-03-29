@@ -163,9 +163,16 @@ struct SmoothArraySoA {
         }
     }
 
-    void setAllTargets(float val) {
+    void setAllTargetsWithVal(float val) {
         for (size_t i = 0; i < current.size(); i++) {
             setTargetVal(i, val);
+        }
+    }
+
+    //NOTE: DOES NOT CHECK SIZE OF IN ARRAY. SIZE MATCHING IS UP TO CALLER
+    void setAllTargetsWithPtr(float* in) {
+        for (size_t i = 0; i < current.size(); ++i) {
+            setTargetVal(i, in[i]);
         }
     }
 
@@ -178,7 +185,9 @@ struct SmoothArraySoA {
     //getters
 
     const float* getCurrents()  const { return current.data(); }
-    float* getTargets()               { return target.data(); }
+    //NOTE: THINKING OF USING THIS TO PLACE VALUES DIRECTLY? DONT.
+    //THAT WILL BREAK THE LOGIC OF THE TEMPORAL SMOOTHING. USE setTargetVal()
+    const float* getTargets()   const { return target.data(); }
     size_t size()               const { return current.size(); }
 
 private:

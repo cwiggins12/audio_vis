@@ -87,7 +87,7 @@ struct FFT{
         return in;
     }
 
-    float* getOutputBuffer() {
+    const float* getOutputBuffer() {
         return placement;
     }
 

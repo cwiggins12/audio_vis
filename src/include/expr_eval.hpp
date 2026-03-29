@@ -46,7 +46,6 @@ struct ExprParser {
     uint32_t parsePrimary() {
         skipWhitespace();
         if (pos >= src.size()) {
-            errorMsg = "unexpected end of expression";
             return 0;
         }
 
@@ -137,7 +136,8 @@ struct ExprParser {
         uint32_t result = parseAddSub();
         skipWhitespace();
         if (pos < src.size()) {
-            errorMsg = "unexpected character after expression: " + std::to_string(src[pos]);
+            errorMsg = "unexpected character after expression: " 
+                       + std::to_string(src[pos]);
             return 0;
         }
         return result;
@@ -147,6 +147,10 @@ struct ExprParser {
 // returns false and logs on failure, writes result to out on success
 inline std::string evalExpr(const std::string& expr, ExprContext& ctx,
                      uint32_t& out, std::bitset<EXPR_VAR_AMT>& uses, int lineNum = -1) {
+    if (expr.empty()) {
+        uses.reset();
+        return "";
+    }
     ExprParser p(expr, ctx);
     uint32_t result = p.evaluate();
     out = result;

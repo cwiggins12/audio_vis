@@ -11,6 +11,8 @@ uniform float W;
 uniform float H;
 uniform int numBins;
 uniform int numChannels;
+uniform int frameCount;
+uniform int sampleRate;
 uniform int errorChars[128];
 uniform int errorLen;
 uniform int showError;

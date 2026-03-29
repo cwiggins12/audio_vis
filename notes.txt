@@ -1,10 +1,11 @@
-6. update shaders after all the fixes to use as examples for users
-7. test all error handling functionality
+Research for high end smoothing: precollation smoothing(super spency), weighted collation(wont do much without log bin grouping), or log bin grouping with overlap(spency)
+
+Bugs: mel spec is blank, fix error prints to go to top of screen, and print 32 characters per line
 8. do one more run of finalizing which Interp/Collate modes will be available
 9. mel-spectrogram shader(audible bins usage), spec: isdb = off, peakrms = off, holds = off, no textures, useAudibleSize = true, isPerceptual = false, 
 10. example shader with full bin output? at least do one more example
 11. shuffle button(when pressed, random next shader)
-12. test multi monitor setup(should be fine)
+12. test multi monitor setup(should be fine with new framebuffer check each frame)
 
 FINAL POLISH FOR 1.0.0:
 1. proper security pass for all of these strings from glsl, spec, and file pathing
@@ -22,13 +23,14 @@ Possible future additions:
 4. timed shuffle mode(pressing a button opens a dialog box, user enters a time?)
 5. put hot reload notifictations on a bg thread with inotify/ReadDirectoryChangesW wrapper (profile this and make sure the context switches don't outweigh the savings). Also, try and get it to recognize a new directory being created and add it to presets array
 6. windows build(AudioCapture and CMake will require the largest changes, but should be mostly painless)
-7. utility exes and a config.ini for device(audio & video) listing/choosing
-8. better sample rate changes(disallow resampling at any level and detect changes)(this would only be necessary or relevant for a user that needs the highest quality, but is changing their hardware sample rate mid session. The analysis still works, but it will be analyzing resampled audio by either the OS internal audio processes(pipewire, pulse, winapi) or miniaudio will do it itself(alsa, certain windows configs))
-9. trim all but what is used from miniaudio.h
-10. dmx output for dmx based video walls(WOULD BE NIGHTMARE TO FIND DEVICE, make it up to users or DAWS in the case of a vst3?)
-11. Allow for user defined uniforms that could be adjusted by midi, key input, or ui
+7. utility exes and a config.ini for device(audio & video) listing/choosing. maybe done through a dropdown menu of the audio_vis.exe
+8. BPM detection as a uniform
+9. better sample rate changes(disallow resampling at any level and detect changes)(this would only be necessary or relevant for a user that needs the highest quality, but is changing their hardware sample rate mid session. The analysis still works currently, but it analyzes resampled audio by either the OS internal audio processes(pipewire, pulse, winapi) or miniaudio in certain scenarios(alsa, certain windows configs))
+10. trim all but what is used from miniaudio.h
+11. dmx output for dmx based video walls(WOULD BE NIGHTMARE TO FIND DEVICE, make it up to users or DAWS in the case of a vst3?)
+12. Allow for user defined uniforms that could be adjusted by midi, key input, or ui
 pre-built widgets(meters, mel-bin, etc.)
-12. Allow export of current setup in standalone to VST3 with midi driven shader swaps. no JUCE, straight up steinbergSDK use.
+13. Allow export of current setup in standalone to VST3 with midi driven shader swaps. no JUCE, straight up steinbergSDK use.
 
 Done This Week:
 1. Shader to test feedback buffer, bitmap font, and textures
@@ -37,7 +39,7 @@ Done This Week:
 3. Cleaned up customFFTSize modes dramatically
 4. fixed smooth value and bitmap text bugs
 5. fft now has ability to ouput power, along with magnitude and decibels
-6. Power, mag, or db setting can be configured in the spec now
+6. Power, mag, or db setting can be configured in the spec now. All output modes can do this now.
 7. added high end interpolation smoothing second pass strats. still needs testing
 8. big ole 400 line refactor out of av_bridge
 9. expression evaluation now works for the sizes and can use select variables that aren't known at compile time
@@ -50,6 +52,7 @@ Done This Week:
 16. size assertions for user defined buffer sizes on every swap
 17. complete rework of parsing, hot reloading, error handling, and error display. :(
 18. expression parsing now exception free by using member string to pass in error message
+19. updated specs to work with new spec rules
 
 officially in second to last phase!!!!!
 current loc(without spec.cfg's and frag.glsl's): 3711

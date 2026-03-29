@@ -1,6 +1,6 @@
 #pragma once
 
-#include "audio_spec.hpp"
+#include "spec.hpp"
 #include "expr_eval.hpp"
 #include <fstream>
 #include <string>
@@ -24,7 +24,7 @@ inline std::string parseInterp(const std::string& val, int lineNum, Interps& out
     if (val == "CATMULL_ROM_3" || val == "7") { out = CATMULL_ROM_3; return ret; }
     ret = "parseSpec: line " + std::to_string(lineNum) +
           ": invalid Interps value \"" + val + "\"\n";
-    std::cerr << ret;
+    //std::cerr << ret;
     return ret;
 }
 
@@ -36,7 +36,7 @@ inline std::string parseCollates(const std::string& val, int lineNum, Collates& 
     if (val == "L_NORM"     || val == "3") { out = L_NORM;     return ret; }
     ret = "parseSpec: line " + std::to_string(lineNum) +
           ": invalid Collates value \"" + val + "\"\n";
-    std::cerr << ret;
+    //std::cerr << ret;
     return ret;
 }
 
@@ -48,7 +48,7 @@ inline std::string parseFFTOutputMode(const std::string& val, int lineNum,
     if (val == "CUSTOM_SIZE"  || val == "2") { out = CUSTOM_SIZE;  return ret; }
     ret = "parseSpec: line " + std::to_string(lineNum) +
           ": invalid FFTOutputMode value \"" + val + "\"\n";
-    std::cerr << ret;
+    //std::cerr << ret;
     return ret;
 }
 
@@ -61,10 +61,11 @@ inline std::string parseWindowScalingMode(const std::string& val, int lineNum,
     if (val == "RESOLUTION_SCALE" || val == "3") { out = RESOLUTION_SCALE; return ret; }
     ret = "parseSpec: line " + std::to_string(lineNum) +
           ": invalid WindowScalingMode value \"" + val + "\"\n";
-    std::cerr << ret;
+    //std::cerr << ret;
     return ret;
 }
 
+/*
 inline std::string parseSecondPassMode(const std::string& val, int lineNum,
                                        SecondPassMode& out) {
     std::string ret = "";
@@ -82,9 +83,10 @@ inline std::string parseSecondPassMode(const std::string& val, int lineNum,
     }
     ret = "parseSpec: line " + std::to_string(lineNum) +
           ": invalid SecondPassMode value \"" + val + "\"\n";
-    std::cerr << ret;
+    //std::cerr << ret;
     return ret;
 }
+*/
 
 inline std::string parseFFTMeasurement(const std::string& val, int lineNum,
                                        FFTMeasurement& out) {
@@ -94,7 +96,7 @@ inline std::string parseFFTMeasurement(const std::string& val, int lineNum,
     if (val == "DECIBELS"  || val == "2") { out = DECIBELS;  return ret; }
     ret = "parseSpec: line " + std::to_string(lineNum) +
           ": invalid FFTMeasurement value \"" + val + "\"\n";
-    std::cerr << ret;
+    //std::cerr << ret;
     return ret;
 }
 
@@ -103,7 +105,7 @@ inline std::string parseSpec(const std::string& path, Spec& out) {
     std::ifstream file(path);
     if (!file.is_open()) {
         ret = "parseSpec: could not open " + path + "\n";
-        std::cerr << ret;
+        //std::cerr << ret;
         return ret;
     }
 
@@ -124,7 +126,7 @@ inline std::string parseSpec(const std::string& path, Spec& out) {
         if (eq == std::string::npos) {
             ret = "parseSpec: line " + std::to_string(lineNum) +
                   ": missing '=' in \"" + line + "\"\n";
-            std::cerr << ret;
+            //std::cerr << ret;
             return ret;
         }
 
@@ -134,16 +136,16 @@ inline std::string parseSpec(const std::string& path, Spec& out) {
         if (key.empty() || val.empty()) {
             ret = "parseSpec: line " + std::to_string(lineNum) +
                   ": empty key or value\n";
-            std::cerr << ret;
+            //std::cerr << ret;
             return ret;
         }
 
         auto parseBool = [&](bool& field) -> bool {
             if (val == "true")  { field = true;  return true; }
-            if (val == "ret") { field = false; return true; }
+            if (val == "false") { field = false; return true; }
             ret = "parseSpec: line " + std::to_string(lineNum) +
-                  ": expected true/ret for \"" + key + "\"\n";
-            std::cerr << ret;
+                  ": expected true/false for \"" + key + "\"\n";
+            //std::cerr << ret;
             return false;
         };
 
@@ -169,16 +171,6 @@ inline std::string parseSpec(const std::string& path, Spec& out) {
         }
         else if (key == "lowMode") {
             if (parseInterp(val, lineNum, out.lowMode) != "") return ret;
-        }
-        else if (key == "highSecondPassMode") {
-            if (parseSecondPassMode(val, lineNum, out.highSecondPassMode) != "") {
-                return ret;
-            }
-        }
-        else if (key == "highSecondPassInterp") {
-            if (parseInterp(val, lineNum, out.highSecondPassInterp) != "") {
-                return ret;
-            }
         }
         else if (key == "fftOutputMeasurement") {
             if (parseFFTMeasurement(val, lineNum, out.fftOutputMeasurement) != "") {
@@ -255,7 +247,7 @@ inline std::string parseSpec(const std::string& path, Spec& out) {
             if (uniformName.empty()) {
                 ret = "parseSpec: line " + std::to_string(lineNum) +
                       ": empty texture uniform name\n";
-                std::cerr << ret;
+                //std::cerr << ret;
                 return ret;
             }
             out.textures[uniformName] = val;
@@ -263,7 +255,7 @@ inline std::string parseSpec(const std::string& path, Spec& out) {
         else {
             ret = "parseSpec: line " + std::to_string(lineNum) +
                   ": unknown key \"" + key + "\"\n";
-            std::cerr << ret;
+            //std::cerr << ret;
             return ret;
         }
     }

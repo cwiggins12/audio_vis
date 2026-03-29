@@ -3,7 +3,7 @@
 #include "hold_value.hpp"
 #include "smooth_value.hpp"
 #include "audio.hpp"
-#include "audio_spec.hpp"
+#include "spec.hpp"
 #include <algorithm>
 
 //probably want to put these in a globals.h at some point if I wind up with too many
@@ -58,7 +58,8 @@ public:
     void resize(int w, int h) {
         currentWidth = w;
         currentHeight = h;
-        if (!currSpec.customFFTSizeScalesWithWindow) return;
+        if (currSpec.customFFTSizeScalesWithWindow == NO_SCALE ||
+            currSpec.fftOutputMode != CUSTOM_SIZE) return;
 
         gpuFFTSize = getSizeFromModeSwitch(w, h);
         setIndexFreqs(gpuFFTSize);
@@ -72,7 +73,6 @@ public:
         else {
             gpuFFT.reset(frameRate, 0.0f, 0.0f, 0.0f, gpuFFTSize, fftMin);
         }
-
         if (currSpec.getsFFTHolds) {
             fftHolds.reset(frameRate, currSpec.fftHoldTime, currSpec.fftHoldScalar,
                            isFFTdB, gpuFFTSize);
@@ -109,7 +109,7 @@ public:
     }
 
     size_t getValFromResolutionScalar(size_t size) {
-        return std::round(size *((float)currentHeight * (float)currentWidth) 
+        return std::round(size *((float)currentHeight * (float)currentWidth)
                             / ((float)initHeight * (float)initWidth));
     }
 
@@ -123,44 +123,28 @@ public:
         }
     }
 
-    //pls refactor
     void formatData() {
-        const bool prMono = currSpec.isPeakRMSMono;
+        //peak/rms pop and format
+        const int chan = (currSpec.isPeakRMSMono) ? 1 : channels;
         const bool getPRHolds = currSpec.getsPeakRMSHolds;
         const bool isPRdB = currSpec.isPeakRMSdB;
-
-        float peak = audio.popPeak(0);
-        float rms = audio.popRMS(0);
-        if (isPRdB) {
-            peak = gainToDB(peak);
-            rms = gainToDB(rms);
-        }
-        if (getPRHolds) {
-            peakRMSHolds.compareValAtIndex(0, peak);
-            peakRMSHolds.compareValAtIndex(1, rms);
-        }
-        gpuPeakRMS.setTargetVal(0, peak);
-        gpuPeakRMS.setTargetVal(1, rms);
-
-        if (!prMono) {
-            for (int ch = 1; ch < channels; ++ch) {
-                peak = audio.popPeak(ch);
-                rms = audio.popRMS(ch);
-                int pInd = ch * 2;
-                int rInd = ch * 2 + 1;
-                if (isPRdB) {
-                    peak = gainToDB(peak);
-                    rms = gainToDB(rms);
-                }
-                if (getPRHolds) {
-                    peakRMSHolds.compareValAtIndex(pInd, peak);
-                    peakRMSHolds.compareValAtIndex(rInd, rms);
-                }
-                gpuPeakRMS.setTargetVal(pInd, peak);
-                gpuPeakRMS.setTargetVal(rInd, rms);
+        for (int ch = 0; ch < chan; ++ch) {
+            float peak = audio.popPeak(ch);
+            float rms = audio.popRMS(ch);
+            if (isPRdB) {
+                peak = gainToDB(peak);
+                rms = gainToDB(rms);
             }
+            int pInd = ch * 2;
+            int rInd = ch * 2 + 1;
+            if (getPRHolds) {
+                peakRMSHolds.compareValAtIndex(pInd, peak);
+                peakRMSHolds.compareValAtIndex(rInd, rms);
+            }
+            gpuPeakRMS.setTargetVal(pInd, peak);
+            gpuPeakRMS.setTargetVal(rInd, rms);
         }
-
+        //fft output then check holds against that
         switch (currSpec.fftOutputMode) {
             case 0: fullBinPlacement();         break;
             case 1: audibleBinPlacement();      break;
@@ -201,12 +185,24 @@ private:
         //config fft size
         audio.getAudibleRange(&audibleStart, &audibleSize);
         switch (newSpec.fftOutputMode) {
-            case 0: gpuFFTSize = binAmt;        break;
-            case 1: gpuFFTSize = audibleSize;   break;
+            case 0: {
+                gpuFFTSize = binAmt;
+                temp.resize(0);
+                indexFreqs.resize(0);
+                break;
+            }
+            case 1: {
+                gpuFFTSize = audibleSize;
+                temp.resize(0);
+                indexFreqs.resize(0);
+                break;
+            }
             case 2: {
                 size_t s = newSpec.customFFTSize;
                 gpuFFTSize = getSizeFromModeSwitch(s, newSpec.customFFTSizeScalesWithWindow);
+                temp.resize(gpuFFTSize);
                 setIndexFreqs(gpuFFTSize);
+                break;
             }
         }
         const bool isFFTdB = currSpec.fftOutputMeasurement == 2;
@@ -221,7 +217,7 @@ private:
         //config fft smooth array
         float fftMin = isFFTdB ? MIN_DB : 0.0f;
         if (newSpec.useFFTSmoothing) {
-            gpuFFT.reset(frameRate, 1.0, newSpec.fftAtk, newSpec.fftRls, 
+            gpuFFT.reset(frameRate, 1.0, newSpec.fftAtk, newSpec.fftRls,
                          gpuFFTSize, fftMin);
         }
         else {
@@ -243,72 +239,91 @@ private:
             if (!swapIndexFound && freq > swapFreq) {
                 swapIndex = i;
                 swapIndexFound = true;
-                //std::cout << "Swap Index: " << swapIndex << std::endl;
+                std::cout << "Swap Index: " << swapIndex << std::endl;
             }
             float binIndexFloat = freq * scale;
-
-            indexFreqs[i] = std::min(std::max(binIndexFloat, 0.0f), (float)binAmt);
+            indexFreqs[i] = std::min(std::max(binIndexFloat, 0.0f), (float)binAmt - 1);
         }
     }
 
     //currently set to start when bin density >= index density
-    //may want a scalar > 1 to allow more customization
+    //may want an int scalar > 1 to allow more customization later
     void setSwapFreq(const float scale) {
         const float binWidth = 1.0f / scale;
         const float logRatio = std::log(MAX_FREQ / MIN_FREQ);
         swapFreq = binWidth * (float)(indexFreqs.size() - 1) / logRatio;
         swapFreq = std::min(std::max(swapFreq, MIN_FREQ), MAX_FREQ);
-        //std::cout << "Swap Freq: " << swapFreq << std::endl;
+        std::cout << "Swap Freq: " << swapFreq << std::endl;
     }
 
     void customSizeFFTPlacement() {
-        float* fftOut = audio.getFFTPtr();
-        const bool db = currSpec.fftOutputMeasurement == 2;
-        switchOnInterps(0, swapIndex, fftOut, currSpec.lowMode);
-        switch (currSpec.highMode) {
-            case RMS:           getRMS(swapIndex, binAmt, fftOut);            break;
-            case PEAK:          getPeak(swapIndex, binAmt, fftOut);           break;
-            case POWER_MEAN:    getPowerWeighted(swapIndex, binAmt, fftOut);  break;
-            case L_NORM:        getLNorm(swapIndex, binAmt, fftOut);          break;
-        }
-        float* targets = gpuFFT.getTargets();
-        switch (currSpec.highSecondPassMode) {
-            case NO_SECOND_PASS: break;
-            case USE_LOW_END_INTERP: switchOnInterps(swapIndex, binAmt, targets, currSpec.lowMode); break;
-            case USE_SEPARATE_INTERP: switchOnInterps(swapIndex, binAmt, targets, currSpec.highSecondPassInterp); break;
-        }
-        //get some functions to swap targets to power or mag and switch on the spec value for measurement
+        const float* fftOut = audio.getFFTPtr();
+        float* tempPtr = temp.data();
+        switchOnInterps(0, swapIndex, fftOut, tempPtr, currSpec.lowMode);
+        switchOnCollates(swapIndex, gpuFFTSize, fftOut, tempPtr, currSpec.highMode);
+        switchOnMeasurement(gpuFFTSize, tempPtr, currSpec.fftOutputMeasurement);
+        gpuFFT.setAllTargetsWithPtr(tempPtr);
     }
 
-    void switchOnInterps(int start, int end, const float* in, Interps mode) {
+    void switchOnInterps(int start, int end, const float* in,
+                         float* out, Interps mode) {
         switch (mode) {
-            case LINEAR:        getLinear(start, end, in);          break;
-            case PCHIP:         getPCHIP(start, end, in);           break;
-            case LANCZOS:       getLanczos(start, end, in);         break;
-            case GAUSSIAN:      getGaussian(start, end, in);        break;
-            case CUBIC_B:       getBSpline(start, end, in);         break;
-            case AKIMA:         getAkima(start, end, in);           break;
-            case STEFFEN:       getSteffen(start, end, in);         break;
-            case CATMULL_ROM_3: getCatmullRom3pt(start, end, in);   break;
+            case LINEAR:        getLinear(start, end, in, out);          break;
+            case PCHIP:         getPCHIP(start, end, in, out);           break;
+            case LANCZOS:       getLanczos(start, end, in, out);         break;
+            case GAUSSIAN:      getGaussian(start, end, in, out);        break;
+            case CUBIC_B:       getBSpline(start, end, in, out);         break;
+            case AKIMA:         getAkima(start, end, in, out);           break;
+            case STEFFEN:       getSteffen(start, end, in, out);         break;
+            case CATMULL_ROM_3: getCatmullRom3pt(start, end, in, out);   break;
         }
+    }
 
+    void switchOnCollates(int start, int end, const float* in,
+                          float* out, Collates mode) {
+        switch (mode) {
+            case RMS:           getRMS(start, end, in, out);             break;
+            case PEAK:          getPeak(start, end, in, out);            break;
+            case POWER_MEAN:    getPowerWeighted(start, end, in, out);   break;
+            case L_NORM:        getLNorm(start, end, in, out);           break;
+        }
+    }
+
+    void switchOnMeasurement(int size, float* arr, FFTMeasurement mode) {
+        switch (mode) {
+            case POWER:         dBToPowerArray(size, arr);              break;
+            case MAGNITUDE:     dBToMagArray(size, arr);                break;
+            case DECIBELS:                                              break;
+        }
+    }
+
+    void dBToMagArray(int size, float* arr) {
+        for (int i = 0; i < size; ++i) {
+            arr[i] = dBToGain(arr[i]);
+        }
+    }
+
+    void dBToPowerArray(int size, float* arr) {
+        for (int i = 0; i < size; ++i) {
+            arr[i] = dBToPower(arr[i]);
+        }
     }
 
     // Low-end interpolation strats
     // 0. LINEAR
-    void getLinear(int start, int end, const float* fftOut) {
+    void getLinear(int start, int end, const float* in, float* out) {
         for (int i = start; i < end; ++i) {
             float cf = indexFreqs[i];
             uint32_t bin1 = (uint32_t)cf;
             float t = cf - bin1;
             uint32_t bin2 = std::min(binAmt - 1, bin1 + 1);
-            float val = fftOut[bin1] + t * (fftOut[bin2] - fftOut[bin1]);
-            gpuFFT.setTargetVal(i, val);
+            float val = in[bin1] + t * (in[bin2] - in[bin1]);
+            out[i] = val;
         }
     }
 
     // 1. PCHIP
-    void getPCHIP(int start, int end, const float* fftOut) {
+    void getPCHIP(int start, int end, const float* in, float* out) {
         for (int i = start; i < end; ++i) {
             float cf = indexFreqs[i];
             uint32_t bin1 = (uint32_t)cf;
@@ -316,8 +331,8 @@ private:
             uint32_t bin0 = (bin1 == 0) ? 0 : bin1 - 1;
             uint32_t bin2 = std::min(binAmt - 1, bin1 + 1);
             uint32_t bin3 = std::min(binAmt - 1, bin1 + 2);
-            float y0 = fftOut[bin0], y1 = fftOut[bin1];
-            float y2 = fftOut[bin2], y3 = fftOut[bin3];
+            float y0 = in[bin0], y1 = in[bin1];
+            float y2 = in[bin2], y3 = in[bin3];
             // Secants
             float d0 = y1 - y0;   // h=1 for all, so secant == delta
             float d1 = y2 - y1;
@@ -337,12 +352,12 @@ private:
             float h01 = -2*t3 + 3*t2;
             float h11 =    t3 -   t2;
             float val = h00*y1 + h10*m1 + h01*y2 + h11*m2;
-            gpuFFT.setTargetVal(i, val);
+            out[i] = val;
         }
     }
 
     // 2. LANCZOS
-    void getLanczos(int start, int end, const float* fftOut) {
+    void getLanczos(int start, int end, const float* in, float* out) {
         for (int i = start; i < end; ++i) {
             constexpr int A = 4;    // lobe count; 2–4 typical; higher = sharper/slower
             auto lanczosKernel = [](float x) -> float {
@@ -360,16 +375,16 @@ private:
                 if (bin < 0) bin = 0;
                 if (bin >= (int)binAmt) bin = (int)binAmt - 1;
                 float w = lanczosKernel((float)k - frac);
-                sum  += w * fftOut[bin];
+                sum  += w * in[bin];
                 wsum += w;
             }
-            float val = (wsum > 1e-9f) ? sum / wsum : fftOut[center];
-            gpuFFT.setTargetVal(i, val);
+            float val = (wsum > 1e-9f) ? sum / wsum : in[center];
+            out[i] = val;
         }
     }
 
     // 3. GAUSSIAN
-    void getGaussian(int start, int end, const float* fftOut) {
+    void getGaussian(int start, int end, const float* in, float* out) {
         for (int i = start; i < end; ++i) {
             constexpr float SIGMA = 1.0f;   // std-dev in bins; increase for more blur
             constexpr int   HALF  = 3;      // half-window (3*sigma covers 99.7 %)
@@ -383,16 +398,16 @@ private:
                 if (bin >= (int)binAmt) bin = (int)binAmt - 1;
                 float dist = (float)k - frac;
                 float w    = std::exp(-0.5f * dist * dist / (SIGMA * SIGMA));
-                sum  += w * fftOut[bin];
+                sum  += w * in[bin];
                 wsum += w;
             }
-            float val = (wsum > 1e-9f) ? sum / wsum : fftOut[center];
-            gpuFFT.setTargetVal(i, val);
+            float val = (wsum > 1e-9f) ? sum / wsum : in[center];
+            out[i] = val;
         }
     }
 
     // 4. CUBIC_B
-    void getBSpline(int start, int end, const float* fftOut) {
+    void getBSpline(int start, int end, const float* in, float* out) {
         for(int i = start; i < end; ++i) {
             float cf = indexFreqs[i];
             uint32_t bin1 = (uint32_t)cf;
@@ -400,22 +415,22 @@ private:
             uint32_t bin0 = (bin1 == 0) ? 0 : bin1 - 1;
             uint32_t bin2 = std::min(binAmt - 1, bin1 + 1);
             uint32_t bin3 = std::min(binAmt - 1, bin1 + 2);
-            float y0 = fftOut[bin0], y1 = fftOut[bin1];
-            float y2 = fftOut[bin2], y3 = fftOut[bin3];
+            float y0 = in[bin0], y1 = in[bin1];
+            float y2 = in[bin2], y3 = in[bin3];
             float t2 = t * t, t3 = t2 * t;
             float b0 = (1.0f - 3*t + 3*t2 -   t3) / 6.0f;
             float b1 = (4.0f         - 6*t2 + 3*t3) / 6.0f;
             float b2 = (1.0f + 3*t + 3*t2 - 3*t3) / 6.0f;
             float b3 =                          t3  / 6.0f;
             float val = b0*y0 + b1*y1 + b2*y2 + b3*y3;
-            gpuFFT.setTargetVal(i, val);
+            out[i] = val;
         }
     }
 
     // 5. AKIMA
     // Local cubic that is less prone to oscillation than standard Catmull-Rom
     // Uses 5 points; slope weighting suppresses outliers.
-    void getAkima(int start, int end, const float* fftOut) {
+    void getAkima(int start, int end, const float* in, float* out) {
         for(int i = start; i < end; ++i) {
             float cf = indexFreqs[i];
             uint32_t bin2 = (uint32_t)cf;   // left bracket
@@ -425,11 +440,11 @@ private:
                 return (uint32_t)std::max(0, std::min((int)binAmt - 1, b));
             };
             float y[5] = {
-                fftOut[clampBin((int)bin2 - 2)],
-                fftOut[clampBin((int)bin2 - 1)],
-                fftOut[clampBin((int)bin2    )],
-                fftOut[clampBin((int)bin2 + 1)],
-                fftOut[clampBin((int)bin2 + 2)]
+                in[clampBin((int)bin2 - 2)],
+                in[clampBin((int)bin2 - 1)],
+                in[clampBin((int)bin2    )],
+                in[clampBin((int)bin2 + 1)],
+                in[clampBin((int)bin2 + 2)]
             };
             // Finite differences (uniform spacing h=1)
             float m[4];
@@ -452,7 +467,7 @@ private:
                         + (   t3 - 2*t2 + t) * s1
                         + (-2*t3 + 3*t2    ) * y[3]
                         + (   t3 -   t2    ) * s2;
-            gpuFFT.setTargetVal(i, val);
+            out[i] = val;
         }
     }
 
@@ -460,7 +475,7 @@ private:
     // Monotonic cubic (Steffen 1990). Same no-overshoot guarantee as PCHIP with a
     // simpler slope formula: clamp the harmonic mean of adjacent secants to not
     // exceed 3x either secant. Slightly cheaper than PCHIP.
-    void getSteffen(int start, int end, const float* fftOut) {
+    void getSteffen(int start, int end, const float* in, float* out) {
         for (int i = start; i < end; ++i) {
             float cf = indexFreqs[i];
             uint32_t bin1 = (uint32_t)cf;
@@ -468,8 +483,8 @@ private:
             uint32_t bin0 = (bin1 == 0) ? 0 : bin1 - 1;
             uint32_t bin2 = std::min(binAmt - 1, bin1 + 1);
             uint32_t bin3 = std::min(binAmt - 1, bin1 + 2);
-            float y0 = fftOut[bin0], y1 = fftOut[bin1];
-            float y2 = fftOut[bin2], y3 = fftOut[bin3];
+            float y0 = in[bin0], y1 = in[bin1];
+            float y2 = in[bin2], y3 = in[bin3];
             float d0 = y1 - y0, d1 = y2 - y1, d2 = y3 - y2;
             // Steffen slope: sign-aware harmonic mean, clamped to 3*min(|secants|)
             auto steffenSlope = [](float dm, float dp) -> float {
@@ -488,12 +503,12 @@ private:
             float h01 = -2*t3 + 3*t2;
             float h11 =    t3 -   t2;
             float val = h00*y1 + h10*m1 + h01*y2 + h11*m2;
-            gpuFFT.setTargetVal(i, val);
+            out[i] = val;
         }
     }
 
     // 7. CATMULL_ROM_3
-    void getCatmullRom3pt(int start, int end, const float* fftOut) {
+    void getCatmullRom3pt(int start, int end, const float* in, float* out) {
         for (int i = start; i < end; ++i) {
             float centerBinFloat = indexFreqs[i];
             uint32_t bin1 = (int)centerBinFloat;
@@ -501,89 +516,89 @@ private:
             uint32_t bin0 = (bin1 == 0) ? 0 : bin1 - 1;
             uint32_t bin2 = std::min(binAmt - 1, bin1 + 1);
             uint32_t bin3 = std::min(binAmt - 1, bin1 + 2);
-            float y0 = fftOut[bin0];
-            float y1 = fftOut[bin1];
-            float y2 = fftOut[bin2];
-            float y3 = fftOut[bin3];
+            float y0 = in[bin0];
+            float y1 = in[bin1];
+            float y2 = in[bin2];
+            float y3 = in[bin3];
             float mu2 = mu * mu;
             float a0 = -0.5f * y0 + 1.5f * y1 - 1.5f * y2 + 0.5f * y3;
             float a1 = y0 - 2.5f * y1 + 2.0f * y2 - 0.5f * y3;
             float a2 = -0.5f * y0 + 0.5f * y2;
             float a3 = y1;
             float val = a0 * mu * mu2 + a1 * mu2 + a2 * mu + a3;
-            gpuFFT.setTargetVal(i, val);
+            out[i] = val;
         }
     }
 
-    // High-end interpolation strats
+    // High-end bin collation strats
     // 0. RMS
-    void getRMS(int start, int end, const float* fftOut) {
+    void getRMS(int start, int end, const float* in, float* out) {
         for (int i = start; i < end; ++i) {
             int lowB = (i > 0) ? (int)indexFreqs[i - 1] + 1 : 0;
             int highB = (int)indexFreqs[i];
             float sumSq = 0.0f;
-            for (int j = lowB; j <= highB && j < fftSize; ++j) {
-                float mag = dBToGain(fftOut[j]);
+            for (int j = lowB; j <= highB; ++j) {
+                float mag = dBToGain(in[j]);
                 sumSq += mag * mag;
             }
             float rms = std::sqrt(sumSq / (highB - lowB + 1));
-            gpuFFT.setTargetVal(i, gainToDB(rms));
+            out[i] = gainToDB(rms);
         }
     }
 
     // 1. PEAK
-    void getPeak(int start, int end, const float* fftOut) {
+    void getPeak(int start, int end, const float* in, float* out) {
         for (int i = start; i < end; ++i) {
             int lowB = (i > 0) ? (int)indexFreqs[i - 1] + 1 : 0;
             int highB = (int)indexFreqs[i];
             float peak = MIN_DB;
-            for (int j = lowB; j <= highB && j < fftSize; ++j) {
-                peak = std::max(fftOut[j], peak);
+            for (int j = lowB; j <= highB; ++j) {
+                peak = std::max(in[j], peak);
             }
-            gpuFFT.setTargetVal(i, peak);
+            out[i] = peak;
         }
     }
 
     // 2. POWER-WEIGHTED MEAN
-    void getPowerWeighted(int start, int end, const float* fftOut) {
+    void getPowerWeighted(int start, int end, const float* in, float* out) {
         for (int i = start; i < end; ++i) {
             int lowB  = (i > 0) ? (int)indexFreqs[i - 1] + 1 : 0;
             int highB = (int)indexFreqs[i];
             int count = highB - lowB + 1;
             if (count == 1) {
-                gpuFFT.setTargetVal(i, fftOut[highB]);
+                out[i] = gainToDB(in[highB]);
                 continue;
             }
             float weightedSum = 0.0f;
             float weightSum   = 0.0f;
-            for (int j = lowB; j <= highB && j < fftSize; ++j) {
-                float gain  = dBToGain(fftOut[j]);
+            for (int j = lowB; j <= highB; ++j) {
+                float gain  = dBToGain(in[j]);
                 float power = gain * gain;
-                weightedSum += power * fftOut[j];
+                weightedSum += power * in[j];
                 weightSum   += power;
             }
             float val = (weightSum > 1e-30f) ? weightedSum / weightSum : MIN_DB;
-            gpuFFT.setTargetVal(i, gainToDB(val));
+            out[i] = gainToDB(val);
         }
     }
 
     // 3. L-NORM
-    void getLNorm(int start, int end, const float* fftOut, float p = 2.0f) {
+    void getLNorm(int start, int end, const float* in, float* out, float p = 2.0f) {
         for (int i = start; i < end; ++i) {
             int lowB  = (i > 0) ? (int)indexFreqs[i - 1] + 1 : 0;
             int highB = (int)indexFreqs[i];
             int count = highB - lowB + 1;
             if (count == 1) {
-                gpuFFT.setTargetVal(i, fftOut[highB]);
+                out[i] = gainToDB(in[highB]);
                 continue;
             }
             float sum = 0.0f;
-            for (int j = lowB; j <= highB && j < fftSize; ++j) {
-                float gain = dBToGain(fftOut[j]);
+            for (int j = lowB; j <= highB; ++j) {
+                float gain = dBToGain(in[j]);
                 sum += std::pow(gain, p);
             }
             float val = std::pow(sum / (float)count, 1.0f / p);
-            gpuFFT.setTargetVal(i, gainToDB(val));
+            out[i] = gainToDB(val);
         }
     }
 
@@ -612,6 +627,12 @@ private:
         return std::pow(10.0f, dB * 0.05f);
     }
 
+    //float to float db to power helper
+    float dBToPower(float dB) {
+        dB = std::max(MIN_DB, dB);
+        return std::pow(10.0f, dB * 0.1f);
+    }
+
     Audio& audio;
     Spec currSpec;
 
@@ -621,6 +642,11 @@ private:
     SmoothArraySoA gpuFFT;
     HoldArray fftHolds;
     std::vector<float> indexFreqs;
+    //truly thought I could go without a single temp array
+    //was hoping for ring buffer, to analysis objs, straight to smooth
+    //but adding this made everything easier for me and, hopefully, the compiler
+    //pray for vectorizing
+    std::vector<float> temp;
 
     uint32_t fftSize = 0;
     uint32_t hopSize = 0;

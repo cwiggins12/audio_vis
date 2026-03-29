@@ -1,7 +1,7 @@
 #pragma once
 
 #include "shader.hpp"
-#include "audio_spec.hpp"
+#include "spec.hpp"
 #include <string>
 #include <filesystem>
 #include <vector>
@@ -17,7 +17,6 @@ struct TextureSlot {
 
 struct ShaderPreset {
     std::string name = "";
-    //TODO: gonna wanna make this cheaper l8r
     std::string fragPath = "";
     std::string specPath = "";
     std::string shaderDir = "";
