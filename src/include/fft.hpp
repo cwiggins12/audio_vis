@@ -4,13 +4,13 @@
 #include <cstdint>
 #include <vector>
 #include <fftw3.h>
+#include "spec.hpp"
 
 static constexpr float PI = 3.14159265358979323846f;
 
 struct FFT{
-    FFT(int N, bool per = true, bool win = true, int powerMagOrDB = 2,
-        bool ss = true, float slope = 0.0f) : 
-        n(N), isPerceptual(per), isWindowed(win), 
+    FFT(int N, bool per = true, bool win = true, FFTMeasurement powerMagOrDB = DECIBELS,
+        bool ss = true, float slope = 0.0f) : n(N), isPerceptual(per), isWindowed(win),
         outputMeasurement(powerMagOrDB), isSingleSided(ss), perceptualSlope(slope) {
         binAmt = n / 2 + 1;
         //initialize fft and precompute table
@@ -113,14 +113,14 @@ struct FFT{
         }
     }
 
-    void swapSpec(bool isPer, bool isWin, int outputMeas, float slope, uint32_t sr) {
-        //any change other than isWin will cause 
+    void swapSpec(bool isWin, FFTMeasurement outputMeas, float slope, uint32_t sr) {
+        //any change other than isWin will cause
         //a recompute of the scalar table,
-        //isWin only changes future processing cost, 
+        //isWin only changes future processing cost,
         //unless windowing table hasn't been filled yet
-        if (isPer != isPerceptual || slope != perceptualSlope
-                                  || outputMeasurement != outputMeas) {
-            isPerceptual = isPer;
+        if ((slope != 0.0f) != isPerceptual || slope != perceptualSlope
+            || outputMeasurement != outputMeas) {
+            isPerceptual = (slope != 0.0f);
             perceptualSlope = slope;
             outputMeasurement = outputMeas;
             fillScalarTable(sr);
@@ -136,10 +136,22 @@ struct FFT{
         }
         fftwf_execute(p);
         switch (outputMeasurement) {
-            case 0:  convertToPower(); multiplyWithScalarTable(); break;
-            case 1:  convertToMag();   multiplyWithScalarTable(); break;
-            case 2:  convertToPower(); multiplyWithScalarTable(); convertToDB(); break;
-            default: convertToPower(); multiplyWithScalarTable(); convertToDB(); break;
+            case POWER: {
+                convertToPower();
+                multiplyWithScalarTable();
+                break;
+            }
+            case MAGNITUDE: {
+                convertToMag();
+                multiplyWithScalarTable();
+                break;
+            }
+            case DECIBELS: {
+                convertToPower();
+                multiplyWithScalarTable();
+                convertToDB();
+                break;
+            }
         }
     }
 
@@ -166,9 +178,9 @@ private:
     }
 
     void fillScalarTable(uint32_t sr) {
-        //NOTE: accounts for single sided and loss from FFT ops at 2.0f each. 
+        //NOTE: accounts for single sided and loss from FFT ops at 2.0f each.
         //Scale has been tested, it is consistently in line with peak and RMS
-        const bool isMagnitude = (outputMeasurement == 1);
+        const bool isMagnitude = (outputMeasurement == MAGNITUDE);
         float scaleNumerator = (isSingleSided) ? 4.0f : 2.0f;
         float scale = scaleNumerator / (float)n;
         scale = (isMagnitude) ? scale : scale * scale;
@@ -183,7 +195,7 @@ private:
             scalarTable[i] = tilt * scale;
         }
         //annoying
-        scalarTable[binAmt - 1] = std::pow(((float)(binAmt - 1) * binMult) / 1000.0f, 
+        scalarTable[binAmt - 1] = std::pow(((float)(binAmt - 1) * binMult) / 1000.0f,
                                              tiltExponent) * (scale / 2);
     }
 
@@ -225,7 +237,7 @@ private:
     }
 
     //NOTE: 
-    //total byte size: ((3n + 1) * (n / 2 + 1) * sizeof(float)) + 82 + sizeof(plan) 
+    //total byte size: ((3n + 1) * (n / 2 + 1) * sizeof(float)) + 82 + sizeof(plan)
 
     //size: n * sizeof(float)
     float *in;
@@ -237,9 +249,9 @@ private:
     bool windowTableFilled = false;
     bool isPerceptual;
     bool isWindowed;
-    int outputMeasurement;
     bool isSingleSided;
     float perceptualSlope;
+    FFTMeasurement outputMeasurement;
     uint32_t n;
     uint32_t binAmt;
     //size: n * sizeof(float)

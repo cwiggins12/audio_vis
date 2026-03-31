@@ -80,6 +80,7 @@ public:
     }
 
     void swapSpec(Spec& newSpec) {
+        audio.swapSpec(newSpec);
         swap(newSpec);
         currSpec = newSpec;
     }
@@ -182,8 +183,7 @@ private:
         else {
             gpuPeakRMS.reset(frameRate, 0.0f, 0.0f, 0.0f, peakRMSSize, prMin);
         }
-        //config fft size
-        audio.getAudibleRange(&audibleStart, &audibleSize);
+        //get fft size
         switch (newSpec.fftOutputMode) {
             case 0: {
                 gpuFFTSize = binAmt;
@@ -192,6 +192,7 @@ private:
                 break;
             }
             case 1: {
+                audio.getAudibleRange(&audibleStart, &audibleSize);
                 gpuFFTSize = audibleSize;
                 temp.resize(0);
                 indexFreqs.resize(0);
@@ -205,7 +206,7 @@ private:
                 break;
             }
         }
-        const bool isFFTdB = currSpec.fftOutputMeasurement == 2;
+        const bool isFFTdB = newSpec.fftOutputMeasurement == DECIBELS;
         //config FFT holds
         if (newSpec.getsFFTHolds) {
             fftHolds.reset(frameRate, newSpec.fftHoldTime, newSpec.fftHoldScalar,
@@ -239,7 +240,7 @@ private:
             if (!swapIndexFound && freq > swapFreq) {
                 swapIndex = i;
                 swapIndexFound = true;
-                std::cout << "Swap Index: " << swapIndex << std::endl;
+                //std::cout << "Swap Index: " << swapIndex << std::endl;
             }
             float binIndexFloat = freq * scale;
             indexFreqs[i] = std::min(std::max(binIndexFloat, 0.0f), (float)binAmt - 1);
@@ -253,7 +254,7 @@ private:
         const float logRatio = std::log(MAX_FREQ / MIN_FREQ);
         swapFreq = binWidth * (float)(indexFreqs.size() - 1) / logRatio;
         swapFreq = std::min(std::max(swapFreq, MIN_FREQ), MAX_FREQ);
-        std::cout << "Swap Freq: " << swapFreq << std::endl;
+        //std::cout << "Swap Freq: " << swapFreq << std::endl;
     }
 
     void customSizeFFTPlacement() {
@@ -566,7 +567,7 @@ private:
             int highB = (int)indexFreqs[i];
             int count = highB - lowB + 1;
             if (count == 1) {
-                out[i] = gainToDB(in[highB]);
+                out[i] = in[highB];
                 continue;
             }
             float weightedSum = 0.0f;
@@ -574,7 +575,7 @@ private:
             for (int j = lowB; j <= highB; ++j) {
                 float gain  = dBToGain(in[j]);
                 float power = gain * gain;
-                weightedSum += power * in[j];
+                weightedSum += power * gain;
                 weightSum   += power;
             }
             float val = (weightSum > 1e-30f) ? weightedSum / weightSum : MIN_DB;
@@ -588,8 +589,8 @@ private:
             int lowB  = (i > 0) ? (int)indexFreqs[i - 1] + 1 : 0;
             int highB = (int)indexFreqs[i];
             int count = highB - lowB + 1;
-            if (count == 1) {
-                out[i] = gainToDB(in[highB]);
+            if (count < 2) {
+                out[i] = in[highB];
                 continue;
             }
             float sum = 0.0f;
@@ -605,14 +606,19 @@ private:
     void audibleBinPlacement() {
         const float* fftPtr = audio.getFFTPtr();
         for (uint32_t i = 0; i < audibleSize; ++i) {
+            //std::cout << ", bin " << std::to_string(i + audibleStart) << " value: "
+            //          << std::to_string(fftPtr[i + audibleStart]);
             gpuFFT.setTargetVal(i, fftPtr[i + audibleStart]);
         }
+        std::cout << "\n";
     }
 
     void fullBinPlacement() {
         const float* fftPtr = audio.getFFTPtr();
         for (uint32_t i = 0; i < binAmt; ++i) {
             gpuFFT.setTargetVal(i, fftPtr[i]);
+            //std::cout << ", bin " << std::to_string(i) << " value: "
+            //          << std::to_string(gpuFFT.getCurrentVal(i));
         }
     }
 

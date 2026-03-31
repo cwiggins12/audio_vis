@@ -33,8 +33,9 @@ public:
 
         peak = std::make_unique<PeakMeter[]>(channels);
         rms = std::make_unique<RMSMeter[]>(channels);
-        fft = std::make_unique<FFT>(fftSize, spec.perceptualSlopeDegrees != 0.0f, spec.isFFTHannWindowed,
-                                    spec.fftOutputMeasurement, true, spec.perceptualSlopeDegrees);
+        fft = std::make_unique<FFT>(fftSize, spec.perceptualSlopeDegrees != 0.0f,
+                                    spec.isFFTHannWindowed, spec.fftOutputMeasurement,
+                                    true, spec.perceptualSlopeDegrees);
         fft->initFFT(sampleRate);
 
         return true;
@@ -71,9 +72,7 @@ public:
                 rms[ch].getRMSFromRingBuffer(buf, fftSize, ch, channels, start, size);
             }
         }
-
         fft->runFFT();
-
         capture.setReadIndexForwardByFrames(hopSize, start);
         capture.moveAccumulator(hopSize);
     }
@@ -85,17 +84,18 @@ public:
             popRMS(ch);
         }
         isPeakRMSMono = spec.isPeakRMSMono;
-
-        //set this way to account for arb sized array being more efficient to
-        //just get db the convert after sizing
-        fft->swapSpec(spec.perceptualSlopeDegrees != 0.0f, spec.isFFTHannWindowed, spec.fftOutputMeasurement,
+        //set this way to account for custom sized array being more efficient to
+        //just get db then convert after all the ops it does
+        FFTMeasurement m = (spec.fftOutputMode == CUSTOM_SIZE) ? DECIBELS :
+                                                              spec.fftOutputMeasurement;
+        fft->swapSpec(spec.isFFTHannWindowed, m,
                       spec.perceptualSlopeDegrees, sampleRate);
     }
 
     void resetAccumulator() {
         capture.resetAccumulator();
         firstWindowAccumulated = false;
-        std::cout << "Accumulation reset" << std::endl;
+        //std::cout << "Accumulation reset" << std::endl;
     }
 
     uint32_t getNumChannels() {

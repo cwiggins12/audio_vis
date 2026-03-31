@@ -17,8 +17,6 @@ struct TextureSlot {
 
 struct ShaderPreset {
     std::string name = "";
-    std::string fragPath = "";
-    std::string specPath = "";
     std::string shaderDir = "";
     Spec        spec;
     Shader      shader;
@@ -33,8 +31,8 @@ struct ShaderPreset {
             if (t.texId) {
                 glDeleteTextures(1, &t.texId);
             }
-            textures.clear();
         }
+        textures.clear();
     }
 };
 

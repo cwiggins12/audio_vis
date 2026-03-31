@@ -16,19 +16,6 @@ inline std::string loadFile(const std::string& path) {
     return ss.str();
 }
 
-inline const char* errorFragSrc = R"(
-void main() {
-    vec2 fragPx = toPx();
-    vec4 bg = vec4(0.1, 0.0, 0.0, 1.0);
-    if (showError == 0) {
-        FragColor = bg;
-        return;
-    }
-    float text = renderText(errorChars, errorLen, vec2(16.0, 16.0), 24.0, fragPx);
-    FragColor = mix(bg, vec4(1.0, 0.1, 0.1, 1.0), text);
-}
-)";
-
 inline std::vector<ShaderPreset> loadPresets(const std::string& shadersDir) {
     std::vector<ShaderPreset> presets;
 
@@ -112,10 +99,11 @@ inline std::vector<ShaderPreset> loadPresets(const std::string& shadersDir) {
                 " Feedback buffer doubly scaled by WINDOW_HEIGHT due to scale mode and height expression variable usage\n";
         }
 
-        p.shader = Shader(vertexSrc, fragSrc.c_str());
-        if (!p.shader.valid) {
+        p.shader = Shader();
+        ret = p.shader.init(vertexSrc, fragSrc.c_str());
+        if (!ret.empty()) {
             ret = "loadPresets: skipping " + p.name +
-                  " - shader compile failed - " + p.shader.errorLog;
+                  " - shader compile failed - " + ret;
             std::cerr << ret;
             p.errorMessage = ret;
             p.hasError = true;
@@ -126,8 +114,6 @@ inline std::vector<ShaderPreset> loadPresets(const std::string& shadersDir) {
 
         std::string loadedName = p.name;
         p.shaderDir = entry.path().string();
-        p.fragPath = fragPath.string();
-        p.specPath = specPath.string();
         p.lastFragWrite = std::filesystem::last_write_time(fragPath);
         p.lastSpecWrite = std::filesystem::exists(specPath)
                         ? std::filesystem::last_write_time(specPath)
@@ -140,7 +126,9 @@ inline std::vector<ShaderPreset> loadPresets(const std::string& shadersDir) {
 }
 
 inline void reloadPreset(ShaderPreset& p) {
-    std::string fragSrc = loadFile(p.fragPath);
+    auto fragPath = std::filesystem::path(p.shaderDir) / "frag.glsl";
+    auto specPath = std::filesystem::path(p.shaderDir) / "spec.cfg";
+    std::string fragSrc = loadFile(fragPath);
     if (fragSrc.empty()) {
         p.hasError     = true;
         p.errorMessage = "Hot Reload - " + p.name + 
@@ -150,8 +138,8 @@ inline void reloadPreset(ShaderPreset& p) {
 
     Spec newSpec{};
     std::string errLog = "";
-    if (!p.specPath.empty() && std::filesystem::exists(p.specPath)) {
-        errLog = parseSpec(p.specPath, newSpec);
+    if (!specPath.empty() && std::filesystem::exists(specPath)) {
+        errLog = parseSpec(specPath, newSpec);
         if (errLog != "") {
             p.hasError     = true;
             p.errorMessage = "Hot Reload - " + p.name + 
@@ -161,10 +149,11 @@ inline void reloadPreset(ShaderPreset& p) {
         }
     }
 
-    Shader newShader(vertexSrc, fragSrc.c_str());
-    if (!newShader.valid) {
+    Shader newShader;
+    errLog = newShader.init(vertexSrc, fragSrc.c_str());
+    if (!errLog.empty()) {
         p.hasError     = true;
-        p.errorMessage = "Hot Reload - " + p.name + newShader.errorLog + "\n";
+        p.errorMessage = "Hot Reload - " + p.name + errLog + "\n";
         p.spec = newSpec;
         return;
     }

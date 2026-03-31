@@ -19,7 +19,7 @@ enum Collates {
     RMS,        //0. cool
     PEAK,       //1. cool
     POWER_MEAN, //3. cool
-    L_NORM,     //4. needs testing
+    L_NORM,     //4. fine, i guess
 };
 
 enum FFTOutputMode {
@@ -34,15 +34,6 @@ enum WindowScalingMode {
     HEIGHT_SCALE,
     RESOLUTION_SCALE
 };
-
-//not gonna work :(
-/*
-enum SecondPassMode {
-    NO_SECOND_PASS,
-    USE_LOW_END_INTERP,
-    USE_SEPARATE_INTERP
-};
-*/
 
 enum FFTMeasurement {
     POWER,

@@ -50,8 +50,8 @@ struct SmoothArraySoA {
     // Move constructor
     SmoothArraySoA(SmoothArraySoA&& other) noexcept : current(std::move(other.current)),
                    target(std::move(other.target)),
-                   increment(std::move(other.increment)), 
-                   stepsRemaining(std::move(other.stepsRemaining)), 
+                   increment(std::move(other.increment)),
+                   stepsRemaining(std::move(other.stepsRemaining)),
                    atkSteps(other.atkSteps), rlsSteps(other.rlsSteps),
                    minVal(other.minVal) {}
 
@@ -71,13 +71,13 @@ struct SmoothArraySoA {
 
     ~SmoothArraySoA() = default;
 
-    void reset(uint32_t sampleRate, float rampLengthInSecs, float atkSecs, 
+    void reset(uint32_t sampleRate, float rampLengthInSecs, float atkSecs,
                float rlsSecs, size_t newSize, float min) {
         setAsym(sampleRate, atkSecs, rlsSecs);
         resize(newSize, min);
     }
 
-    void reset(uint32_t steps, int atk, int rls, 
+    void reset(uint32_t steps, int atk, int rls,
                size_t newSize, float min = 0.0f) {
         setAsym(atk, rls);
         resize(newSize, min);
@@ -98,7 +98,7 @@ struct SmoothArraySoA {
         target.resize(newSize);
         increment.resize(newSize);
         stepsRemaining.resize(newSize);
-        resetAllVals();
+        setAllCurrentAndTargets(minVal);
     }
 
     void resize(size_t newSize, float newMin) {
@@ -107,7 +107,7 @@ struct SmoothArraySoA {
         target.resize(newSize);
         increment.resize(newSize);
         stepsRemaining.resize(newSize);
-        resetAllVals();
+        setAllCurrentAndTargets(minVal);
     }
 
     //single index setters
@@ -191,13 +191,6 @@ struct SmoothArraySoA {
     size_t size()               const { return current.size(); }
 
 private:
-    void resetAllVals() {
-        std::fill(current.begin(), current.end(), minVal);
-        std::fill(target.begin(), target.end(), minVal);
-        std::fill(increment.begin(), increment.end(), 0.0f);
-        std::fill(stepsRemaining.begin(), stepsRemaining.end(), 0);
-    }
-
     std::vector<float> current;
     std::vector<float> target;
     std::vector<float> increment;

@@ -59,6 +59,7 @@ void doSwap(int activeIdx, std::vector<ShaderPreset>& presets,
     int mode = presets[activeIdx].spec.feedbackBufferScalesWithWindow;
     fbSize = bridge.getSizeFromModeSwitch(fbSize, mode);
     float fbInit = presets[activeIdx].spec.feedbackBufferInitValue;
+    std::cout << "Feedback buffer Init value: " << fbInit;
     ssbos[4].resize(fbSize);    ssbos[4].fill(fbInit);  ssbos[4].bind(4);
     ssbos[5].resize(fbSize);    ssbos[5].fill(fbInit);  ssbos[5].bind(5);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
@@ -181,10 +182,16 @@ int main() {
         logFile.close();
         return -1;
     }
-    Shader errorShader(vertexSrc, errorFragSrc);
+    Shader errorShader;
+    if (!errorShader.init(vertexSrc, errorFragSrc).empty()) {
+        std::cout << "Failed compilation of error log. " <<
+                     "Hot reloads will be UB until errorFragSrc is fixed";
+    }
     int activeIdx = 0;
     //set up a way to define these based on displayHz?
     const int fft_order = 13;
+    const int fftSize = 1 << 13;
+    const int fftBinAmt = fftSize / 2 + 1;
     const int hopAmt = 4;
     //Init audio and audio formatting
     Audio audio(fft_order, hopAmt);
@@ -225,9 +232,10 @@ int main() {
     int prevFSKey = GLFW_RELEASE;
     bool isFullscreen = false;
     bool feedbackFlip = false;
-    int frameCounter = 0;
+
     //the real program
     while (!glfwWindowShouldClose(window)) {
+        int newAudioWindow = 0;
         glfwPollEvents();
         //swap shader flag
         bool needsSwap = false;
@@ -297,13 +305,15 @@ int main() {
             }
         }
         // hot reload if necessary
-        if (!presets[activeIdx].fragPath.empty()
-            && std::filesystem::exists(presets[activeIdx].fragPath)) {
-            auto fragTime = std::filesystem::last_write_time(presets[activeIdx].fragPath);
+        auto fragPath = std::filesystem::path(presets[activeIdx].shaderDir) / "frag.glsl";
+        auto specPath = std::filesystem::path(presets[activeIdx].shaderDir) / "spec.cfg";
+        if (!fragPath.empty()
+            && std::filesystem::exists(fragPath)) {
+            auto fragTime = std::filesystem::last_write_time(fragPath);
             std::filesystem::file_time_type specTime{};
-            if (!presets[activeIdx].specPath.empty() 
-                && std::filesystem::exists(presets[activeIdx].specPath)) {
-                specTime = std::filesystem::last_write_time(presets[activeIdx].specPath);
+            if (!specPath.empty() 
+                && std::filesystem::exists(specPath)) {
+                specTime = std::filesystem::last_write_time(specPath);
             }
             if (fragTime != presets[activeIdx].lastFragWrite
                 || specTime != presets[activeIdx].lastSpecWrite) {
@@ -321,10 +331,10 @@ int main() {
             if (evalPresetExprs(w, h, displayHz, audio, presets[activeIdx]) &&
                 assertUserDefinedBufferSizes(presets[activeIdx])) {
                 std::cout << "Swapping to: " << presets[activeIdx].name << "\n";
-                std::cout << "Custom FFT size = " <<
-                          presets[activeIdx].spec.customFFTSize <<
-                          ", Feedback buffer size = " <<
-                          presets[activeIdx].spec.feedbackBufferSize << "\n";
+                //std::cout << "Custom FFT size in spec = " <<
+                //          presets[activeIdx].spec.customFFTSize <<
+                //          ", Feedback buffer size in spec = " <<
+                //          presets[activeIdx].spec.feedbackBufferSize << "\n";
                 doSwap(activeIdx, presets, bridge, ssbos);
             }
             setTitleBarForPreset(window, activeIdx, presets[activeIdx].name);
@@ -337,6 +347,7 @@ int main() {
         if (audio.canAnalyze()) {
             audio.analyze();
             bridge.formatData();
+            newAudioWindow = 1;
         }
         bridge.nextFrame();
         //write to gpu buffers
@@ -353,42 +364,38 @@ int main() {
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
         //get vars for uniforms
         float t = (float)glfwGetTime();
-        size_t bins = bridge.getFFTGPUSize();
+        uint32_t fftArrSize = bridge.getFFTGPUSize();
         size_t channels = audio.getNumChannels();
         //use shader based on error state
         if (presets[activeIdx].hasError) {
             errorShader.use();
-            glUniform1f(errorShader.uniforms.time,        t);
-            glUniform1i(errorShader.uniforms.numBins,     bins);
-            glUniform1i(errorShader.uniforms.numChannels, channels);
-            glUniform1f(errorShader.uniforms.H,           (float)h);
-            glUniform1f(errorShader.uniforms.W,           (float)w);
-            glUniform1i(errorShader.uniforms.frameCount,  frameCounter);
-            glUniform1i(errorShader.uniforms.sampleRate,  sampleRate);
             int chars[128] = {};
             std::string msg = presets[activeIdx].errorMessage;
             int len = std::min((int)msg.size(), 128);
             for (int i = 0; i < len; i++) {
                 chars[i] = (int)msg[i];
             }
-            glUniform1iv(errorShader.uniforms.errorChars, 128, chars);
-            glUniform1i(errorShader.uniforms.errorLen,    len);
-            glUniform1i(errorShader.uniforms.showError,   1);
+            glUniform1i(errorShader.uniforms[U_ERROR_LEN], len);
+            glUniform1i(errorShader.uniforms[U_SHOW_ERROR], 1);
+            glUniform1iv(errorShader.uniforms[U_ERROR_CHARS], 128, chars);
         }
         else {
             presets[activeIdx].shader.use();
-            glUniform1f(presets[activeIdx].shader.uniforms.time,        t);
-            glUniform1i(presets[activeIdx].shader.uniforms.numBins,     bins);
-            glUniform1i(presets[activeIdx].shader.uniforms.numChannels, channels);
-            glUniform1f(presets[activeIdx].shader.uniforms.H,           (float)h);
-            glUniform1f(presets[activeIdx].shader.uniforms.W,           (float)w);
-            glUniform1i(presets[activeIdx].shader.uniforms.frameCount,  frameCounter);
-            glUniform1i(presets[activeIdx].shader.uniforms.sampleRate,  sampleRate);
-            glUniform1i(presets[activeIdx].shader.uniforms.showError,   0);
-            glUniform1i(presets[activeIdx].shader.uniforms.errorLen,    0);
+            glUniform1f(presets[activeIdx].shader.uniforms[U_TIME], t);
+            glUniform1i(presets[activeIdx].shader.uniforms[U_FFT_SIZE], fftSize);
+            glUniform1i(presets[activeIdx].shader.uniforms[U_FFT_BIN_AMT], fftBinAmt);
+            glUniform1i(presets[activeIdx].shader.uniforms[U_FFT_ARR_SIZE], fftArrSize);
+            glUniform1i(presets[activeIdx].shader.uniforms[U_NEW_AUDIO_WINDOW], newAudioWindow);
+            glUniform1i(presets[activeIdx].shader.uniforms[U_NUM_CHANNELS], channels);
+            glUniform1f(presets[activeIdx].shader.uniforms[U_H], (float)h);
+            glUniform1f(presets[activeIdx].shader.uniforms[U_W], (float)w);
+            glUniform1i(presets[activeIdx].shader.uniforms[U_SAMPLE_RATE], sampleRate);
+            glUniform1i(presets[activeIdx].shader.uniforms[U_DISPLAY_HZ], displayHz);
+            glUniform1i(presets[activeIdx].shader.uniforms[U_SHOW_ERROR], 0);
             bindTextures(presets[activeIdx]);
         }
         glDrawArrays(GL_TRIANGLES, 0, 3);
+        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
         //flip for user defined feedback ssbo
         feedbackFlip = !feedbackFlip;
         ssbos[4].bind(feedbackFlip ? 4 : 5);
@@ -397,7 +404,6 @@ int main() {
         unbindTextures(presets[activeIdx]);
         //set swap and count frame counter
         glfwSwapBuffers(window);
-        frameCounter = (++frameCounter) % displayHz;
     }
     //free everything and shut down
     glDeleteVertexArrays(1, &vao);

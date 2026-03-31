@@ -9,9 +9,12 @@ out vec4 FragColor;
 uniform float time;
 uniform float W;
 uniform float H;
-uniform int numBins;
+uniform int fftSize;
+uniform int fftBinAmt;
+uniform int fftArrSize;
+uniform int newAudioWindow;
 uniform int numChannels;
-uniform int frameCount;
+uniform int displayHz;
 uniform int sampleRate;
 uniform int errorChars[128];
 uniform int errorLen;
@@ -164,10 +167,11 @@ float renderCharRotated90(int charCode, vec2 origin, float size, vec2 fragPx) {
     return float((rowBits >> col) & 1u);
 }
 
-float renderText(int[128] chars, int len, vec2 origin, float size, vec2 fragPx) {
+float renderText(int[128] chars, int len, vec2 origin, float size,
+                 vec2 fragPx, int offset) {
     float result = 0.0;
     for (int i = 0; i < len; i++) {
-        result = max(result, renderCharRotated90(chars[i],
+        result = max(result, renderCharRotated90(chars[offset + i],
                      origin + vec2(float(i) * size, 0.0),
                      size, fragPx));
     }

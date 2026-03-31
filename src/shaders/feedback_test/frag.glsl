@@ -129,7 +129,7 @@ vec3 addScanning(vec3 color, vec2 uv) {
     float totalW = float(totalChars) * fontSize;
     vec2  origin = vec2((W - totalW) * 0.5, H - 30.0 - fontSize);
 
-    float mask = renderText(chars, totalChars, origin, fontSize, px);
+    float mask = renderText(chars, totalChars, origin, fontSize, px, 0);
 
     vec3 green = vec3(0.0, 1.0, 0.3);
     return mix(color, green, clamp(mask, 0.0, 1.0));
