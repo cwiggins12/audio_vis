@@ -1,1 +1,0 @@
-/usr/bin/clang++ CMakeFiles/audio_vis.dir/src/main.cpp.o CMakeFiles/audio_vis.dir/src/external/glad/src/glad.c.o -o audio_vis  -lfftw3f /usr/lib/x86_64-linux-gnu/libglfw.so.3.3 -lEGL /usr/lib/x86_64-linux-gnu/libGLX.so /usr/lib/x86_64-linux-gnu/libOpenGL.so 
