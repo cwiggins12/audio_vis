@@ -1,0 +1,4 @@
+/home/cody/Projects/audio_vis/build/CMakeFiles/audio_vis.dir
+/home/cody/Projects/audio_vis/build/CMakeFiles/copy_shaders.dir
+/home/cody/Projects/audio_vis/build/CMakeFiles/edit_cache.dir
+/home/cody/Projects/audio_vis/build/CMakeFiles/rebuild_cache.dir

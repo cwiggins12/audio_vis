@@ -80,7 +80,6 @@ public:
     }
 
     void swapSpec(Spec& newSpec) {
-        audio.swapSpec(newSpec);
         swap(newSpec);
         currSpec = newSpec;
     }

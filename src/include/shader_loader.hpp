@@ -125,13 +125,13 @@ inline std::vector<ShaderPreset> loadPresets(const std::string& shadersDir) {
     return presets;
 }
 
-inline void reloadPreset(ShaderPreset& p) {
-    auto fragPath = std::filesystem::path(p.shaderDir) / "frag.glsl";
-    auto specPath = std::filesystem::path(p.shaderDir) / "spec.cfg";
+inline void reloadPreset(ShaderPreset* p) {
+    auto fragPath = std::filesystem::path(p->shaderDir) / "frag.glsl";
+    auto specPath = std::filesystem::path(p->shaderDir) / "spec.cfg";
     std::string fragSrc = loadFile(fragPath);
     if (fragSrc.empty()) {
-        p.hasError     = true;
-        p.errorMessage = "Hot Reload - " + p.name + 
+        p->hasError     = true;
+        p->errorMessage = "Hot Reload - " + p->name +
                          " failed to open file - frag.glsl\n";
         return;
     }
@@ -141,10 +141,10 @@ inline void reloadPreset(ShaderPreset& p) {
     if (!specPath.empty() && std::filesystem::exists(specPath)) {
         errLog = parseSpec(specPath, newSpec);
         if (errLog != "") {
-            p.hasError     = true;
-            p.errorMessage = "Hot Reload - " + p.name + 
+            p->hasError     = true;
+            p->errorMessage = "Hot Reload - " + p->name +
                              " spec parse failed - " + errLog;
-            p.spec = newSpec;
+            p->spec = newSpec;
             return;
         }
     }
@@ -152,39 +152,39 @@ inline void reloadPreset(ShaderPreset& p) {
     Shader newShader;
     errLog = newShader.init(vertexSrc, fragSrc.c_str());
     if (!errLog.empty()) {
-        p.hasError     = true;
-        p.errorMessage = "Hot Reload - " + p.name + errLog + "\n";
-        p.spec = newSpec;
+        p->hasError     = true;
+        p->errorMessage = "Hot Reload - " + p->name + errLog + "\n";
+        p->spec = newSpec;
         return;
     }
 
     // success — swap in new shader and spec
-    p.shader       = std::move(newShader);
-    p.spec         = newSpec;
-    p.hasError     = false;
-    p.errorMessage = "";
+    p->shader       = std::move(newShader);
+    p->spec         = newSpec;
+    p->hasError     = false;
+    p->errorMessage = "";
     buildTextures(p);
 }
 
-inline bool assertUserDefinedBufferSizes(ShaderPreset& p) {
+inline bool assertUserDefinedBufferSizes(ShaderPreset* p) {
     std::string ret = "";
     //set limits on buffer sizes and warn about double dependencies here
-    if (p.spec.customFFTSize > 8192) {
-        ret = "loadPresets: skipping " + p.name +
+    if (p->spec.customFFTSize > 8192) {
+        ret = "loadPresets: skipping " + p->name +
               " - customFFTSize cannot exceed max FFT size (8192)\n";
         std::cerr << ret;
-        p.errorMessage = ret;
-        p.hasError = true;
-        std::cout << "loadPresets: using ErrorShader in" << p.name << "\n";
+        p->errorMessage = ret;
+        p->hasError = true;
+        std::cout << "loadPresets: using ErrorShader in" << p->name << "\n";
         return false;
     }
-    if (p.spec.feedbackBufferSize > 33177600) {
-        ret = "loadPresets: skipping " + p.name +
+    if (p->spec.feedbackBufferSize > 33177600) {
+        ret = "loadPresets: skipping " + p->name +
               " - feedback buffer size cannot exceed 4k frame buffer size (33177600)\n";
         std::cerr << ret;
-        p.errorMessage = ret;
-        p.hasError = true;
-        std::cout << "loadPresets: using ErrorShader in" << p.name << "\n";
+        p->errorMessage = ret;
+        p->hasError = true;
+        std::cout << "loadPresets: using ErrorShader in" << p->name << "\n";
         return false;
     }
     return true;

@@ -63,16 +63,6 @@ public:
             for (int i = 0; i < UNIFORM_AMT; ++i) {
                 uniforms[i] = glGetUniformLocation(id, uniformNames[i].c_str());
             }
-            //uniforms.time        = glGetUniformLocation(id, "time");
-            //uniforms.W           = glGetUniformLocation(id, "W");
-            //uniforms.H           = glGetUniformLocation(id, "H");
-            //uniforms.numBins     = glGetUniformLocation(id, "numBins");
-            //uniforms.numChannels = glGetUniformLocation(id, "numChannels");
-            //uniforms.displayHz   = glGetUniformLocation(id, "displayHz");
-            //uniforms.sampleRate  = glGetUniformLocation(id, "sampleRate");
-            //uniforms.errorChars  = glGetUniformLocation(id, "errorChars");
-            //uniforms.errorLen    = glGetUniformLocation(id, "errorLen");
-            //uniforms.showError   = glGetUniformLocation(id, "showError");
         }
         glDeleteShader(vert);
         glDeleteShader(frag);
