@@ -3,7 +3,7 @@
 inline const char* fragmentHeader = R"(#version 310 es
 precision highp float;
 
-in vec2 uv;
+in vec2 v_pos;
 out vec4 FragColor;
 
 uniform float time;
@@ -143,20 +143,6 @@ float renderChar(int charCode, vec2 origin, float size, vec2 fragPx) {
     if (local.x < 0.0 || local.x >= size ||
         local.y < 0.0 || local.y >= size)
         return 0.0;
-    vec2 charUV = local / vec2(size);
-    if (charCode < 32 || charCode > 126) return 0.0;
-    int idx = (charCode - 32) * 8;
-    int row = int(charUV.y * 8.0);
-    int col = int(charUV.x * 8.0);
-    uint rowBits = font[idx + row];
-    return float((rowBits >> col) & 1u);
-}
-
-float renderCharRotated90(int charCode, vec2 origin, float size, vec2 fragPx) {
-    vec2 local = fragPx - origin;
-    if (local.x < 0.0 || local.x >= size ||
-        local.y < 0.0 || local.y >= size)
-        return 0.0;
     vec2 rotated = vec2(size - 1.0 - local.y, local.x);
     vec2 charUV = rotated / vec2(size);
     if (charCode < 32 || charCode > 126) return 0.0;
@@ -171,14 +157,53 @@ float renderText(int[128] chars, int len, vec2 origin, float size,
                  vec2 fragPx, int offset) {
     float result = 0.0;
     for (int i = 0; i < len; i++) {
-        result = max(result, renderCharRotated90(chars[offset + i],
+        result = max(result, renderChar(chars[offset + i],
                      origin + vec2(float(i) * size, 0.0),
                      size, fragPx));
     }
     return result;
 }
 
-vec2 toPx()     { return vec2(uv.x * W, uv.y * H); }
-vec2 toCenter() { return vec2((uv.x - 0.5) * W, (uv.y - 0.5) * H); }
+//spacing covention helpers
+// UV (0,0) = bottom-left, (1,1) = top-right — GL/math convention
+vec2 uvBottomLeft() {
+    return v_pos * 0.5 + 0.5;
+}
+
+// UV (0,0) = top-left, (1,1) = bottom-right — image/screen convention
+vec2 uvTopLeft() {
+    return vec2(v_pos.x * 0.5 + 0.5, v_pos.y * -0.5 + 0.5);
+}
+
+// NDC (-1,-1) = bottom-left, (1,1) = top-right — Y up
+vec2 ndcBottomLeft() {
+    return v_pos;
+}
+
+// NDC (-1,-1) = top-left, (1,1) = bottom-right — Y down
+vec2 ndcTopLeft() {
+    return vec2(v_pos.x, -v_pos.y);
+}
+
+// Aspect ratio corrected — use when drawing circles, SDFs, anything
+// that needs to look geometrically correct on non-square viewports
+vec2 ndcBottomLeftAR() {
+    return vec2(v_pos.x * (W / H), v_pos.y);
+}
+
+vec2 ndcTopLeftAR() {
+    return vec2(v_pos.x * (W / H), -v_pos.y);
+}
+
+// Pixel space helpers
+vec2 toPx() {
+    vec2 uv = uvBottomLeft();
+    return vec2(uv.x * W, uv.y * H);
+}
+
+vec2 toCenter() {
+    vec2 uv = uvBottomLeft();
+    return vec2((uv.x - 0.5) * W, (uv.y - 0.5) * H);
+}
 )";
 

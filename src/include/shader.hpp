@@ -1,17 +1,20 @@
 #pragma once
 
 #include <glad/glad.h>
-#include <iostream>
+#include <string>
 #include <unordered_map>
 #include <vector>
 #include <cstring>
 #include "fragment_header.hpp"
 
 inline constexpr int UNIFORM_AMT = 13;
-inline const std::string uniformNames[] = {"time", "W", "H", "fftSize", "fftBinAmt", "fftArrSize", "newAudioWindow",
-                                           "numChannels", "displayHz", "sampleRate", "errorLen", "showError", "errorChars"};
-enum UNIFORM_E { U_TIME = 0, U_W, U_H, U_FFT_SIZE, U_FFT_BIN_AMT, U_FFT_ARR_SIZE, U_NEW_AUDIO_WINDOW,
-                 U_NUM_CHANNELS, U_DISPLAY_HZ, U_SAMPLE_RATE, U_ERROR_LEN, U_SHOW_ERROR, U_ERROR_CHARS };
+inline const std::string uniformNames[] = {"time", "W", "H", "fftSize", "fftBinAmt",
+                                           "fftArrSize", "newAudioWindow",
+                                           "numChannels", "displayHz", "sampleRate",
+                                           "errorLen", "showError", "errorChars"};
+enum UNIFORM_E { U_TIME = 0, U_W, U_H, U_FFT_SIZE, U_FFT_BIN_AMT, U_FFT_ARR_SIZE,
+                 U_NEW_AUDIO_WINDOW, U_NUM_CHANNELS, U_DISPLAY_HZ, U_SAMPLE_RATE,
+                 U_ERROR_LEN, U_SHOW_ERROR, U_ERROR_CHARS };
 
 //be sure to call init immediately upon construction!!!
 class Shader {
@@ -56,13 +59,10 @@ public:
         if (!success) {
             char log[512];
             glGetProgramInfoLog(id, 512, nullptr, log);
-            errorLog += "LINK: " + std::string(log);
-            std::cerr << "Shader link error: " << log << "\n";
+            errorLog += std::string(log) + "\n";
         }
-        else if (errorLog.empty()) {
-            for (int i = 0; i < UNIFORM_AMT; ++i) {
-                uniforms[i] = glGetUniformLocation(id, uniformNames[i].c_str());
-            }
+        for (int i = 0; i < UNIFORM_AMT; ++i) {
+            uniforms[i] = glGetUniformLocation(id, uniformNames[i].c_str());
         }
         glDeleteShader(vert);
         glDeleteShader(frag);
@@ -95,7 +95,6 @@ private:
             char log[512];
             glGetShaderInfoLog(shader, 512, nullptr, log);
             errOut = std::string(log);
-            std::cerr << "Shader compile error:\n" << log << "\n";
         }
         return shader;
     }
@@ -103,9 +102,7 @@ private:
 
 inline const char* vertexSrc = R"(#version 310 es
 precision highp float;
-
-out vec2 uv;
-
+out vec2 v_pos;
 void main() {
     vec2 positions[3] = vec2[](
         vec2(-1.0, -1.0),
@@ -113,9 +110,8 @@ void main() {
         vec2(-1.0,  3.0)
     );
 
-    vec2 pos = positions[gl_VertexID];
-    uv = pos * 0.5 + 0.5;
-    gl_Position = vec4(pos, 0.0, 1.0);
+    v_pos = positions[gl_VertexID];
+    gl_Position = vec4(v_pos, 0.0, 1.0);
 }
 )";
 
@@ -138,7 +134,7 @@ void main() {
         int offset = i * charAmt;
         int count = min(charAmt, errorLen - offset);
         text = max(text, renderText(errorChars, count,
-                                    vec2(spacing, spacing + lineH * float(i)),
+                                    vec2(spacing, H - (lineH * float(i + 1))),
                                     fontSize, fragPx, charAmt * i));
     }
     FragColor = mix(bg, vec4(1.0, 1.0, 1.0, 1.0), text);

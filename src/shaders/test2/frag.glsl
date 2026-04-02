@@ -11,13 +11,13 @@ float dbToT(float db) {
 
 void main() {
     // normalized centered coords
-    vec2 centered = (uv - 0.5) * vec2(W / H, 1.0);
+    vec2 centered = toCenter();
     float dist  = length(centered);
     float angle = atan(centered.y, centered.x);
 
     // map angle to bin index
     float t       = (angle / TWO_PI) + 0.5;
-    int   bin     = clamp(int(t * float(numBins)), 0, numBins - 1);
+    int   bin     = clamp(int(t * float(fftArrSize)), 0, fftArrSize - 1);
     float binVal  = dbToT(fftData[bin]);
 
     // ring: inner edge is RING_RADIUS, outer edge expands with bin value

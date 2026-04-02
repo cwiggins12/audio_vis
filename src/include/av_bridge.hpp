@@ -186,21 +186,21 @@ private:
         switch (newSpec.fftOutputMode) {
             case 0: {
                 gpuFFTSize = binAmt;
-                temp.resize(0);
+                //temp.resize(0);
                 indexFreqs.resize(0);
                 break;
             }
             case 1: {
                 audio.getAudibleRange(&audibleStart, &audibleSize);
                 gpuFFTSize = audibleSize;
-                temp.resize(0);
+                //temp.resize(0);
                 indexFreqs.resize(0);
                 break;
             }
             case 2: {
                 size_t s = newSpec.customFFTSize;
                 gpuFFTSize = getSizeFromModeSwitch(s, newSpec.customFFTSizeScalesWithWindow);
-                temp.resize(gpuFFTSize);
+                //temp.resize(gpuFFTSize);
                 setIndexFreqs(gpuFFTSize);
                 break;
             }
@@ -605,19 +605,14 @@ private:
     void audibleBinPlacement() {
         const float* fftPtr = audio.getFFTPtr();
         for (uint32_t i = 0; i < audibleSize; ++i) {
-            //std::cout << ", bin " << std::to_string(i + audibleStart) << " value: "
-            //          << std::to_string(fftPtr[i + audibleStart]);
             gpuFFT.setTargetVal(i, fftPtr[i + audibleStart]);
         }
-        std::cout << "\n";
     }
 
     void fullBinPlacement() {
         const float* fftPtr = audio.getFFTPtr();
         for (uint32_t i = 0; i < binAmt; ++i) {
             gpuFFT.setTargetVal(i, fftPtr[i]);
-            //std::cout << ", bin " << std::to_string(i) << " value: "
-            //          << std::to_string(gpuFFT.getCurrentVal(i));
         }
     }
 

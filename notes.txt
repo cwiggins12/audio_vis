@@ -1,8 +1,5 @@
-9. mel-spectrogram shader, spec: isdb = off, peakrms = off, holds = off, no textures, useAudibleSize = true, isPerceptual = false, 
-10. shuffle button(when pressed, random next shader)
-11. test multi monitor setup(should be fine with new framebuffer check each frame)
-12. add a config setting to change vertex shader to a quad for -1 to 1?
-13. add BPM detection as a uniform
+6. mel-spectrogram shader
+NOTES FOR THIS: now able to get a color at each y. Need something for x spacing, then move to scroll, add fbBufferSize to uniforms if not already there, need per pixel array read/writes now, 
 
 FINAL POLISH FOR 1.0.0:
 1. proper security pass for all of these strings from glsl, spec, and file pathing
@@ -14,8 +11,13 @@ cat /proc/$(pgrep audio_vis)/smaps_rollup
 6. pi target notes: need Mesa's V3DV driver, how will audio pass through happen?, check its device listings,
 7. need hella more documentation in code and in repo for shader authors and general users
 8. more shader examples showing everything this can do
+9. more error handling to catch spec values outside of type ranges
+
+DOCUMENTATION NOTES:
+The only reason a shader will be skipped rather than present an error message will if the frag.glsl cannot be found or opened.
 
 Future additions:
+1. allow for user defined fftSize and overlap percentage
 1. get parentheses actually working in the expression parser
 2. stb_truetype integration for user defined fonts
 3. look into a wayland fullscreen and window pos workaround, or if its necessary at all
@@ -27,8 +29,8 @@ Future additions:
 9. better sample rate changes(disallow resampling at any level and detect changes)(this would only be necessary or relevant for a user that needs the highest quality, but is changing their hardware sample rate mid session. The analysis still works currently, but it analyzes resampled audio by either the OS internal audio processes(pipewire, pulse, winapi) or miniaudio in certain scenarios(alsa, certain windows configs))
 10. trim all but what is used from miniaudio.h to chill out the binary size
 11. Allow for user defined uniforms that could be adjusted by midi, key input, or ui
-pre-built widgets(meters, mel-bin, etc.)
-12. Allow export of current setup in standalone to VST3 with midi driven shader swaps. no JUCE, straight up steinbergSDK use.
+12. pre-built widgets(meters, mel-bin, etc.)
+13. Allow export of current setup in standalone to VST3 with midi driven shader swaps. no JUCE, straight up steinbergSDK use.
 
 Done This Week:
 1. Shader to test feedback buffer, bitmap font, and textures
@@ -56,6 +58,13 @@ Done This Week:
 22. refactor uniforms so adding one isn't such a pain
 23. Uniform changes: fftSize, fftBinAmt, newAudioWindow, and renamed numBins to fftArrSize
 24. optimized shader preset to only hold one path
+25. whittled main() down from 400 lines to 80. Made several new classes in the process
+26. reworked error handling again(tell user to check log for more details and show file source for the error if it requires an error log). 
+27. moved hot reload check to ShaderSystem and a few load helpers to shader loader. Now main is only 3 helpers and the primary function
+28. private/public pass on all the new structs/classes
+29. test multi monitor setup(should be fine with new framebuffer check each frame)
+30. made vertex shader more generic to allow for helper functions to let users pick between working in uv, px, or ndc space
+31. Added shuffle button(when pressed, random next shader) to input handler
 
 officially in second to last phase!!!!!
 current loc(without spec.cfg's and frag.glsl's): 3711

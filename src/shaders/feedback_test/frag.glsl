@@ -63,19 +63,19 @@ vec3 addPeakMeters(vec3 color, vec2 uv) {
 }
 
 vec3 addChannelNum(vec3 color, vec2 uv) {
-    vec2 px = uv * vec2(W, H);
+    vec2 px = toPx();
     float fontSize = 64.0;
     vec2  labelOrigin = vec2(100.0, H - 60.0 - fontSize);
     int   ch0 = 48; // '0'
     int   ch1 = 51; // '3'
-    float label = renderCharRotated90(ch0, labelOrigin,                       fontSize, px)
-                + renderCharRotated90(ch1, labelOrigin + vec2(fontSize + 4.0, 0.0), fontSize, px);
+    float label = renderChar(ch0, labelOrigin, fontSize, px) +
+    		  renderChar(ch1, labelOrigin + vec2(fontSize + 4.0, 0.0), fontSize, px);
     vec3 green = vec3(0.0, 1.0, 0.3);
     return mix(color, green, clamp(label, 0.0, 1.0));
 }
 
 vec3 addFFTBars(vec3 color, vec2 uv) {
-    vec2 px = uv * vec2(W, H);
+    vec2 px = toPx();
 
     int   bars    = 32;
     float totalW  = W * 0.75;
@@ -105,7 +105,7 @@ vec3 addFFTBars(vec3 color, vec2 uv) {
 }
 
 vec3 addScanning(vec3 color, vec2 uv) {
-    vec2 px = uv * vec2(W, H);
+    vec2 px = toPx();
 
     float cycle = mod(time, 2.0);
     if (cycle > 1.2) return color;
@@ -181,15 +181,15 @@ vec3 getVideo(vec2 uv) {
     return readFeedback(look).rgb;
 }
 
-vec2 screenDistort(vec2 uvIn) {
-    uvIn -= vec2(0.5, 0.5);
-    uvIn = uvIn * 1.2 * (1.0 / 1.2 + 2.0 * uvIn.x * uvIn.x * uvIn.y * uvIn.y);
-    uvIn += vec2(0.5, 0.5);
-    return uvIn;
+vec2 screenDistort(vec2 uv) {
+    uv -= vec2(0.5, 0.5);
+    uv = uv * 1.2 * (1.0 / 1.2 + 2.0 * uv.x * uv.x * uv.y * uv.y);
+    uv += vec2(0.5, 0.5);
+    return uv;
 }
 
-void writeFeedback(vec3 video, vec2 rawUV) {
-    ivec2 px = ivec2(rawUV * vec2(W, H));
+void writeFeedback(vec3 video) {
+    ivec2 px = toPx() / vec2(W, H);
     px = clamp(px, ivec2(0), ivec2(int(W) - 1, int(H) - 1));
     int idx = (px.y * int(W) + px.x) * 4;
     feedbackOut[idx + 0] = video.r;

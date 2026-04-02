@@ -4,7 +4,6 @@
 #include "expr_eval.hpp"
 #include <fstream>
 #include <string>
-#include <iostream>
 
 inline std::string trimStr(const std::string& s) {
     size_t start = s.find_first_not_of(" \t\r\n");
@@ -64,29 +63,6 @@ inline std::string parseWindowScalingMode(const std::string& val, int lineNum,
     //std::cerr << ret;
     return ret;
 }
-
-/*
-inline std::string parseSecondPassMode(const std::string& val, int lineNum,
-                                       SecondPassMode& out) {
-    std::string ret = "";
-    if (val == "NO_SECOND_PASS"      || val == "0") {
-        out = NO_SECOND_PASS;
-        return ret;
-    }
-    if (val == "USE_LOW_END_INTERP"  || val == "1") {
-        out = USE_LOW_END_INTERP;
-        return ret;
-    }
-    if (val == "USE_SEPARATE_INTERP" || val == "2") {
-        out = USE_SEPARATE_INTERP;
-        return ret;
-    }
-    ret = "parseSpec: line " + std::to_string(lineNum) +
-          ": invalid SecondPassMode value \"" + val + "\"\n";
-    //std::cerr << ret;
-    return ret;
-}
-*/
 
 inline std::string parseFFTMeasurement(const std::string& val, int lineNum,
                                        FFTMeasurement& out) {

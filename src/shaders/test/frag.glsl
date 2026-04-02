@@ -32,8 +32,8 @@ void drawMeter(float localX, float localY, float fillDb, float holdDb,
     }
 }
 void main() {
-    float scaleX = W / 1280.0;
-    float scaleY = H / 720.0;
+    float scaleX = W;
+    float scaleY = H;
 
     float sp       = 40.0  * scaleX;
     float hsp      = 20.0  * scaleX;
@@ -69,7 +69,7 @@ void main() {
             localY < OUTLINE || localY >= meas_h - OUTLINE) {
             color = COL_OUT;
         } else {
-            int bin      = clamp(int((localX - OUTLINE) / (fft_w - 2.0 * OUTLINE) * float(numBins)), 0, numBins - 1);
+            int bin      = clamp(int((localX - OUTLINE) / (fft_w - 2.0 * OUTLINE) * float(fftArrSize)), 0, fftArrSize - 1);
             float innerY = localY - OUTLINE;
             float fftDb  = fftData[bin];
             float holdDb = fftHolds[bin];

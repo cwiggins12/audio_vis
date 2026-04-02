@@ -35,11 +35,11 @@ float melToHz(float mel) {
 // Uses true bin hz via binWidth — no assumptions about edge frequencies.
 // Bottom of screen = low freq, top = high freq.
 int melBin(float uvY) {
-    float binWidth = float(sampleRate) / 8192.0;
+    float binWidth = float(sampleRate) / float(fftSize);
     float melMin   = hzToMel(20.0);
     float melMax   = hzToMel(min(20000.0, float(sampleRate) * 0.5));
     float hz       = melToHz(mix(melMin, melMax, uvY));
-    return clamp(int(hz / binWidth), 0, numBins - 1);
+    return clamp(int(hz / binWidth), 0, fftArrSize - 1);
 }
 
 // --- Colormap: inferno ---
@@ -57,7 +57,7 @@ vec3 inferno(float t) {
     if (t < 0.25) return mix(c0, c1, t / 0.25);
     if (t < 0.50) return mix(c1, c2, (t - 0.25) / 0.25);
     if (t < 0.75) return mix(c2, c3, (t - 0.50) / 0.25);
-    return             mix(c3, c4, (t - 0.75) / 0.25);
+    return               mix(c3, c4, (t - 0.75) / 0.25);
 }
 
 float normalizeDB(float db) {
@@ -73,12 +73,12 @@ void main() {
 
     // Scroll: shift history left, write current FFT into rightmost column
     if (fragCol < W_int - 1) {
-        feedbackOut[fragCol * numBins + bin] = feedbackIn[(fragCol + 1) * numBins + bin];
+        feedbackOut[fragCol * fftArrSize + bin] = feedbackIn[(fragCol + 1) * numBins + bin];
     } else {
-        feedbackOut[fragCol * numBins + bin] = fftData[bin];
+        feedbackOut[fragCol * fftArrSize + bin] = fftData[bin];
     }
 
     // Render from feedbackIn (last committed frame)
-    float db  = feedbackIn[fragCol * numBins + bin];
+    float db  = feedbackIn[fragCol * fftArrSize + bin];
     FragColor = vec4(inferno(normalizeDB(db)), 1.0);
 }

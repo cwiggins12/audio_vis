@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <bitset>
 
-static constexpr int EXPR_VAR_AMT = 6;
+static constexpr int EXPR_VAR_AMT = 7;
 
 enum ExprVariable {
     WINDOW_WIDTH,
@@ -14,6 +14,7 @@ enum ExprVariable {
     NUM_CHANNELS,
     SAMPLE_RATE,
     FFT_SIZE,
+    FFT_BIN_AMT,    //NOT SIZE OF RECEIVED ARRAY!!! JUST AMOUNT OF BINS FROM BASIC FFT
 };
 
 struct ExprContext {
@@ -23,6 +24,7 @@ struct ExprContext {
     uint32_t displayHz      = 0;
     uint32_t sampleRate     = 0;
     uint32_t fftSize        = 0;
+    uint32_t fftBinAmt      = 0;
     //added usage bools to determine usage to set in spec
     //basically free, since these are only ever stack allocated
     //wish just checking vars for non zero could work,
@@ -83,6 +85,7 @@ struct ExprParser {
             if (name == "NUM_CHANNELS")  ctx.uses[NUM_CHANNELS] = true;     return ctx.numChannels;
             if (name == "SAMPLE_RATE")   ctx.uses[SAMPLE_RATE] = true;      return ctx.sampleRate;
             if (name == "FFT_SIZE")      ctx.uses[FFT_SIZE] = true;         return ctx.fftSize;
+            if (name == "FFT_BIN_AMT")   ctx.uses[FFT_BIN_AMT] = true;      return ctx.fftBinAmt;
 
             errorMsg = "unknown variable: " + name;
             return 0;
