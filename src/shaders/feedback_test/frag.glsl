@@ -189,7 +189,7 @@ vec2 screenDistort(vec2 uv) {
 }
 
 void writeFeedback(vec3 video) {
-    ivec2 px = toPx() / vec2(W, H);
+    ivec2 px = ivec2(toPx());
     px = clamp(px, ivec2(0), ivec2(int(W) - 1, int(H) - 1));
     int idx = (px.y * int(W) + px.x) * 4;
     feedbackOut[idx + 0] = video.r;
@@ -217,7 +217,7 @@ void main() {
     video *= vignette;
     video *= (12.0 + mod(uv.y * 30.0 + time, 1.0)) / 13.0;
     video *= vec3(0.5, 1.0, 0.9);
-    writeFeedback(video, rawUV);
+    writeFeedback(video);
 
     FragColor = vec4(video, 0.9);
 }

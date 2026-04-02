@@ -42,3 +42,10 @@ add_custom_target(copy_shaders ALL
 )
 
 add_dependencies(audio_vis copy_shaders)
+
+option(ASAN "Enable AddressSanitizer" OFF)
+
+if(ASAN)
+    target_compile_options(audio_vis PRIVATE -fsanitize=address -g)
+    target_link_options(audio_vis PRIVATE -fsanitize=address)
+endif()

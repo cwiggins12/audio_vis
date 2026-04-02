@@ -186,21 +186,21 @@ private:
         switch (newSpec.fftOutputMode) {
             case 0: {
                 gpuFFTSize = binAmt;
-                //temp.resize(0);
+                middlemanBuffer.resize(0);
                 indexFreqs.resize(0);
                 break;
             }
             case 1: {
                 audio.getAudibleRange(&audibleStart, &audibleSize);
                 gpuFFTSize = audibleSize;
-                //temp.resize(0);
+                middlemanBuffer.resize(0);
                 indexFreqs.resize(0);
                 break;
             }
             case 2: {
                 size_t s = newSpec.customFFTSize;
                 gpuFFTSize = getSizeFromModeSwitch(s, newSpec.customFFTSizeScalesWithWindow);
-                //temp.resize(gpuFFTSize);
+                middlemanBuffer.resize(gpuFFTSize);
                 setIndexFreqs(gpuFFTSize);
                 break;
             }
@@ -258,11 +258,11 @@ private:
 
     void customSizeFFTPlacement() {
         const float* fftOut = audio.getFFTPtr();
-        float* tempPtr = temp.data();
-        switchOnInterps(0, swapIndex, fftOut, tempPtr, currSpec.lowMode);
-        switchOnCollates(swapIndex, gpuFFTSize, fftOut, tempPtr, currSpec.highMode);
-        switchOnMeasurement(gpuFFTSize, tempPtr, currSpec.fftOutputMeasurement);
-        gpuFFT.setAllTargetsWithPtr(tempPtr);
+        float* buffPtr = middlemanBuffer.data();
+        switchOnInterps(0, swapIndex, fftOut, buffPtr, currSpec.lowMode);
+        switchOnCollates(swapIndex, gpuFFTSize, fftOut, buffPtr, currSpec.highMode);
+        switchOnMeasurement(gpuFFTSize, buffPtr, currSpec.fftOutputMeasurement);
+        gpuFFT.setAllTargetsWithPtr(buffPtr);
     }
 
     void switchOnInterps(int start, int end, const float* in,
@@ -642,11 +642,11 @@ private:
     SmoothArraySoA gpuFFT;
     HoldArray fftHolds;
     std::vector<float> indexFreqs;
-    //truly thought I could go without a single temp array
+    //truly thought I could go without a single middlemanBuffer array
     //was hoping for ring buffer, to analysis objs, straight to smooth
     //but adding this made everything easier for me and, hopefully, the compiler
     //pray for vectorizing
-    std::vector<float> temp;
+    std::vector<float> middlemanBuffer;
 
     uint32_t fftSize = 0;
     uint32_t hopSize = 0;

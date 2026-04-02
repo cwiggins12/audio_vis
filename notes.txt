@@ -1,7 +1,4 @@
-6. mel-spectrogram shader
-NOTES FOR THIS: now able to get a color at each y. Need something for x spacing, then move to scroll, add fbBufferSize to uniforms if not already there, need per pixel array read/writes now, 
-
-FINAL POLISH FOR 1.0.0:
+0. finish updating shaders and finish mel_spec
 1. proper security pass for all of these strings from glsl, spec, and file pathing
 2. do one more run of finalizing which Interp/Collate modes will be available
 3. refactor, profile, and optimize to finish as standalone for linux
@@ -17,7 +14,7 @@ DOCUMENTATION NOTES:
 The only reason a shader will be skipped rather than present an error message will if the frag.glsl cannot be found or opened.
 
 Future additions:
-1. allow for user defined fftSize and overlap percentage
+1. allow for user defined fftSize and overlap percentage?
 1. get parentheses actually working in the expression parser
 2. stb_truetype integration for user defined fonts
 3. look into a wayland fullscreen and window pos workaround, or if its necessary at all
@@ -33,38 +30,7 @@ Future additions:
 13. Allow export of current setup in standalone to VST3 with midi driven shader swaps. no JUCE, straight up steinbergSDK use.
 
 Done This Week:
-1. Shader to test feedback buffer, bitmap font, and textures
-2. made feedback buffer scale with width, height, or resolution
-3. did the same for the customFFTSize
-3. Cleaned up customFFTSize modes dramatically
-4. fixed smooth value and bitmap text bugs
-5. fft now has ability to ouput power, along with magnitude and decibels
-6. Power, mag, or db setting can be configured in the spec now. All output modes can do this now.
-7. added high end interpolation smoothing second pass strats. still needs testing. REMOVED.
-8. big ole 400 line refactor out of av_bridge
-9. expression evaluation now works for the sizes and can use select variables that aren't known at compile time
-10. HOPEFULLY finalized spec and spec parser aside from reworking the error handling and possibly trimming down some of the enum options
-11. main refactoring, will still need more later, but no use until its finalized
-12. now keep track of h/w and displayhz dependencies to decide if swap is necessary
-13. removed possibility of multiple swaps per frame
-14. set usage bitset with each bit related to each user defined var used in parser, eval, spec, and main to more effictively know when to swap and easily scale
-15. finished specAssert logic in shader_loader: bounds checking on numeric values is all thats needed, everything else is handled in the parsing. Just warnings for double reliance on width and height by using the scale mode and having the var in the expression, and hard limits on custom buffer sizes (fft size for custom fft and a 4k frame buffer for feedback(which is probably way more than should be allowed))
-16. size assertions for user defined buffer sizes on every swap
-17. complete rework of parsing, hot reloading, error handling, and error display. :(
-18. expression parsing now exception free by using member string to pass in error message
-19. updated specs to work with new spec rules
-20. error handling now has a character based text wrap
-21. new uniforms and a refactor to make changing them only happen in one place
-22. refactor uniforms so adding one isn't such a pain
-23. Uniform changes: fftSize, fftBinAmt, newAudioWindow, and renamed numBins to fftArrSize
-24. optimized shader preset to only hold one path
-25. whittled main() down from 400 lines to 80. Made several new classes in the process
-26. reworked error handling again(tell user to check log for more details and show file source for the error if it requires an error log). 
-27. moved hot reload check to ShaderSystem and a few load helpers to shader loader. Now main is only 3 helpers and the primary function
-28. private/public pass on all the new structs/classes
-29. test multi monitor setup(should be fine with new framebuffer check each frame)
-30. made vertex shader more generic to allow for helper functions to let users pick between working in uv, px, or ndc space
-31. Added shuffle button(when pressed, random next shader) to input handler
+1. finished mel-spectrogram shader
 
-officially in second to last phase!!!!!
-current loc(without spec.cfg's and frag.glsl's): 3711
+officially in last phase to 1.0.0!!!!!
+current loc(without spec.cfg's and frag.glsl's): ???

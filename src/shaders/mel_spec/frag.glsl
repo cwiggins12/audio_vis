@@ -1,27 +1,11 @@
-// ============================================================
-// Mel Spectrogram Shader
-//
-// Spec config required:
-//   fftOutputMode             = FULL_BIN
-//   fftOutputMeasurement      = DECIBELS
-//   perceptualSlopeDegrees    = 0.0f
-//   useFFTSmoothing           = false
-//   getsFFTHolds              = false
-//   feedbackBufferSizeExpr    = "W * 4097 + 1"
-//   feedbackBufferInitValue   = -90.0f
-//
-// feedbackBuffer layout:
-//   [col * numBins + bin]  for col in [0, W), bin in [0, numBins)
-//
-// Frequency axis: mel-warped, 20hz at bottom to min(20khz, nyquist) at top
-// Time axis:      newest data on the right, scrolls left each frame
-// Color:          inferno (black -> purple -> orange -> yellow)
-// ============================================================
-
-const float DB_FLOOR = -90.0;
-const float DB_CEIL  =   0.0;
-
-// --- Mel helpers ---
+const float DB_FLOOR        = -90.0;
+const float DB_CEIL         =   0.0;
+const int   TOTAL_MEL_BINS  = 256;
+const int   SECONDS_SHOWN   = 5;
+const int   EST_AUDIO_FPS   = 24;
+const int   FB_BUFFER_SIZE  = TOTAL_MEL_BINS * SECONDS_SHOWN * EST_AUDIO_FPS;
+const int   COLUMN_AMT      = SECONDS_SHOWN * EST_AUDIO_FPS;
+const float COLUMN_WIDTH    = 1.0 / float(COLUMN_AMT);
 
 float hzToMel(float hz) {
     return 2595.0 * log(1.0 + hz / 700.0) / log(10.0);
@@ -31,20 +15,39 @@ float melToHz(float mel) {
     return 700.0 * (pow(10.0, mel / 2595.0) - 1.0);
 }
 
-// Map uv.y [0,1] to a linear bin index via mel scale.
-// Uses true bin hz via binWidth — no assumptions about edge frequencies.
-// Bottom of screen = low freq, top = high freq.
-int melBin(float uvY) {
+float melBinEnergy(int m) {
+    float melMin = hzToMel(20.0);
+    float melMax = hzToMel(min(20000.0, float(sampleRate) * 0.5));
+
+    float melLeft   = mix(melMin, melMax, float(m)     / float(TOTAL_MEL_BINS + 1));
+    float melCenter = mix(melMin, melMax, float(m + 1) / float(TOTAL_MEL_BINS + 1));
+    float melRight  = mix(melMin, melMax, float(m + 2) / float(TOTAL_MEL_BINS + 1));
+
     float binWidth = float(sampleRate) / float(fftSize);
-    float melMin   = hzToMel(20.0);
-    float melMax   = hzToMel(min(20000.0, float(sampleRate) * 0.5));
-    float hz       = melToHz(mix(melMin, melMax, uvY));
-    return clamp(int(hz / binWidth), 0, fftArrSize - 1);
+    int kLeft   = clamp(int(melToHz(melLeft)   / binWidth), 0, fftArrSize - 1);
+    int kCenter = clamp(int(melToHz(melCenter) / binWidth), 0, fftArrSize - 1);
+    int kRight  = clamp(int(melToHz(melRight)  / binWidth), 0, fftArrSize - 1);
+
+    float energy = 0.0;
+    float weightSum = 0.0;
+
+    for (int k = kLeft; k <= kCenter; k++) {
+        float w = float(k - kLeft) / float(max(kCenter - kLeft, 1));
+        energy     += w * fftData[k];
+        weightSum  += w;
+    }
+
+    for (int k = kCenter + 1; k <= kRight; k++) {
+        float w = float(kRight - k) / float(max(kRight - kCenter, 1));
+        energy     += w * fftData[k];
+        weightSum  += w;
+    }
+
+    return (weightSum > 0.0) ? energy / weightSum : 0.0;
 }
 
 // --- Colormap: inferno ---
 // black -> deep purple -> crimson -> orange -> bright yellow
-
 vec3 inferno(float t) {
     t = clamp(t, 0.0, 1.0);
 
@@ -64,21 +67,41 @@ float normalizeDB(float db) {
     return clamp((db - DB_FLOOR) / (DB_CEIL - DB_FLOOR), 0.0, 1.0);
 }
 
-// --- Main ---
+float powToDB(float pow) {
+    return 10.0 * log(pow + 1e-9) / log(10.0);
+}
 
 void main() {
-    int fragCol = clamp(int(uv.x * W), 0, int(W) - 1);
-    int bin     = melBin(uv.y);
-    int W_int   = int(W);
-
-    // Scroll: shift history left, write current FFT into rightmost column
-    if (fragCol < W_int - 1) {
-        feedbackOut[fragCol * fftArrSize + bin] = feedbackIn[(fragCol + 1) * numBins + bin];
-    } else {
-        feedbackOut[fragCol * fftArrSize + bin] = fftData[bin];
+    vec2 uv = uvBottomLeft();
+    int m = int(uv.y * float(TOTAL_MEL_BINS));
+    m = clamp(m, 0, TOTAL_MEL_BINS - 1);
+    int column = int(uv.x * float(COLUMN_AMT));
+    int index = column * TOTAL_MEL_BINS + m;
+    if (newAudioWindow != 0) {
+        if (column == COLUMN_AMT - 1) {
+            //get mel norm, write, get color and print
+            float energy = melBinEnergy(m);
+            float db = powToDB(energy);
+            float norm = normalizeDB(db);
+            feedbackOut[index] = norm;
+            FragColor = vec4(inferno(norm), 1.0);
+        }
+        else if (column == 0) {
+            //read, get color, print, no write
+            FragColor = vec4(inferno(feedbackIn[index]), 1.0);
+        }
+        else {
+            //read, write to index - TOTAL_MEL_BINS, print color
+            float val = feedbackIn[index];
+            feedbackOut[index - TOTAL_MEL_BINS] = val;
+            FragColor = vec4(inferno(val), 1.0);
+        }
     }
-
-    // Render from feedbackIn (last committed frame)
-    float db  = feedbackIn[fragCol * fftArrSize + bin];
-    FragColor = vec4(inferno(normalizeDB(db)), 1.0);
+    else {
+        //read from proper index, then write to same index here
+        float val = feedbackIn[index];
+        feedbackOut[index] = val;
+        FragColor = vec4(inferno(val), 1.0);
+    }
 }
+
