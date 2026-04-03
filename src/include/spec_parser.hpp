@@ -76,6 +76,20 @@ inline std::string parseFFTMeasurement(const std::string& val, int lineNum,
     return ret;
 }
 
+inline std::string parseFloat(const std::string& val, int lineNum,
+                               const std::string& key, float& out) {
+    try {
+        out = std::stof(val);
+        return "";
+    } catch (const std::invalid_argument&) {
+        return "parseSpec: line " + std::to_string(lineNum) +
+               ": invalid float value \"" + val + "\" for key \"" + key + "\"\n";
+    } catch (const std::out_of_range&) {
+        return "parseSpec: line " + std::to_string(lineNum) +
+               ": float value out of range \"" + val + "\" for key \"" + key + "\"\n";
+    }
+}
+
 inline std::string parseSpec(const std::string& path, Spec& out) {
     std::string ret = "";
     std::ifstream file(path);
@@ -119,6 +133,8 @@ inline std::string parseSpec(const std::string& path, Spec& out) {
         auto parseBool = [&](bool& field) -> bool {
             if (val == "true")  { field = true;  return true; }
             if (val == "false") { field = false; return true; }
+            if (val == "1")     { field = true;  return true; }
+            if (val == "0")     { field = false; return true; }
             ret = "parseSpec: line " + std::to_string(lineNum) +
                   ": expected true/false for \"" + key + "\"\n";
             //std::cerr << ret;
@@ -154,19 +170,30 @@ inline std::string parseSpec(const std::string& path, Spec& out) {
             }
         }
         else if (key == "fftAtk") {
-            out.fftAtk = std::stof(val);
+            if ((ret = parseFloat(val, lineNum, key, out.fftAtk)) != "") {
+                return ret;
+            }
         }
         else if (key == "fftRls") {
-            out.fftRls = std::stof(val);
+            if ((ret = parseFloat(val, lineNum, key, out.fftRls)) != "") {
+                return ret;
+            }
         }
         else if (key == "fftHoldTime") {
-            out.fftHoldTime = std::stof(val);
+            if ((ret = parseFloat(val, lineNum, key, out.fftHoldTime)) != "") {
+                return ret;
+            }
         }
         else if (key == "fftHoldScalar") {
-            out.fftHoldScalar = std::stof(val);
+            if ((ret = parseFloat(val, lineNum, key, out.fftHoldScalar)) != "") {
+                return ret;
+            }
         }
         else if (key == "perceptualSlopeDegrees") {
-            out.perceptualSlopeDegrees = std::stof(val);
+            if ((ret = parseFloat(val, lineNum, key, 
+                                  out.perceptualSlopeDegrees)) != "") {
+                return ret;
+            }
         }
         else if (key == "useFFTSmoothing") {
             if (!parseBool(out.useFFTSmoothing)) return ret;
@@ -190,16 +217,24 @@ inline std::string parseSpec(const std::string& path, Spec& out) {
             if (!parseBool(out.isPeakRMSMono)) return ret;
         }
         else if (key == "peakRMSAtk") {
-            out.peakRMSAtk = std::stof(val);
+            if ((ret = parseFloat(val, lineNum, key, out.peakRMSAtk)) != "") {
+                return ret;
+            }
         }
         else if (key == "peakRMSRls") {
-            out.peakRMSRls = std::stof(val);
+            if ((ret = parseFloat(val, lineNum, key, out.peakRMSRls)) != "") {
+                return ret;
+            }
         }
         else if (key == "peakRMSHoldTime") {
-            out.peakRMSHoldTime = std::stof(val);
+            if ((ret = parseFloat(val, lineNum, key, out.peakRMSHoldTime)) != "") {
+                return ret;
+            }
         }
         else if (key == "peakRMSHoldScalar") {
-            out.peakRMSHoldScalar = std::stof(val);
+            if ((ret = parseFloat(val, lineNum, key, out.peakRMSHoldScalar)) != "") {
+                return ret;
+            }
         }
         else if (key == "feedbackBufferSize") {
             out.feedbackBufferSizeExpr = val;
@@ -237,3 +272,4 @@ inline std::string parseSpec(const std::string& path, Spec& out) {
     }
     return ret;
 }
+

@@ -4,6 +4,7 @@
 #include <iostream>
 #include <cstdint>
 #include <bitset>
+#include <cmath>
 
 static constexpr int EXPR_VAR_AMT = 7;
 
@@ -45,7 +46,7 @@ struct ExprParser {
         while (pos < src.size() && std::isspace(src[pos])) pos++;
     }
 
-    uint32_t parsePrimary() {
+    double parsePrimary() {
         skipWhitespace();
         if (pos >= src.size()) {
             return 0;
@@ -54,7 +55,7 @@ struct ExprParser {
         // parentheses
         if (src[pos] == '(') {
             pos++;
-            uint32_t val = parseAddSub();
+            double val = parseAddSub();
             skipWhitespace();
             if (pos >= src.size() || src[pos] != ')') {
                 errorMsg = "missing closing parenthesis";
@@ -64,46 +65,66 @@ struct ExprParser {
             return val;
         }
 
-        // integer literal
         if (std::isdigit(src[pos])) {
-            uint32_t val = 0;
-            while (pos < src.size() && std::isdigit(src[pos]))
+            double val = 0;
+            while (pos < src.size() && std::isdigit(src[pos])) {
                 val = val * 10 + (src[pos++] - '0');
+            }
             return val;
         }
 
         // named variable
         if (std::isalpha(src[pos]) || src[pos] == '_') {
             size_t start = pos;
-            while (pos < src.size() && (std::isalnum(src[pos]) || src[pos] == '_'))
+            while (pos < src.size() && (std::isalnum(src[pos]) || src[pos] == '_')) {
                 pos++;
+            }
             std::string name = src.substr(start, pos - start);
 
-            if (name == "WINDOW_WIDTH")  ctx.uses[WINDOW_WIDTH] = true;     return ctx.windowWidth;
-            if (name == "WINDOW_HEIGHT") ctx.uses[WINDOW_HEIGHT] = true;    return ctx.windowHeight;
-            if (name == "DISPLAY_HZ")    ctx.uses[DISPLAY_HZ] = true;       return ctx.displayHz;
-            if (name == "NUM_CHANNELS")  ctx.uses[NUM_CHANNELS] = true;     return ctx.numChannels;
-            if (name == "SAMPLE_RATE")   ctx.uses[SAMPLE_RATE] = true;      return ctx.sampleRate;
-            if (name == "FFT_SIZE")      ctx.uses[FFT_SIZE] = true;         return ctx.fftSize;
-            if (name == "FFT_BIN_AMT")   ctx.uses[FFT_BIN_AMT] = true;      return ctx.fftBinAmt;
-
+            if (name == "WINDOW_WIDTH") {
+                ctx.uses[WINDOW_WIDTH] = true;
+                return ctx.windowWidth;
+            }
+            if (name == "WINDOW_HEIGHT") {
+                ctx.uses[WINDOW_HEIGHT] = true;
+                return ctx.windowHeight;
+            }
+            if (name == "DISPLAY_HZ") {
+                ctx.uses[DISPLAY_HZ] = true;
+                return ctx.displayHz;
+            }
+            if (name == "NUM_CHANNELS") {
+                ctx.uses[NUM_CHANNELS] = true;
+                return ctx.numChannels;
+            }
+            if (name == "SAMPLE_RATE") {
+                ctx.uses[SAMPLE_RATE] = true;
+                return ctx.sampleRate;
+            }
+            if (name == "FFT_SIZE") {
+                ctx.uses[FFT_SIZE] = true;
+                return ctx.fftSize;
+            }
+            if (name == "FFT_BIN_AMT") {
+                ctx.uses[FFT_BIN_AMT] = true;
+                return ctx.fftBinAmt;
+            }
             errorMsg = "unknown variable: " + name;
             return 0;
         }
-
         errorMsg = "unexpected character: " + std::to_string(src[pos]);
         return 0;
     }
 
-    uint32_t parseMulDiv() {
-        uint32_t left = parsePrimary();
+    double parseMulDiv() {
+        double left = parsePrimary();
         while (true) {
             skipWhitespace();
             if (pos >= src.size()) break;
             char op = src[pos];
             if (op != '*' && op != '/') break;
             pos++;
-            uint32_t right = parsePrimary();
+            float right = parsePrimary();
             if (op == '*') {
                 left *= right;
             } else {
@@ -117,15 +138,15 @@ struct ExprParser {
         return left;
     }
 
-    uint32_t parseAddSub() {
-        uint32_t left = parseMulDiv();
+    double parseAddSub() {
+        double left = parseMulDiv();
         while (true) {
             skipWhitespace();
             if (pos >= src.size()) break;
             char op = src[pos];
             if (op != '+' && op != '-') break;
             pos++;
-            uint32_t right = parseMulDiv();
+            float right = parseMulDiv();
             if (op == '+') {
                 left += right;
             } else {
@@ -135,11 +156,11 @@ struct ExprParser {
         return left;
     }
 
-    uint32_t evaluate() {
-        uint32_t result = parseAddSub();
+    double evaluate() {
+        double result = parseAddSub();
         skipWhitespace();
         if (pos < src.size()) {
-            errorMsg = "unexpected character after expression: " 
+            errorMsg = "unexpected character after expression: "
                        + std::to_string(src[pos]);
             return 0;
         }
@@ -155,8 +176,8 @@ inline std::string evalExpr(const std::string& expr, ExprContext& ctx,
         return "";
     }
     ExprParser p(expr, ctx);
-    uint32_t result = p.evaluate();
-    out = result;
+
+    double result = p.evaluate();
     uses = ctx.uses;
     std::string ret = p.errorMsg;
     if (!ret.empty()) {
@@ -169,7 +190,21 @@ inline std::string evalExpr(const std::string& expr, ExprContext& ctx,
             ret = "evalExpr: " + ret + " in \"" + expr + "\"\n";
         }
         std::cerr << ret;
+        return ret;
+
     }
+    if (result < 0.0 || result > (double)UINT32_MAX) {
+        ret = "parseSpec: evalExpr: result out of uint32_t range in \"" + expr + "\"\n";
+        std::cerr << ret;
+        return ret;
+    }
+
+    if (result != std::floor(result)) {
+        std::cerr << "evalExpr: warning: result truncated from " << result
+                  << " in \"" << expr << "\"\n";
+    }
+
+    out = (uint32_t)result;
     return ret;
 }
 

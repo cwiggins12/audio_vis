@@ -16,6 +16,8 @@ enum UNIFORM_E { U_TIME = 0, U_W, U_H, U_FFT_SIZE, U_FFT_BIN_AMT, U_FFT_ARR_SIZE
                  U_NEW_AUDIO_WINDOW, U_NUM_CHANNELS, U_DISPLAY_HZ, U_SAMPLE_RATE,
                  U_ERROR_LEN, U_SHOW_ERROR, U_ERROR_CHARS };
 
+static const int headerLines = 205;
+
 //be sure to call init immediately upon construction!!!
 class Shader {
 public:
@@ -24,14 +26,14 @@ public:
     Shader(Shader&& o) noexcept : id(o.id), uniforms{},
                                   samplerLocations(std::move(o.samplerLocations)) {
         o.id = 0;
-        std::memcpy(uniforms, o.uniforms, UNIFORM_AMT);
+        std::memcpy(uniforms, o.uniforms, UNIFORM_AMT * sizeof(GLint));
     }
 
     Shader& operator=(Shader&& o) noexcept {
         if (this != &o) {
             if (id) glDeleteProgram(id);
             id = o.id; o.id = 0;
-            std::memcpy(uniforms, o.uniforms, UNIFORM_AMT);
+            std::memcpy(uniforms, o.uniforms, UNIFORM_AMT * sizeof(GLint));
             samplerLocations = std::move(o.samplerLocations);
         }
         return *this;

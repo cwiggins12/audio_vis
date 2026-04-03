@@ -34,7 +34,7 @@ float peakLine(vec2 px, vec2 lo, vec2 hi, float t, float fromRight, float thickn
 }
 
 vec3 addPeakMeters(vec3 color, vec2 uv) {
-    vec2 px = uv * vec2(W, H);
+    vec2 px = toPx();
 
     float thick  = 8.0;
     float rW     = W * 0.20;
@@ -171,12 +171,11 @@ vec4 readFeedback(vec2 uv) {
 vec3 getVideo(vec2 uv) {
     vec2 look = uv;
     float window = 1.0 / (1.0 + 20.0 * (look.y - mod(time / 4.0, 1.0))
-                                    * (look.y - mod(time / 4.0, 1.0)));
-    look.x = look.x + sin(look.y * 10.0 + time) / 50.0
-           * onOff(4.0, 4.0, 0.3) * (1.0 + cos(time * 80.0)) * window;
-    float vShift = 0.4 * onOff(2.0, 3.0, 0.9)
-               * (sin(time) * sin(time * 20.0)
-               + (0.5 + 0.1 * sin(time * 200.0) * cos(time)));
+                                     * (look.y - mod(time / 4.0, 1.0)));
+    look.x = look.x + sin(look.y * 10.0 + time) / 50.0 * onOff(4.0, 4.0, 0.3) *
+    	     (1.0 + cos(time * 80.0)) * window;
+    float vShift = 0.4 * onOff(2.0, 3.0, 0.9) * (sin(time) * sin(time * 20.0) + 
+    		   (0.5 + 0.1 * sin(time * 200.0) * cos(time)));
     look.y = mod(look.y + vShift, 1.0);
     return readFeedback(look).rgb;
 }

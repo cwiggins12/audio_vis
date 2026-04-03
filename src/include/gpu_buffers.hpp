@@ -49,6 +49,7 @@ public:
     }
 
     void swap(ResizeValues& r) {
+        //std::cout << "fftSize: " << r.fftSize << "\n";
         ssbos[0].resize(r.prSize);      ssbos[0].bind(0);
         ssbos[1].resize(r.fftSize);     ssbos[1].bind(1);
         ssbos[2].resize(r.prHSize);     ssbos[2].bind(2);

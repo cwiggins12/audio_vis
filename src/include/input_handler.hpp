@@ -5,13 +5,13 @@
 
 struct InputHandler {
 public:
-    InputHandler(int size) {
-        presetsSize = size;
+    InputHandler() {
         srand(time(nullptr));
     }
 
     void handleInput(GLFWContext& glfw, ShaderSystem& s, bool& needsSwap) {
         glfwPollEvents();
+        int presetsSize = s.getSize();
         //check for escape press
         if (glfwGetKey(glfw.window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
             glfwSetWindowShouldClose(glfw.window, GLFW_TRUE);
@@ -26,7 +26,7 @@ public:
         //check back key
         int leftKey = glfwGetKey(glfw.window, GLFW_KEY_LEFT);
         if (leftKey == GLFW_PRESS && prevLeftKey == GLFW_RELEASE) {
-            s.setIndex(((s.getIndex() - 1) + (int)presetsSize) % (int)presetsSize);
+            s.setIndex(((s.getIndex() - 1) + presetsSize) % presetsSize);
             needsSwap = true;
         }
         prevLeftKey = leftKey;

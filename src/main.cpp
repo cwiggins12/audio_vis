@@ -76,7 +76,7 @@ int main() {
     assertUserDefinedBufferSizes(shaders.active);
     doSwap(shaders.active, audioSys, gpuBuffs);
     //catches button presses and handles them
-    InputHandler input(shaders.getSize());
+    InputHandler input;
     //per frame loop
     while (!glfwWindowShouldClose(glfw.window)) {
         //flag for swap
@@ -87,9 +87,9 @@ int main() {
         glfw.checkForResize(audioSys, shaders.active, w, h, needsSwap);
         //check for frame rate change
         glfw.checkForFrameRateChange(shaders.active, needsSwap);
-        // hot reload if necessary
+        //check for hot reload
         shaders.hotReloadCheck(needsSwap);
-        //do swap if necessary, if eval fails, update shader at index's error msg
+        //do swap if necessary, if eval fails, update active's error msg
         if (needsSwap) {
             evalPresetExprs(w, h, glfw.displayHz, audioSys, shaders.active);
             assertUserDefinedBufferSizes(shaders.active);
@@ -122,6 +122,7 @@ int main() {
         //set swap and count frame counter
         glfwSwapBuffers(glfw.window);
     }
+    std::cout << "Program ended :)";
     return 0;
 }
 

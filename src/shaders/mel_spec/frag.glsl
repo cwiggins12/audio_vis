@@ -1,5 +1,5 @@
 const float DB_FLOOR        = -90.0;
-const float DB_CEIL         =   0.0;
+const float DB_CEIL         = 0.0;
 const int   TOTAL_MEL_BINS  = 256;
 const int   SECONDS_SHOWN   = 5;
 const int   EST_AUDIO_FPS   = 24;
@@ -92,8 +92,8 @@ void main() {
         }
         else {
             //read, write to index - TOTAL_MEL_BINS, print color
-            float val = feedbackIn[index];
-            feedbackOut[index - TOTAL_MEL_BINS] = val;
+            float val = feedbackIn[index + TOTAL_MEL_BINS];
+            feedbackOut[index] = val;
             FragColor = vec4(inferno(val), 1.0);
         }
     }

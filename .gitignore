@@ -1,10 +1,7 @@
 /build
 /.cache
 /unused
-/buildOLD
-/buildJIC
 sesh
-sesh1
 miniaudio.h
 stb_image.h
 stb_truetype.h

@@ -5,7 +5,7 @@
 
 struct ShaderSystem {
 public:
-    ShaderPreset*             active = nullptr;
+    ShaderPreset* active = nullptr;
 
     ShaderSystem(const std::string& shaderPath) {
         presets = loadPresets(shaderPath);
@@ -72,26 +72,39 @@ public:
     void hotReloadCheck(bool& needsSwap) {
         auto fragPath = std::filesystem::path(active->shaderDir) / "frag.glsl";
         auto specPath = std::filesystem::path(active->shaderDir) / "spec.cfg";
-        if (!fragPath.empty()
-            && std::filesystem::exists(fragPath)) {
+        if (!fragPath.empty() && std::filesystem::exists(fragPath)) {
             auto fragTime = std::filesystem::last_write_time(fragPath);
             std::filesystem::file_time_type specTime{};
-            if (!specPath.empty() 
-                && std::filesystem::exists(specPath)) {
+            if (!specPath.empty() && std::filesystem::exists(specPath)) {
                 specTime = std::filesystem::last_write_time(specPath);
             }
-            if (fragTime != active->lastFragWrite
-                || specTime != active->lastSpecWrite) {
+            if (fragTime != active->lastFragWrite ||
+                     specTime != active->lastSpecWrite) {
                 active->lastFragWrite = fragTime;
                 active->lastSpecWrite = specTime;
-                std::cout << "hot reload: " << active->name << "\n";
+                std::cout << "Hot Reloading: " << active->name << "\n";
                 reloadPreset(active);
                 if (!active->hasError) {
                     needsSwap = true;
                 }
             }
         }
+        else {
+            if (std::filesystem::exists(active->shaderDir)) {
+                active->hasError = true;
+                active->errorMessage = active->name + " error - Hot Reload. " +
+                                    "frag.glsl could not be found on hot reload check.";
+            }
+            else {
+                removeActiveFromPresets();
+            }
+        }
     }
+
+    void removeActiveFromPresets() {
+        presets.erase(presets.begin() + index);
+    }
+
 private:
     std::vector<ShaderPreset> presets;
     Shader                    error;

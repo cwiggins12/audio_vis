@@ -1,7 +1,7 @@
 const float PI = 3.14159265359;
 const float TWO_PI = 6.28318530718;
 const float RING_RADIUS = 0.2;
-const float RING_WIDTH  = 0.4;
+const float RING_WIDTH  = 1.2;
 const float DB_MIN = -80.0;
 const float DB_MAX =   0.0;
 
@@ -11,13 +11,13 @@ float dbToT(float db) {
 
 void main() {
     // normalized centered coords
-    vec2 centered = toCenter();
+    vec2 centered = ndcBottomLeftAR();
     float dist  = length(centered);
     float angle = atan(centered.y, centered.x);
 
     // map angle to bin index
     float t       = (angle / TWO_PI) + 0.5;
-    int   bin     = clamp(int(t * float(fftArrSize)), 0, fftArrSize - 1);
+    int   bin     = clamp(int(t * float(512)), 0, 512 - 1);
     float binVal  = dbToT(fftData[bin]);
 
     // ring: inner edge is RING_RADIUS, outer edge expands with bin value

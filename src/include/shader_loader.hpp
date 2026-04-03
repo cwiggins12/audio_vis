@@ -64,7 +64,7 @@ inline std::vector<ShaderPreset> loadPresets(const std::string& shadersDir) {
                       " spec.cfg. Check log.txt for more details.";
                 p.hasError = true;
                 presets.push_back(std::move(p));
-                std::cout << "loadPresets: using ErrorShader in" << p.name << "\n";
+                std::cout << "loadPresets: using ErrorShader in " << p.name << "\n";
                 continue;
             }
         }
@@ -166,7 +166,7 @@ inline void reloadPreset(ShaderPreset* p) {
         p->errorMessage = "Hot Reload - " + p->name + " shader error. " +
                           "Check Log.txt for more details\n";
         std::cerr << "Hot Reload - " + p->name + " - " + errLog + "\n";
-        std::cout << "Hot Reload: using ErrorShader in" << p->name << "\n";
+        std::cout << "Hot Reload: using ErrorShader in " << p->name << "\n";
         p->spec = newSpec;
         return;
     }
@@ -200,7 +200,7 @@ inline void assertUserDefinedBufferSizes(ShaderPreset* p) {
         p->errorMessage = ret;
         p->hasError = true;
         p->spec.feedbackBufferSize = 0;
-        std::cout << "loadPresets: using ErrorShader in" << p->name << "\n";
+        std::cout << "loadPresets: using ErrorShader in " << p->name << "\n";
     }
 }
 

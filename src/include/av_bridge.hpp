@@ -61,9 +61,9 @@ public:
         if (currSpec.customFFTSizeScalesWithWindow == NO_SCALE ||
             currSpec.fftOutputMode != CUSTOM_SIZE) return;
 
-        gpuFFTSize = getSizeFromModeSwitch(w, h);
+        gpuFFTSize = getSizeFromModeSwitch(currSpec.customFFTSize, currSpec.customFFTSizeScalesWithWindow);
         setIndexFreqs(gpuFFTSize);
-
+        std::cout << "fucking resize output size is " << gpuFFTSize << std::endl;
         const bool isFFTdB = currSpec.fftOutputMeasurement == 2;
         float fftMin = isFFTdB ? MIN_DB : 0.0f;
         if (currSpec.useFFTSmoothing) {
@@ -109,8 +109,8 @@ public:
     }
 
     size_t getValFromResolutionScalar(size_t size) {
-        return std::round(size *((float)currentHeight * (float)currentWidth)
-                            / ((float)initHeight * (float)initWidth));
+        return std::round(size * ((float)currentHeight * (float)currentWidth)
+                               / ((float)initHeight * (float)initWidth));
     }
 
     size_t getSizeFromModeSwitch(size_t size, int mode) {
@@ -458,8 +458,8 @@ private:
                 return (w1 * m1 + w2 * m2) / denom;
             };
             float s1 = akimaSlope(m[0], m[1], m[2], m[3]);   // slope at bin2
-            float s2 = akimaSlope(m[1], m[2], m[3],           // slope at bin2+1
-                                  // need m[4]; mirror last delta
+            float s2 = akimaSlope(m[1], m[2], m[3],          // slope at bin2+1
+                                                        // need m[4]; mirror last delta
                                   m[3] + (m[3] - m[2]));
             // Hermite interpolation
             float t2 = t*t, t3 = t2*t;

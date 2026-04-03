@@ -5,8 +5,10 @@ const vec4 COL_FFT  = vec4(0.0, 1.0, 0.0, 1.0);
 const vec4 COL_PEAK = vec4(1.0, 1.0, 0.0, 1.0);
 const vec4 COL_RMS  = vec4(1.0, 0.0, 0.0, 1.0);
 const vec4 COL_HOLD = vec4(1.0, 1.0, 1.0, 1.0);
-const vec4 COL_OUT  = vec4(1.0, 1.0, 1.0, 1.0);
+const vec4 COL_OUT  = vec4(0.4, 0.4, 0.4, 1.0);
 const vec4 COL_BG   = vec4(0.0, 0.0, 0.0, 1.0);
+const float BASE_W  = 1280.0;
+const float BASE_H  = 720.0;
 
 float dbToT(float db) {
     return clamp((db - DB_MIN) / (DB_MAX - DB_MIN), 0.0, 1.0);
@@ -32,15 +34,12 @@ void drawMeter(float localX, float localY, float fillDb, float holdDb,
     }
 }
 void main() {
-    float scaleX = W;
-    float scaleY = H;
-
-    float sp       = 40.0  * scaleX;
-    float hsp      = 20.0  * scaleX;
-    float fft_w    = 1000.0 * scaleX;
-    float half_mtr = 35.0  * scaleX;
-    float meas_h   = 640.0 * scaleY;
-    float hold_h   =   4.0 * scaleY;
+    float sp       = W * (40.0 / BASE_W);
+    float hsp      = sp / 2.0;
+    float fft_w    = W * (1000.0 / BASE_W);
+    float half_mtr = W * (35.0 / BASE_W);
+    float meas_h   = H * (640.0 / BASE_H);
+    float hold_h   = H * (4.0 / BASE_H);
 
     float fft_x0   = sp;
     float fft_x1   = sp + fft_w;

@@ -1,36 +1,36 @@
-0. finish updating shaders and finish mel_spec
-1. proper security pass for all of these strings from glsl, spec, and file pathing
-2. do one more run of finalizing which Interp/Collate modes will be available
+0. more shader examples showing more of what this can do
+1. adjust error log prints in shader compile and link to subtract away the amount of lines from the fragment header (int is there, just need to see proper formatting, check if its consistent, then convert)
+2. do one more run of finalizing which Interp/Collate modes will be available for 1.0.0
 3. refactor, profile, and optimize to finish as standalone for linux
 4. test memory use: when program is running, in another console enter:
 cat /proc/$(pgrep audio_vis)/smaps_rollup
 5. look into speed diffs between clang and gcc (reminder: stb_image might only use SIMD on GCC when using the -msse2 flag)
 6. pi target notes: need Mesa's V3DV driver, how will audio pass through happen?, check its device listings,
 7. need hella more documentation in code and in repo for shader authors and general users
-8. more shader examples showing everything this can do
-9. more error handling to catch spec values outside of type ranges
 
 DOCUMENTATION NOTES:
-The only reason a shader will be skipped rather than present an error message will if the frag.glsl cannot be found or opened.
+The only reason a shader will be skipped rather than present an error message will if the frag.glsl cannot be found or opened. Be sure to alert users to uint32_t size limits.
 
 Future additions:
 1. allow for user defined fftSize and overlap percentage?
 1. get parentheses actually working in the expression parser
 2. stb_truetype integration for user defined fonts
 3. look into a wayland fullscreen and window pos workaround, or if its necessary at all
-4. timed shuffle mode(pressing a button opens a dialog box, user enters a time? or may want to wait to add until I have an application wide config in task 7)
+4. timed shuffle mode (pressing a button opens a dialog box, user enters a time? or may want to wait to add until I have an application wide config in task 7)
 5. put hot reload notifictations on a bg thread with inotify/ReadDirectoryChangesW wrapper (profile this and make sure the context switches don't outweigh the savings). Also, try and get it to recognize a new directory being created and add it to presets array
-6. windows build(AudioCapture and CMake will require the largest changes, but should be mostly painless)
+6. windows build(AudioCapture and CMake will require the largest changes, but should be mostly painless. Famous last words)
 7. utility exes and a config.ini for device(audio & video) listing/choosing. maybe done through a dropdown menu of the audio_vis.exe?
 8. More possible smoothing modes: Research for high end smoothing: precollation smoothing(super spency), weighted collation(wont do much without log bin grouping), log bin grouping with overlap(spency), or second smoothing pass on high end with the interp again
-9. better sample rate changes(disallow resampling at any level and detect changes)(this would only be necessary or relevant for a user that needs the highest quality, but is changing their hardware sample rate mid session. The analysis still works currently, but it analyzes resampled audio by either the OS internal audio processes(pipewire, pulse, winapi) or miniaudio in certain scenarios(alsa, certain windows configs))
+9. better sample rate changes(disallow resampling at any level and detect changes)(this would only be necessary or relevant for a user that needs the highest quality/speed, but is changing their hardware sample rate mid session. The analysis still works currently, but it analyzes resampled audio by either the OS internal audio processes(pipewire, pulse, winapi) or miniaudio in certain scenarios(alsa, certain windows configs))
 10. trim all but what is used from miniaudio.h to chill out the binary size
 11. Allow for user defined uniforms that could be adjusted by midi, key input, or ui
-12. pre-built widgets(meters, mel-bin, etc.)
+12. pre-built widgets/api for the graphically challenged (meters, mel-bin, etc.)
 13. Allow export of current setup in standalone to VST3 with midi driven shader swaps. no JUCE, straight up steinbergSDK use.
 
 Done This Week:
-1. finished mel-spectrogram shader
+1. helper functions added to properly ensure all user input from spec input and expressions stay within type bounds and properly handle division cases as best as it can with an additional warning for the user when the result is truncated
+2. shaders updated and mel-spec is looking good. Some smearing, but thats how it is at this fft size and overlap %
+3. 
 
 officially in last phase to 1.0.0!!!!!
 current loc(without spec.cfg's and frag.glsl's): ???
