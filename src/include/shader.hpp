@@ -49,7 +49,13 @@ public:
         GLuint frag = compile(GL_FRAGMENT_SHADER, fragFinal.c_str(), fragErr);
 
         if (!vertErr.empty()) errorLog += "VERT: " + vertErr;
-        if (!fragErr.empty()) errorLog += "FRAG: " + fragErr;
+        if (!fragErr.empty()) {
+            //skips shader index of error printout, subtracts header lines from line num
+            //to make the errors easier for users to find
+            int line = std::stoi(fragErr.substr(2, 3)) - headerLines;
+            fragErr = std::to_string(line) + fragErr.substr(5);
+            errorLog += "FRAG: " + fragErr;
+        }
 
         id = glCreateProgram();
         glAttachShader(id, vert);

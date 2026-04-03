@@ -83,10 +83,14 @@ public:
     }
 
     //doesn't bounds check, better be sure sizes are the same
-    void compareValsToArray(const float* arr, float val) {
+    void compareValsToArray(const float* arr) {
         int n = values.size();
         for (int i = 0; i < n; ++i) {
-            compareValAtIndex(i, arr[i]);
+            float val = arr[i];
+            if (values[i] <= val) {
+                values[i] = val;
+                countdowns[i] = maxSteps;
+            }
         }
     }
 

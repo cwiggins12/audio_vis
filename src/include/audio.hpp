@@ -31,8 +31,7 @@ public:
         channels = capture.getNumChannels();
         sampleRate = capture.getSampleRate();
 
-        peak = std::make_unique<PeakMeter[]>(channels);
-        rms = std::make_unique<RMSMeter[]>(channels);
+        pr.resize(spec.isPeakRMSMono, channels);
         fft = std::make_unique<FFT>(fftSize, spec.perceptualSlopeDegrees != 0.0f,
                                     spec.isFFTHannWindowed, spec.fftOutputMeasurement,
                                     true, spec.perceptualSlopeDegrees);
@@ -61,16 +60,11 @@ public:
 
         if (isPeakRMSMono) {
             float* buf = fft->getInputBuffer();
-            peak[0].getPeakFromMonoSummedBlock(buf, fftSize);
-            rms[0].getRMSFromMonoSummedBlock(buf, fftSize);
+            pr.getMeasurementsFromMonoSummedBlock(buf, fftSize);
         }
         else {
-            float *buf = capture.getRawBufferPointer();
-            uint32_t size = capture.getBufferSizeInSamples();
-            for (int ch = 0; ch < channels; ++ch) {
-                peak[ch].getPeakFromRingBuffer(buf, fftSize, ch, channels, start, size);
-                rms[ch].getRMSFromRingBuffer(buf, fftSize, ch, channels, start, size);
-            }
+            float* buf = capture.getRawBufferPointer();
+            pr.getPeakFromRingBuffer(buf, fftSize, start);
         }
         fft->runFFT();
         capture.setReadIndexForwardByFrames(hopSize, start);
@@ -79,11 +73,9 @@ public:
 
     void swapSpec(Spec& spec) {
         resetAccumulator();
-        for (int ch = 0; ch < channels; ++ch) {
-            popPeak(ch);
-            popRMS(ch);
-        }
         isPeakRMSMono = spec.isPeakRMSMono;
+        pr.clear();
+        pr.resize(isPeakRMSMono, channels);
         //set this way to account for custom sized array being more efficient to
         //just get db then convert after all the ops it does
         FFTMeasurement m = (spec.fftOutputMode == CUSTOM_SIZE) ? DECIBELS :
@@ -111,26 +103,21 @@ public:
     }
 
     void getAudibleRange(uint32_t* start, uint32_t* size) {
-        fft->getAudibleRange(sampleRate, start, size);
+        fft->getAudibleRange(capture.getSampleRate(), start, size);
     }
 
     const float* getFFTPtr() {
         return fft->getOutputBuffer();
     }
 
-    float popPeak(int ch) {
-        return peak[ch].pop();
-    }
-
-    float popRMS(int ch) {
-        return rms[ch].pop();
+    const float* getPRPtr() {
+        return pr.getPtr();
     }
 
 private:
     AudioCapture capture;
 
-    std::unique_ptr<RMSMeter[]> rms;
-    std::unique_ptr<PeakMeter[]> peak;
+    PeakRMSMeter pr;
     std::unique_ptr<FFT> fft;
 
     const uint32_t fftOrder;

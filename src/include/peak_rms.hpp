@@ -1,7 +1,70 @@
 #pragma once
 
-#include <atomic>
+//#include <atomic>
 #include <cmath>
+#include <vector>
+
+//static constexpr int RINGBUFFER_MASK = 16383;
+
+struct PeakRMSMeter {
+public:
+    float* getPtr() {
+        return measurements.data();
+    }
+
+    void clear() {
+        std::fill(measurements.begin(), measurements.end(), 0.0f);
+    }
+
+    void getMeasurementsFromMonoSummedBlock(const float* block, const int numSamples) {
+        float peakValue = 0.0f;
+        float rmsValue = 0.0f;
+        for (int i = 0; i < numSamples; ++i) {
+            float samp = block[i];
+            float absSample = std::abs(samp);
+            if (absSample > peakValue) {
+                peakValue = absSample;
+            }
+            rmsValue += samp * samp;
+        }
+        rmsValue /= numSamples;
+        rmsValue = std::sqrt(rmsValue);
+        measurements[0] = peakValue;
+        measurements[1] = rmsValue;
+    }
+
+    void getPeakFromRingBuffer(const float* buffer, const int numSamples, const int start) {
+        for (int ch = 0; ch < channels; ++ch) {
+            float peakValue = 0.0f;
+            float rmsValue = 0.0f;
+            for (int i = ch; i < numSamples; i += channels) {
+                //hardcoded for now until I make an excuse for a globals.hpp
+                int idx = (i + start) & 16383;
+                float samp = buffer[idx];
+                float absSample = std::abs(samp);
+                if (absSample > peakValue) {
+                    peakValue = absSample;
+                }
+                rmsValue += samp * samp;
+            }
+            rmsValue /= numSamples;
+            rmsValue = std::sqrt(rmsValue);
+            measurements[ch * 2] = peakValue;
+            measurements[ch * 2 + 1] = rmsValue;
+        }
+    }
+
+    void resize(bool isMono, int ch) {
+        channels = ch;
+        (isMono) ? measurements.resize(2) : measurements.resize(channels * 2);
+    }
+
+private:
+    std::vector<float> measurements;
+    int channels = 0;
+};
+
+/*
 
 //peak measurement per channel
 struct PeakMeter {
@@ -14,7 +77,7 @@ struct PeakMeter {
     }
 
     //only called in process block per channel. gets peak and calls update per block
-    void getPeakFromBlock(const float* block, const int numSamples, 
+    void getPeakFromBlock(const float* block, const int numSamples,
                           const int channelNum, const int channelAmount) {
         float peakValue = 0.0f;
         for (int i = channelNum; i < numSamples * channelAmount; i += channelAmount) {
@@ -146,4 +209,5 @@ struct RMSMeter {
 private:
     std::atomic<float> value{ 0.0f };
 };
+*/
 

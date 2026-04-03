@@ -50,8 +50,16 @@ public:
     void initFramebuffer(int& w, int& h) {
         glfwGetFramebufferSize(window, &w, &h);
         windowedW = w; windowedH = h;
+        pendingW  = w; pendingH  = h;
         glViewport(0, 0, w, h);
         glfwSwapInterval(1);
+        glfwSetWindowUserPointer(window, this);
+        glfwSetFramebufferSizeCallback(window, [](GLFWwindow* win, int w, int h) {
+            auto* ctx = static_cast<GLFWContext*>(glfwGetWindowUserPointer(win));
+            ctx->pendingW = w;
+            ctx->pendingH = h;
+            ctx->resizePending = true;
+        });
     }
 
     void logGLInfo() {
@@ -81,21 +89,19 @@ public:
 
     void checkForResize(AudioSystem& a, ShaderPreset* p,
                         int& w, int& h, bool& needsSwap) {
-        int newW, newH;
-        glfwGetFramebufferSize(window, &newW, &newH);
-        if (newW != w || newH != h) {
-            w = newW;
-            h = newH;
-            glViewport(0, 0, w, h);
-            a.bridge.resize(w, h);
-            if (p->spec.fftUsesExprVar[WINDOW_WIDTH] ||
-                p->spec.fftUsesExprVar[WINDOW_HEIGHT] ||
-                p->spec.customFFTSizeScalesWithWindow ||
-                p->spec.feedbackUsesExprVar[WINDOW_WIDTH] ||
-                p->spec.feedbackUsesExprVar[WINDOW_HEIGHT] ||
-                p->spec.feedbackBufferScalesWithWindow) {
-                needsSwap = true;
-            }
+        if (!resizePending) return;
+        resizePending = false;
+        w = pendingW;
+        h = pendingH;
+        glViewport(0, 0, w, h);
+        a.bridge.resize(w, h);
+        if (p->spec.fftUsesExprVar[WINDOW_WIDTH] ||
+            p->spec.fftUsesExprVar[WINDOW_HEIGHT] ||
+            p->spec.customFFTSizeScalesWithWindow ||
+            p->spec.feedbackUsesExprVar[WINDOW_WIDTH] ||
+            p->spec.feedbackUsesExprVar[WINDOW_HEIGHT] ||
+            p->spec.feedbackBufferScalesWithWindow) {
+            needsSwap = true;
         }
     }
 
@@ -122,7 +128,9 @@ private:
     const GLFWvidmode* mode      = nullptr;
     int windowedX = 0, windowedY = 0;
     int windowedW = 0, windowedH = 0;
-    bool isFullscreen   = false;
+    int pendingW  = 0, pendingH  = 0;
+    bool resizePending = false;
+    bool isFullscreen  = false;
 
     GLFWmonitor* getCurrentMonitor() {
         int wx, wy, ww, wh;

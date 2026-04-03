@@ -125,24 +125,19 @@ public:
 
     void formatData() {
         //peak/rms pop and format
-        const int chan = (currSpec.isPeakRMSMono) ? 1 : channels;
+        const int size = (currSpec.isPeakRMSMono) ? 1 * 2 : channels * 2;
         const bool getPRHolds = currSpec.getsPeakRMSHolds;
         const bool isPRdB = currSpec.isPeakRMSdB;
-        for (int ch = 0; ch < chan; ++ch) {
-            float peak = audio.popPeak(ch);
-            float rms = audio.popRMS(ch);
+        const float* prPtr = audio.getPRPtr();
+        for (int i = 0; i < size; ++i) {
+            float val = prPtr[i];
             if (isPRdB) {
-                peak = gainToDB(peak);
-                rms = gainToDB(rms);
+                val = gainToDB(val);
             }
-            int pInd = ch * 2;
-            int rInd = ch * 2 + 1;
             if (getPRHolds) {
-                peakRMSHolds.compareValAtIndex(pInd, peak);
-                peakRMSHolds.compareValAtIndex(rInd, rms);
+                peakRMSHolds.compareValAtIndex(i, val);
             }
-            gpuPeakRMS.setTargetVal(pInd, peak);
-            gpuPeakRMS.setTargetVal(rInd, rms);
+            gpuPeakRMS.setTargetVal(i, val);
         }
         //fft output then check holds against that
         switch (currSpec.fftOutputMode) {
@@ -152,9 +147,7 @@ public:
             default: fullBinPlacement();        break;
         }
         if (currSpec.getsFFTHolds) {
-            for (int i = 0; i < gpuFFTSize; ++i) {
-                fftHolds.compareValAtIndex(i, gpuFFT.getCurrentVal(i));
-            }
+            fftHolds.compareValsToArray(gpuFFT.getCurrents());
         }
     }
 

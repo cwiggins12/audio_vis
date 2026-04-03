@@ -4,6 +4,11 @@
 #include <vector>
 #include <atomic>
 
+//if a globals.hpp is made, move this.
+//if reusing this and size is not compile time or is dynamic,
+//just replace all uses of "& RINGBUFFER_MASK" with "% bufferSize"
+inline constexpr int RINGBUFFER_MASK = 16383;
+
 class RingBuffer {
 public:
     //allows default or manual construction, if default, run init before use
@@ -35,38 +40,24 @@ public:
 	//call setReadIndexForwardByFrames
 	void getWindow(float* out, ma_uint32 frameAmt, uint32_t passedWrite = 0) {
 		uint32_t localWrite = (passedWrite == 0) ? writeIndex.load() : passedWrite;
-		ma_uint32 start = 0;
 		frameAmt *= channels;
-		
-		if (frameAmt > localWrite) {
-			start = localWrite - frameAmt + bufferSize;
-		}
-		else {
-			start = localWrite - frameAmt;
-		}
+		ma_uint32 start = (localWrite - frameAmt + bufferSize) & RINGBUFFER_MASK;
 
 		for (ma_uint32 i = 0; i < frameAmt; ++i) {
-			uint32_t index = (start + i) % bufferSize;
+			uint32_t index = (start + i) & RINGBUFFER_MASK;
 			out[i] = buffer[index];
 		}
 	}
 
 	void getMonoSummedWindow(float* out, ma_uint32 frameAmt, uint32_t passedWrite = 0) {
 		uint32_t localWrite = (passedWrite == 0) ? writeIndex.load() : passedWrite;
-		uint32_t start = 0;
 		frameAmt *= channels;
-
-		if (frameAmt > localWrite) {
-			start = localWrite - frameAmt + bufferSize;
-		}
-		else {
-			start = localWrite - frameAmt;
-		}
+		uint32_t start = (localWrite - frameAmt + bufferSize) & RINGBUFFER_MASK;
 
 		for (ma_uint32 i = 0; i < frameAmt; i += channels) {
 			float sum = 0;
 			for (ma_uint32 ch = 0; ch < channels; ++ch) {
-				sum += buffer[(start + i + ch) % bufferSize];
+				sum += buffer[(start + i + ch) & RINGBUFFER_MASK];
 			}
 			out[i / channels] = sum / (float)channels;
 		}
@@ -90,11 +81,11 @@ public:
 		}
 
 		for (ma_uint32 i = 0; i < readSize; ++i) {
-			int index = (localRead + i) % bufferSize;
+			int index = (localRead + i) & RINGBUFFER_MASK;
 			out[i] = buffer[index];
 		}
 
-		readIndex.store((localRead + readSize) % bufferSize);
+		readIndex.store((localRead + readSize) & RINGBUFFER_MASK);
 
 		return readSize / channels;
 	}
@@ -106,17 +97,17 @@ public:
 		ma_uint32 oldRead = readIndex.load();
 		ma_uint32 advance = i * channels;
 		ma_uint32 write = (passedWrite == 0) ? writeIndex.load() : passedWrite;
-		ma_uint32 available = (write - oldRead + bufferSize) % bufferSize;
+		ma_uint32 available = (write - oldRead + bufferSize) & RINGBUFFER_MASK;
 		if (advance > available) {
 			advance = available;
 		}
-		readIndex.store((oldRead + advance) % bufferSize);
+		readIndex.store((oldRead + advance) & RINGBUFFER_MASK);
         return true;
 	}
 
 	uint32_t getWindowStartFromWrite(uint32_t windowSize) {
 		uint32_t samples = windowSize * channels;
-		return (writeIndex.load() + bufferSize - samples) % bufferSize;
+		return (writeIndex.load() + bufferSize - samples) & RINGBUFFER_MASK;
 	}
 
 	uint32_t getBufferSizeInSamples() {

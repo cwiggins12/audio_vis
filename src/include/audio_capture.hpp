@@ -31,7 +31,7 @@ public:
 		ma_uint32 captureCount;
 
 		//TODO: eventually make the device finding a helper func
-		if (ma_context_get_devices(&context, nullptr, nullptr, 
+		if (ma_context_get_devices(&context, nullptr, nullptr,
 								   &captureInfos, &captureCount) != MA_SUCCESS) {
 			return false;
 		}
@@ -160,7 +160,7 @@ private:
 		ma_context_uninit(&context);
 	}
 
-	//NOTE: these 2 are the write funcs handled in ma's thread to fill the ring buffer. 
+	//NOTE: these 2 are the write funcs handled in ma's thread to fill the ring buffer.
 	//would like to add peak and rms readings here 
 	//possibly since they are made for audio thread speed
 	static void dataCallback(ma_device* device, void* output, 
@@ -175,14 +175,14 @@ private:
 
 		for (ma_uint32 i = 0; i < totalSamples; ++i) {
 			buffer[localWrite] = input[i];
-			localWrite = (localWrite + 1) % bufferSize;
+			localWrite = (localWrite + 1) & RINGBUFFER_MASK;
 		}
 
 		buffer.writeIndex.store(localWrite);
 		framesAccumulated.fetch_add(frameCount);
 	}
 
-	//NOTE: total size = bufferSize(size passed in * channels) * sizeof(float) + 
+	//NOTE: total size = bufferSize(size passed in * channels) * sizeof(float) +
 	//sizeof(device) + sizeof(context) + 28 bytes + 8 for buffer config copies
 	struct ma_device device;
 	ma_context context;

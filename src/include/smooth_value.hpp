@@ -28,9 +28,9 @@ struct SmoothArraySoA {
     }
 
     // Copy constructor
-    SmoothArraySoA(const SmoothArraySoA& other) : current(other.current), 
-                   target(other.target), increment(other.increment), 
-                   stepsRemaining(other.stepsRemaining),atkSteps(other.atkSteps), 
+    SmoothArraySoA(const SmoothArraySoA& other) : current(other.current),
+                   target(other.target), increment(other.increment),
+                   stepsRemaining(other.stepsRemaining),atkSteps(other.atkSteps),
                    rlsSteps(other.rlsSteps), minVal(other.minVal) {}
 
     // Copy assignment

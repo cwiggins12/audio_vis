@@ -137,18 +137,18 @@ struct FFT{
         fftwf_execute(p);
         switch (outputMeasurement) {
             case POWER: {
-                convertToPower();
-                multiplyWithScalarTable();
+                convertToPowerAndScale();
+                //multiplyWithScalarTable();
                 break;
             }
             case MAGNITUDE: {
-                convertToMag();
-                multiplyWithScalarTable();
+                convertToMagAndScale();
+                //multiplyWithScalarTable();
                 break;
             }
             case DECIBELS: {
-                convertToPower();
-                multiplyWithScalarTable();
+                convertToPowerAndScale();
+                //multiplyWithScalarTable();
                 convertToDB();
                 break;
             }
@@ -214,6 +214,15 @@ private:
         }
     }
 
+    void convertToMagAndScale() {
+        for (uint32_t i = 0; i < binAmt; ++i) {
+            float real = out[i][0];
+            float imag = out[i][1];
+            float mag = std::sqrt(real * real + imag * imag);
+            placement[i] = mag * scalarTable[i];
+        }
+    }
+
     void convertToPower() {
         for (uint32_t i = 0; i < binAmt; ++i) {
             float real = out[i][0];
@@ -222,6 +231,16 @@ private:
             placement[i] = pow;
         }
     }
+
+    void convertToPowerAndScale() {
+        for (uint32_t i = 0; i < binAmt; ++i) {
+            float real = out[i][0];
+            float imag = out[i][1];
+            float pow = real * real + imag * imag;
+            placement[i] = pow * scalarTable[i];
+        }
+    }
+
 
     void multiplyWithScalarTable() {
         for (uint32_t i = 0; i < binAmt; ++i) {

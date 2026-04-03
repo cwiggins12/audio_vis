@@ -6,3 +6,6 @@ miniaudio.h
 stb_image.h
 stb_truetype.h
 compile_commands.json
+perf.data
+perf.data.old
+perf_output.txt
