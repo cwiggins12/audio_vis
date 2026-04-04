@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <vector>
 #include <fftw3.h>
-#include "spec.hpp"
+#include "config/spec.hpp"
 
 static constexpr float PI = 3.14159265358979323846f;
 

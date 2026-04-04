@@ -5,7 +5,7 @@
 #include <unordered_map>
 #include <vector>
 #include <cstring>
-#include "fragment_header.hpp"
+#include "gpu/fragment_header.hpp"
 
 inline constexpr int UNIFORM_AMT = 13;
 inline const std::string uniformNames[] = {"time", "W", "H", "fftSize", "fftBinAmt",
@@ -52,8 +52,12 @@ public:
         if (!fragErr.empty()) {
             //skips shader index of error printout, subtracts header lines from line num
             //to make the errors easier for users to find
-            int line = std::stoi(fragErr.substr(2, 3)) - headerLines;
-            fragErr = std::to_string(line) + fragErr.substr(5);
+            try {
+                int line = std::stoi(fragErr.substr(2, 3)) - headerLines;
+                fragErr = std::to_string(line) + fragErr.substr(5);
+            } catch (...) {
+                //driver returned an unexpected error format. just use it as is
+            }
             errorLog += "FRAG: " + fragErr;
         }
 

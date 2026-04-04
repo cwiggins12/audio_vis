@@ -1,7 +1,7 @@
 #pragma once
 
-#include "shader_loader.hpp"
-#include "audio_system.hpp"
+#include "gpu/shader_loader.hpp"
+#include "audio/audio_system.hpp"
 
 struct ShaderSystem {
 public:
@@ -39,17 +39,20 @@ public:
 
     void useErrorShader(int w, int h) {
         error.use();
-        int chars[128] = {};
-        std::string msg = active->errorMessage;
-        int len = std::min((int)msg.size(), 128);
-        for (int i = 0; i < len; i++) {
-            chars[i] = (int)msg[i];
+        //only rebuild the char array when the error message changes
+        if (active->errorMessage != cachedErrorMsg) {
+            cachedErrorMsg = active->errorMessage;
+            std::memset(cachedErrorChars, 0, sizeof(cachedErrorChars));
+            cachedErrorLen = std::min((int)cachedErrorMsg.size(), 128);
+            for (int i = 0; i < cachedErrorLen; i++) {
+                cachedErrorChars[i] = (int)cachedErrorMsg[i];
+            }
+            glUniform1i(error.uniforms[U_ERROR_LEN], cachedErrorLen);
+            glUniform1iv(error.uniforms[U_ERROR_CHARS], 128, cachedErrorChars);
         }
         glUniform1f(error.uniforms[U_W], (float)w);
         glUniform1f(error.uniforms[U_H], (float)h);
-        glUniform1i(error.uniforms[U_ERROR_LEN], len);
         glUniform1i(error.uniforms[U_SHOW_ERROR], 1);
-        glUniform1iv(error.uniforms[U_ERROR_CHARS], 128, chars);
     }
 
     void useActiveShader(float t, AudioSystem& a, int h, int w,
@@ -102,12 +105,35 @@ public:
     }
 
     void removeActiveFromPresets() {
+        std::string removedName = active->name;
+        // Don't remove the last preset — fall back to error state instead
+        if (presets.size() <= 1) {
+            active->hasError = true;
+            active->errorMessage = removedName +
+                " - shader directory was deleted. No other presets available.";
+            std::cerr << active->errorMessage << "\n";
+            return;
+        }
+        active->destroyTextures();
         presets.erase(presets.begin() + index);
+        // Clamp index into the now-smaller vector
+        if (index >= (int)presets.size()) {
+            index = (int)presets.size() - 1;
+        }
+        active = &presets[index];
+        active->hasError = true;
+        active->errorMessage = removedName +
+            " was removed. Moved to: " + active->name;
+        std::cout << active->errorMessage << "\n";
     }
 
 private:
     std::vector<ShaderPreset> presets;
     Shader                    error;
     int                       index = 0;
+
+    std::string cachedErrorMsg;
+    int         cachedErrorChars[128] = {};
+    int         cachedErrorLen = 0;
 };
 

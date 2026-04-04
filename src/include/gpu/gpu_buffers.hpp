@@ -1,8 +1,8 @@
 #pragma once
 
-#include "ssbo.hpp"
-#include "spec.hpp"
-#include "av_bridge.hpp"
+#include "gpu/ssbo.hpp"
+#include "config/spec.hpp"
+#include "bridge/av_bridge.hpp"
 
 struct ResizeValues {
     size_t prSize = 0;
@@ -30,6 +30,7 @@ public:
     }
 
     ~GPUBuffers() {
+        glFinish();
         glDeleteVertexArrays(1, &vao);
     }
 
@@ -49,7 +50,7 @@ public:
     }
 
     void swap(ResizeValues& r) {
-        //std::cout << "fftSize: " << r.fftSize << "\n";
+        glFinish();
         ssbos[0].resize(r.prSize);      ssbos[0].bind(0);
         ssbos[1].resize(r.fftSize);     ssbos[1].bind(1);
         ssbos[2].resize(r.prHSize);     ssbos[2].bind(2);

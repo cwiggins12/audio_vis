@@ -1,11 +1,11 @@
 #define MINIAUDIO_IMPLEMENTATION
 
-#include "audio_system.hpp"
-#include "shader_system.hpp"
-#include "glfw_context.hpp"
-#include "input_handler.hpp"
-#include "gpu_buffers.hpp"
-#include "log.hpp"
+#include "audio/audio_system.hpp"
+#include "gpu/shader_system.hpp"
+#include "utils/glfw_context.hpp"
+#include "utils/input_handler.hpp"
+#include "gpu/gpu_buffers.hpp"
+#include "utils/log.hpp"
 
 std::string getAssetPath(const std::string& relative) {
     char buf[4096];

@@ -1,7 +1,7 @@
 #pragma once
 
-#include "audio.hpp"
-#include "av_bridge.hpp"
+#include "audio/audio.hpp"
+#include "bridge/av_bridge.hpp"
 
 struct AudioSystem {
     static constexpr int fftOrder = 13;

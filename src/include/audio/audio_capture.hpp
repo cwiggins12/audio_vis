@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ring_buffer.hpp"
+#include "audio/ring_buffer.hpp"
 #include <cstring>
 #include <iostream>
 
@@ -115,9 +115,11 @@ public:
 	}
 
 	void resetAccumulator() {
+		resetFlag.store(true);
 		framesAccumulated.store(0);
 		buffer.writeIndex.store(0);
 		buffer.readIndex.store(0);
+		resetFlag.store(false);
 	}
 
 	void moveAccumulator(uint32_t amt) {
@@ -141,6 +143,8 @@ private:
 	}
 
 	void processInput(const float* input, ma_uint32 frameCount) {
+		//flag fixes potential sync race when mid resetAccumulator()
+		if (resetFlag.load()) return;
 		ma_uint32 localWrite = buffer.writeIndex.load();
 		ma_uint32 totalSamples = frameCount * device.capture.channels;
 		ma_uint32 mask = bufferSize - 1;
@@ -155,7 +159,7 @@ private:
 	}
 
 	//NOTE: total size = bufferSize(size passed in * channels) * sizeof(float) +
-	//sizeof(device) + sizeof(context) + 28 bytes + 8 for buffer config copies
+	//sizeof(device) + sizeof(context) + 28 bytes + 9 for buffer config copies
 	struct ma_device device;
 	ma_context context;
 
@@ -163,5 +167,6 @@ private:
 	ma_uint32 bufferSize;
 
 	std::atomic<uint32_t> framesAccumulated{0};
+	std::atomic<bool> resetFlag = false;
 };
 

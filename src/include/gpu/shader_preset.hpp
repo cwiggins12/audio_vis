@@ -1,7 +1,7 @@
 #pragma once
 
-#include "shader.hpp"
-#include "spec.hpp"
+#include "gpu/shader.hpp"
+#include "config/spec.hpp"
 #include <string>
 #include <filesystem>
 #include <vector>

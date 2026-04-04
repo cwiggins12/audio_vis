@@ -1,8 +1,8 @@
 #pragma once
 
-#include "shader_preset.hpp"
-#include "spec_parser.hpp"
-#include "texture_loader.hpp"
+#include "gpu/shader_preset.hpp"
+#include "config/spec_parser.hpp"
+#include "gpu/texture_loader.hpp"
 #include <algorithm>
 
 inline std::string loadFile(const std::string& path) {
@@ -154,6 +154,7 @@ inline void reloadPreset(ShaderPreset* p) {
             std::cerr << "Hot Reload - " + p->name +
                          " spec parse failed - " + errLog;
             std::cout << "Hot Reload: using ErrorShader in " << p->name << "\n";
+            p->destroyTextures();
             p->spec = newSpec;
             return;
         }
@@ -167,6 +168,7 @@ inline void reloadPreset(ShaderPreset* p) {
                           "Check Log.txt for more details\n";
         std::cerr << "Hot Reload - " + p->name + " - " + errLog + "\n";
         std::cout << "Hot Reload: using ErrorShader in " << p->name << "\n";
+        p->destroyTextures();
         p->spec = newSpec;
         return;
     }
@@ -181,8 +183,7 @@ inline void reloadPreset(ShaderPreset* p) {
 inline void assertUserDefinedBufferSizes(ShaderPreset* p) {
     std::string ret = "";
     //set limits on buffer sizes and warn about double dependencies here
-    if (p->spec.fftOutputMode == CUSTOM_SIZE &&
-       (p->spec.customFFTSize > 8192 || p->spec.customFFTSize < 0)) {
+    if (p->spec.fftOutputMode == CUSTOM_SIZE && (p->spec.customFFTSize > 8192)) {
         ret = "loadPresets: " + p->name +
               " - customFFTSize outside of bounds: 0 to 8192 (inclusive). " +
               "customFFTSize has been set to 0.\n";
@@ -192,7 +193,7 @@ inline void assertUserDefinedBufferSizes(ShaderPreset* p) {
         p->spec.customFFTSize = 0;
         std::cout << "loadPresets: using ErrorShader in" << p->name << "\n";
     }
-    if (p->spec.feedbackBufferSize > 33177600 || p->spec.feedbackBufferSize < 0) {
+    if (p->spec.feedbackBufferSize > 33177600) {
         ret = "loadPresets: " + p->name +
               " - feedback buffer size outside of bounds: 0 to 33177600 (inclusive). "
               + "feedbackBufferSize has been set to 0.\n";

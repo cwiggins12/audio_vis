@@ -3,8 +3,6 @@
 #include <cmath>
 #include <vector>
 
-//static constexpr int RINGBUFFER_MASK = 16383;
-
 struct PeakRMSMeter {
 public:
     float* getPtr() {

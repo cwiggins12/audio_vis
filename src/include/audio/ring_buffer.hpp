@@ -1,6 +1,6 @@
 #pragma once
 
-#include "miniaudio.h"
+#include "stb/miniaudio.h"
 #include <vector>
 #include <atomic>
 

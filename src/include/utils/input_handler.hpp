@@ -1,7 +1,7 @@
 #pragma once
 
-#include "glfw_context.hpp"
-#include "shader_system.hpp"
+#include "utils/glfw_context.hpp"
+#include "gpu/shader_system.hpp"
 
 struct InputHandler {
 public:

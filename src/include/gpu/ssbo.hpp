@@ -59,7 +59,6 @@ struct SSBO {
 
     void free() {
         if (id) {
-            glFinish();
             glBindBuffer(GL_SHADER_STORAGE_BUFFER, id);
             glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
             glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);

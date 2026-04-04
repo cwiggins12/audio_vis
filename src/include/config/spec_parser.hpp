@@ -1,7 +1,7 @@
 #pragma once
 
-#include "spec.hpp"
-#include "expr_eval.hpp"
+#include "config/spec.hpp"
+#include "config/expr_eval.hpp"
 #include <fstream>
 #include <string>
 
@@ -248,14 +248,16 @@ inline std::string parseSpec(const std::string& path, Spec& out) {
             }
         }
         else if (key == "feedbackBufferInitValue") {
-            out.feedbackBufferInitValue = std::stof(val);
+            if ((ret = parseFloat(val, lineNum, key,
+                                  out.feedbackBufferInitValue)) != "") {
+                return ret;
+            }
         }
         else if (key.rfind("texture.", 0) == 0) {
             std::string uniformName = trimStr(key.substr(8));
             if (uniformName.empty()) {
                 ret = "parseSpec: line " + std::to_string(lineNum) +
                       ": empty texture uniform name\n";
-                //std::cerr << ret;
                 return ret;
             }
             out.textures[uniformName] = val;
@@ -263,7 +265,6 @@ inline std::string parseSpec(const std::string& path, Spec& out) {
         else {
             ret = "parseSpec: line " + std::to_string(lineNum) +
                   ": unknown key \"" + key + "\"\n";
-            //std::cerr << ret;
             return ret;
         }
     }

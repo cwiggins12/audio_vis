@@ -1,9 +1,9 @@
 #pragma once
 
-#include "hold_value.hpp"
-#include "smooth_value.hpp"
-#include "audio.hpp"
-#include "spec.hpp"
+#include "bridge/hold_value.hpp"
+#include "bridge/smooth_value.hpp"
+#include "audio/audio.hpp"
+#include "config/spec.hpp"
 #include <algorithm>
 
 //probably want to put these in a globals.h at some point if I wind up with too many
@@ -61,9 +61,9 @@ public:
         if (currSpec.customFFTSizeScalesWithWindow == NO_SCALE ||
             currSpec.fftOutputMode != CUSTOM_SIZE) return;
 
-        gpuFFTSize = getSizeFromModeSwitch(currSpec.customFFTSize, currSpec.customFFTSizeScalesWithWindow);
+        gpuFFTSize = getSizeFromModeSwitch(currSpec.customFFTSize,
+                                           currSpec.customFFTSizeScalesWithWindow);
         setIndexFreqs(gpuFFTSize);
-        std::cout << "fucking resize output size is " << gpuFFTSize << std::endl;
         const bool isFFTdB = currSpec.fftOutputMeasurement == 2;
         float fftMin = isFFTdB ? MIN_DB : 0.0f;
         if (currSpec.useFFTSmoothing) {

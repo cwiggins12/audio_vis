@@ -1,14 +1,11 @@
 1. more shader examples showing more of what this can do
 2. fix mel spec to hold the full 5 seconds
-4. test memory use: when program is running, in another console enter:
-cat /proc/$(pgrep audio_vis)/smaps_rollup
-5. during final profiling pass, look into speed diffs between clang and gcc (reminder: stb_image might only use SIMD on GCC when using the -msse2 flag)
-6. organize headers into subdirectories
-7. pi target notes: need Mesa's V3DV driver, how will audio pass through happen?, check its device listings,
-8. need hella more documentation in code and in repo for shader authors and general users
+3. during final profiling pass, look into speed diffs between clang and gcc (reminder: stb_image might only use SIMD on GCC when using the -msse2 flag)
+4. pi target notes: need Mesa's V3DV driver, how will audio pass through happen?, check its device listings,
+5. need hella more documentation in code and in repo for shader authors and general users
 
 Future additions:
-0. allow for user defined fftSize and overlap percentage? allow for 0, 25, 50, 75 % overlaps, and allow for 10 - 13 fftOrder idk about allowing past 13. that'll 2x the ring buffer size gonna have to worry about pulling the windows fast enough based on device frame rate, so more error handling will be needed but nothing worse than the expression parser
+0. allow for user defined fftSize and overlap percentage? allow for 0, 25, 50, 75 % overlaps, and allow for 10 - 13 fftOrder idk about allowing past 13. that'll 2x the ring buffer size gonna have to worry about pulling the windows fast enough based on device frame rate, so more error handling will be needed but nothing worse than the expression parser.
 1. get parentheses working properly in the expression parser
 2. stb_truetype integration for user defined fonts
 3. put hot reload notifictations on a bg thread with inotify/ReadDirectoryChangesW wrapper (profile this and make sure the context switches don't outweigh the savings). Also, try and get it to recognize a new directory being created and add it to presets array
@@ -29,14 +26,21 @@ Done This Week:
 3. adjust error log prints in shader compile and link to subtract away the amount of lines from the fragment header
 4. rebuilt peak rms metering to better fit the use case and vectorize more easily
 5. replaced all ring buffer, capture, and analysis modulo math with a bit mask for speed
-6. 
+6. checked through path and string parsing for security. Added texture path saftey chacks and a throw in shader init
+7. added destroyTextures calls on hot reload and started caching the error string
+8. lowered amount of glFinish() calls (just calls once on swap now)
+9. Optimized down to 7.5% of one core on my garbage laptop. Will be lower when I make the hot reload on a bg thread
+10. organize headers into subdirectories
+11. 
 
-OPTIMIZATION NOTES: there appears to be very occasional unnecessary swap calls and thats a big cost if thats true, may wanna move the bg thread hot reload callback up the list, the db conversions in av_bridge are hella pow() calls and to save it may be using lookup tables instead,
-
+OPTIMIZATION NOTES: the db conversions in av_bridge are hella pow() calls and to save it may be using lookup tables instead it seems to be the last big save to make
 debug_build = cmake -S . -B debug_build -DCMAKE_BUILD_TYPE=Debug -DASAN=ON
 profile_build = cmake -S . -B profile_build -DCMAKE_BUILD_TYPE=RelWithDebInfo
 perf = perf record ./profile_build/audio_vis
 perf report --stdio > perf_output.txt
+memory usage checks: cat /proc/$(pgrep audio_vis)/smaps_rollup
+watch -n 2 'grep -E "Rss|Pss:" /proc/$(pgrep audio_vis)/smaps_rollup'
+Current usage: Total: 150 MB, Private: 69 MB, Shared: 83 MB. Pretty lean for what it does I think
 
 DOCUMENTATION NOTES: The only reason a shader will be skipped rather than present an error message will if the frag.glsl or parent directory cannot be found or opened. Be sure to alert users to uint32_t size limits for their buffer inputs to ensure no internal overflow and of the size limits placed on the final size.
 

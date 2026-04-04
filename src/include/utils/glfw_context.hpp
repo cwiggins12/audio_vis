@@ -2,8 +2,8 @@
 
 #include <GLFW/glfw3.h>
 #include <iostream>
-#include "shader_preset.hpp"
-#include "audio_system.hpp"
+#include "gpu/shader_preset.hpp"
+#include "audio/audio_system.hpp"
 
 struct GLFWContext {
 public:

@@ -2,9 +2,19 @@
 
 #define STB_IMAGE_IMPLEMENTATION
 
-#include "shader_preset.hpp"
-#include "stb_image.h"
+#include "gpu/shader_preset.hpp"
+#include "stb/stb_image.h"
 #include <iostream>
+
+// Reject filenames that could escape the shader directory.
+// Textures must be flat filenames (e.g. "noise.png") with no path components.
+inline bool isTextureFilenameSafe(const std::string& filename) {
+    if (filename.empty()) return false;
+    if (filename.find('/') != std::string::npos) return false;
+    if (filename.find('\\') != std::string::npos) return false;
+    if (filename.find("..") != std::string::npos) return false;
+    return true;
+}
 
 inline GLuint uploadTexture(const std::string& path) {
     stbi_set_flip_vertically_on_load(true);
@@ -40,6 +50,11 @@ inline void buildTextures(ShaderPreset* p) {
 
     int unit = 0;
     for (auto& [uniformName, filename] : p->spec.textures) {
+        if (!isTextureFilenameSafe(filename)) {
+            std::cerr << "buildTextures: rejected unsafe texture path \""
+                      << filename << "\" for " << uniformName << "\n";
+            continue;
+        }
         auto fullPath = std::filesystem::path(p->shaderDir) / filename;
         GLuint texId = uploadTexture(fullPath.string());
         if (!texId) {
@@ -92,6 +107,11 @@ inline void buildTextures(ShaderPreset& p) {
 
     int unit = 0;
     for (auto& [uniformName, filename] : p.spec.textures) {
+        if (!isTextureFilenameSafe(filename)) {
+            std::cerr << "buildTextures: rejected unsafe texture path \""
+                      << filename << "\" for " << uniformName << "\n";
+            continue;
+        }
         auto fullPath = std::filesystem::path(p.shaderDir) / filename;
         GLuint texId = uploadTexture(fullPath.string());
         if (!texId) {
@@ -136,4 +156,3 @@ inline void unbindTextures(const ShaderPreset& p) {
         glBindTexture(GL_TEXTURE_2D, 0);
     }
 }
-

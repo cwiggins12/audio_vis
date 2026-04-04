@@ -1,6 +1,4 @@
 /build
-/debug_build
-/profile_build
 /.cache
 /unused
 sesh
