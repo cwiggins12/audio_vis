@@ -1,9 +1,8 @@
-1. more shader examples showing more of what this can do, also fix mel spec to hold the full 5 seconds
-2. do one more run of finalizing which Interp/Collate modes will be available for 1.0.0
-3. refactor, profile, and optimize to finish as standalone for linux
+1. more shader examples showing more of what this can do
+2. fix mel spec to hold the full 5 seconds
 4. test memory use: when program is running, in another console enter:
 cat /proc/$(pgrep audio_vis)/smaps_rollup
-5. look into speed diffs between clang and gcc (reminder: stb_image might only use SIMD on GCC when using the -msse2 flag)
+5. during final profiling pass, look into speed diffs between clang and gcc (reminder: stb_image might only use SIMD on GCC when using the -msse2 flag)
 6. organize headers into subdirectories
 7. pi target notes: need Mesa's V3DV driver, how will audio pass through happen?, check its device listings,
 8. need hella more documentation in code and in repo for shader authors and general users
@@ -32,8 +31,13 @@ Done This Week:
 5. replaced all ring buffer, capture, and analysis modulo math with a bit mask for speed
 6. 
 
-OPTIMIZATION NOTES: there appears to be very occasional unnecessary swap calls and thats a big cost if thats true, may wanna move the bg thread hot reload callback up the list, gotta get that inst per cycle up, add O3 or O2 flag before next profile, 
+OPTIMIZATION NOTES: there appears to be very occasional unnecessary swap calls and thats a big cost if thats true, may wanna move the bg thread hot reload callback up the list, the db conversions in av_bridge are hella pow() calls and to save it may be using lookup tables instead,
+
+debug_build = cmake -S . -B debug_build -DCMAKE_BUILD_TYPE=Debug -DASAN=ON
+profile_build = cmake -S . -B profile_build -DCMAKE_BUILD_TYPE=RelWithDebInfo
+perf = perf record ./profile_build/audio_vis
+perf report --stdio > perf_output.txt
 
 DOCUMENTATION NOTES: The only reason a shader will be skipped rather than present an error message will if the frag.glsl or parent directory cannot be found or opened. Be sure to alert users to uint32_t size limits for their buffer inputs to ensure no internal overflow and of the size limits placed on the final size.
 
-SHADER IDEAS: moving refractive glass over audio tools, bloom effects that line up with fft peaks from bottom left to top right
+SHADER IDEAS: moving refractive glass over audio tools, bloom effects that line up with fft peaks from bottom left to top right, bubbles that go up from the freqs that are loudest and lift(could resue refraction to make them look cool and put a texture behind them), 

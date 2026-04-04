@@ -125,20 +125,18 @@ public:
 
     void formatData() {
         //peak/rms pop and format
-        const int size = (currSpec.isPeakRMSMono) ? 1 * 2 : channels * 2;
-        const bool getPRHolds = currSpec.getsPeakRMSHolds;
-        const bool isPRdB = currSpec.isPeakRMSdB;
-        const float* prPtr = audio.getPRPtr();
-        for (int i = 0; i < size; ++i) {
-            float val = prPtr[i];
-            if (isPRdB) {
-                val = gainToDB(val);
+        const int size = (currSpec.isPeakRMSMono) ? 2 : channels * 2;
+        float* prPtr = audio.getPRPtr();
+        if (currSpec.isPeakRMSdB) {
+            for (int i = 0; i < size; ++i) {
+                prPtr[i] = gainToDB(prPtr[i]);
             }
-            if (getPRHolds) {
-                peakRMSHolds.compareValAtIndex(i, val);
-            }
-            gpuPeakRMS.setTargetVal(i, val);
         }
+        if (currSpec.getsPeakRMSHolds) {
+            peakRMSHolds.compareValsToArray(prPtr);
+        }
+        gpuPeakRMS.setAllTargetsWithPtr(prPtr);
+        audio.prClear();
         //fft output then check holds against that
         switch (currSpec.fftOutputMode) {
             case 0: fullBinPlacement();         break;
@@ -192,7 +190,8 @@ private:
             }
             case 2: {
                 size_t s = newSpec.customFFTSize;
-                gpuFFTSize = getSizeFromModeSwitch(s, newSpec.customFFTSizeScalesWithWindow);
+                gpuFFTSize = getSizeFromModeSwitch(s,
+                                                 newSpec.customFFTSizeScalesWithWindow);
                 middlemanBuffer.resize(gpuFFTSize);
                 setIndexFreqs(gpuFFTSize);
                 break;
@@ -267,8 +266,6 @@ private:
             case GAUSSIAN:      getGaussian(start, end, in, out);        break;
             case CUBIC_B:       getBSpline(start, end, in, out);         break;
             case AKIMA:         getAkima(start, end, in, out);           break;
-            case STEFFEN:       getSteffen(start, end, in, out);         break;
-            case CATMULL_ROM_3: getCatmullRom3pt(start, end, in, out);   break;
         }
     }
 
@@ -278,7 +275,6 @@ private:
             case RMS:           getRMS(start, end, in, out);             break;
             case PEAK:          getPeak(start, end, in, out);            break;
             case POWER_MEAN:    getPowerWeighted(start, end, in, out);   break;
-            case L_NORM:        getLNorm(start, end, in, out);           break;
         }
     }
 
@@ -464,65 +460,6 @@ private:
         }
     }
 
-    // 6. STEFFEN
-    // Monotonic cubic (Steffen 1990). Same no-overshoot guarantee as PCHIP with a
-    // simpler slope formula: clamp the harmonic mean of adjacent secants to not
-    // exceed 3x either secant. Slightly cheaper than PCHIP.
-    void getSteffen(int start, int end, const float* in, float* out) {
-        for (int i = start; i < end; ++i) {
-            float cf = indexFreqs[i];
-            uint32_t bin1 = (uint32_t)cf;
-            float t = cf - bin1;
-            uint32_t bin0 = (bin1 == 0) ? 0 : bin1 - 1;
-            uint32_t bin2 = std::min(binAmt - 1, bin1 + 1);
-            uint32_t bin3 = std::min(binAmt - 1, bin1 + 2);
-            float y0 = in[bin0], y1 = in[bin1];
-            float y2 = in[bin2], y3 = in[bin3];
-            float d0 = y1 - y0, d1 = y2 - y1, d2 = y3 - y2;
-            // Steffen slope: sign-aware harmonic mean, clamped to 3*min(|secants|)
-            auto steffenSlope = [](float dm, float dp) -> float {
-                if (dm * dp <= 0.0f) return 0.0f;
-                float p = (dm + dp) * 0.5f;                         // average secant
-                float cap = 3.0f * std::min(std::abs(dm), std::abs(dp));
-                // Preserve sign of p, clamp magnitude
-                return (std::abs(p) <= cap) ? p
-                     : std::copysign(cap, p);
-            };
-            float m1 = steffenSlope(d0, d1);
-            float m2 = steffenSlope(d1, d2);
-            float t2 = t * t, t3 = t2 * t;
-            float h00 =  2*t3 - 3*t2 + 1;
-            float h10 =    t3 - 2*t2 + t;
-            float h01 = -2*t3 + 3*t2;
-            float h11 =    t3 -   t2;
-            float val = h00*y1 + h10*m1 + h01*y2 + h11*m2;
-            out[i] = val;
-        }
-    }
-
-    // 7. CATMULL_ROM_3
-    void getCatmullRom3pt(int start, int end, const float* in, float* out) {
-        for (int i = start; i < end; ++i) {
-            float centerBinFloat = indexFreqs[i];
-            uint32_t bin1 = (int)centerBinFloat;
-            float mu = centerBinFloat - bin1;
-            uint32_t bin0 = (bin1 == 0) ? 0 : bin1 - 1;
-            uint32_t bin2 = std::min(binAmt - 1, bin1 + 1);
-            uint32_t bin3 = std::min(binAmt - 1, bin1 + 2);
-            float y0 = in[bin0];
-            float y1 = in[bin1];
-            float y2 = in[bin2];
-            float y3 = in[bin3];
-            float mu2 = mu * mu;
-            float a0 = -0.5f * y0 + 1.5f * y1 - 1.5f * y2 + 0.5f * y3;
-            float a1 = y0 - 2.5f * y1 + 2.0f * y2 - 0.5f * y3;
-            float a2 = -0.5f * y0 + 0.5f * y2;
-            float a3 = y1;
-            float val = a0 * mu * mu2 + a1 * mu2 + a2 * mu + a3;
-            out[i] = val;
-        }
-    }
-
     // High-end bin collation strats
     // 0. RMS
     void getRMS(int start, int end, const float* in, float* out) {
@@ -571,26 +508,6 @@ private:
                 weightSum   += power;
             }
             float val = (weightSum > 1e-30f) ? weightedSum / weightSum : MIN_DB;
-            out[i] = gainToDB(val);
-        }
-    }
-
-    // 3. L-NORM
-    void getLNorm(int start, int end, const float* in, float* out, float p = 2.0f) {
-        for (int i = start; i < end; ++i) {
-            int lowB  = (i > 0) ? (int)indexFreqs[i - 1] + 1 : 0;
-            int highB = (int)indexFreqs[i];
-            int count = highB - lowB + 1;
-            if (count < 2) {
-                out[i] = in[highB];
-                continue;
-            }
-            float sum = 0.0f;
-            for (int j = lowB; j <= highB; ++j) {
-                float gain = dBToGain(in[j]);
-                sum += std::pow(gain, p);
-            }
-            float val = std::pow(sum / (float)count, 1.0f / p);
             out[i] = gainToDB(val);
         }
     }

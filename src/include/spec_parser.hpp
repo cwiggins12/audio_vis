@@ -19,8 +19,6 @@ inline std::string parseInterp(const std::string& val, int lineNum, Interps& out
     if (val == "GAUSSIAN"      || val == "3") { out = GAUSSIAN;      return ret; }
     if (val == "CUBIC_B"       || val == "4") { out = CUBIC_B;       return ret; }
     if (val == "AKIMA"         || val == "5") { out = AKIMA;         return ret; }
-    if (val == "STEFFEN"       || val == "6") { out = STEFFEN;       return ret; }
-    if (val == "CATMULL_ROM_3" || val == "7") { out = CATMULL_ROM_3; return ret; }
     ret = "parseSpec: line " + std::to_string(lineNum) +
           ": invalid Interps value \"" + val + "\"\n";
     //std::cerr << ret;
@@ -32,7 +30,6 @@ inline std::string parseCollates(const std::string& val, int lineNum, Collates& 
     if (val == "RMS"        || val == "0") { out = RMS;        return ret; }
     if (val == "PEAK"       || val == "1") { out = PEAK;       return ret; }
     if (val == "POWER_MEAN" || val == "2") { out = POWER_MEAN; return ret; }
-    if (val == "L_NORM"     || val == "3") { out = L_NORM;     return ret; }
     ret = "parseSpec: line " + std::to_string(lineNum) +
           ": invalid Collates value \"" + val + "\"\n";
     //std::cerr << ret;

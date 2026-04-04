@@ -5,21 +5,18 @@
 #include "expr_eval.hpp"
 
 enum Interps {
-    LINEAR,         //0. fine, jagged, and cheap
-    PCHIP,          //1. mid all around
-    LANCZOS,        //2. acquired taste for sure. I kinda h8 it lmao
-    GAUSSIAN,       //3. cool but boosts area around peaks a lot
-    CUBIC_B,        //4. cool and good peaks
-    AKIMA,          //5. not sure if necessary with the others, but looks good
-    STEFFEN,        //6. all around fine, kind looks like some others though
-    CATMULL_ROM_3,  //7. a classic, and not too pricey
+    LINEAR,
+    PCHIP,
+    LANCZOS,
+    GAUSSIAN,
+    CUBIC_B,
+    AKIMA,
 };
 
 enum Collates {
-    RMS,        //0. cool
-    PEAK,       //1. cool
-    POWER_MEAN, //3. cool
-    L_NORM,     //4. fine, i guess
+    RMS,
+    PEAK,
+    POWER_MEAN,
 };
 
 enum FFTOutputMode {

@@ -138,17 +138,14 @@ struct FFT{
         switch (outputMeasurement) {
             case POWER: {
                 convertToPowerAndScale();
-                //multiplyWithScalarTable();
                 break;
             }
             case MAGNITUDE: {
                 convertToMagAndScale();
-                //multiplyWithScalarTable();
                 break;
             }
             case DECIBELS: {
                 convertToPowerAndScale();
-                //multiplyWithScalarTable();
                 convertToDB();
                 break;
             }

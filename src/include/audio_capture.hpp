@@ -84,31 +84,12 @@ public:
 		return true;
 	}
 
-	//NOTE: copies last count of samples read to given out buffer. 
-	//Handles channel count. Just needs frame count in miniaudio terms.
-	//if you would like for this to be considered as a read for your read index, 
-	//call setReadIndexForwardByFrames
-	void getWindow(float* out, ma_uint32 frameAmt, uint32_t passedWrite = 0) {
-		buffer.getWindow(out, frameAmt, passedWrite);
+	void getMonoSummedWindow(float* out, ma_uint32 frameAmt, uint32_t start) {
+		buffer.getMonoSummedWindow(out, frameAmt, start);
 	}
 
-	void getMonoSummedWindow(float* out, ma_uint32 frameAmt, uint32_t passedWrite = 0) {
-		buffer.getMonoSummedWindow(out, frameAmt, passedWrite);
-	}
-
-	int pop(float* out, ma_uint32 maxFrames, uint32_t passedWrite = 0) {
-		return buffer.pop(out, maxFrames, passedWrite);
-	}
-
-	void setReadIndexForwardByFrames(uint32_t i, uint32_t passedWrite = 0) {
-		if (!buffer.setReadIndexForwardByFrames(i, passedWrite)) {
-			std::cerr << "setReadIndexForwardByFrames(): given index outside possible range. Given value was: " << i << std::endl;
-			return;
-		}
-	}
-
-	uint32_t getWindowStartFromWrite(uint32_t windowSize) {
-		return buffer.getWindowStartFromWrite(windowSize);
+	void setReadIndexForwardByFrames(uint32_t i) {
+		buffer.setReadIndexForwardByFrames(i);
 	}
 
 	uint32_t getNumChannels() {
@@ -119,25 +100,15 @@ public:
 		return device.sampleRate;
 	}
 
-	uint32_t getBufferSizeInSamples() {
-		return bufferSize;
-	}
-
-	uint32_t getBufferSizeInFrames() {
-		return bufferSize / device.capture.channels;
-	}
-
 	float* getRawBufferPointer() {
 		return buffer.getRawBufferPointer();
-	}
-
-	uint32_t getWriteIndex() {
-		return buffer.writeIndex.load();
 	}
 
 	uint32_t getReadIndex() {
 		return buffer.readIndex.load();
 	}
+
+	uint32_t getBufferMask() { return buffer.getMask(); }
 
 	uint32_t getAccumulatedFrames() {
 		return framesAccumulated.load();
@@ -161,9 +132,9 @@ private:
 	}
 
 	//NOTE: these 2 are the write funcs handled in ma's thread to fill the ring buffer.
-	//would like to add peak and rms readings here 
+	//would like to add peak and rms readings here
 	//possibly since they are made for audio thread speed
-	static void dataCallback(ma_device* device, void* output, 
+	static void dataCallback(ma_device* device, void* output,
 							 const void* input, ma_uint32 frameCount) {
 		AudioCapture* self = (AudioCapture*)device->pUserData;
 		self->processInput((const float*)input, frameCount);
@@ -172,10 +143,11 @@ private:
 	void processInput(const float* input, ma_uint32 frameCount) {
 		ma_uint32 localWrite = buffer.writeIndex.load();
 		ma_uint32 totalSamples = frameCount * device.capture.channels;
+		ma_uint32 mask = bufferSize - 1;
 
 		for (ma_uint32 i = 0; i < totalSamples; ++i) {
 			buffer[localWrite] = input[i];
-			localWrite = (localWrite + 1) & RINGBUFFER_MASK;
+			localWrite = (localWrite + 1) & mask;
 		}
 
 		buffer.writeIndex.store(localWrite);

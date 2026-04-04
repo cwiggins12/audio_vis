@@ -51,11 +51,15 @@ public:
             capture.moveAccumulator(fftSize);
             return true;
         }
-        return accumulated >= hopSize;
+        if (accumulated >= hopSize) {
+            capture.moveAccumulator(hopSize);
+            return true;
+        }
+        return false;
     }
 
     void analyze() {
-        uint32_t start = capture.getWindowStartFromWrite(fftSize);
+        uint32_t start = capture.getReadIndex();
         capture.getMonoSummedWindow(fft->getInputBuffer(), fftSize, start);
 
         if (isPeakRMSMono) {
@@ -64,11 +68,11 @@ public:
         }
         else {
             float* buf = capture.getRawBufferPointer();
-            pr.getPeakFromRingBuffer(buf, fftSize, start);
+            pr.getMeasurementsFromRingBuffer(buf, fftSize, start, channels,
+                                             capture.getBufferMask());
         }
         fft->runFFT();
-        capture.setReadIndexForwardByFrames(hopSize, start);
-        capture.moveAccumulator(hopSize);
+        capture.setReadIndexForwardByFrames(hopSize);
     }
 
     void swapSpec(Spec& spec) {
@@ -85,9 +89,8 @@ public:
     }
 
     void resetAccumulator() {
-        capture.resetAccumulator();
         firstWindowAccumulated = false;
-        //std::cout << "Accumulation reset" << std::endl;
+        capture.resetAccumulator();
     }
 
     uint32_t getNumChannels() {
@@ -110,8 +113,12 @@ public:
         return fft->getOutputBuffer();
     }
 
-    const float* getPRPtr() {
+    float* getPRPtr() {
         return pr.getPtr();
+    }
+
+    void prClear() {
+        pr.clear();
     }
 
 private:

@@ -4,18 +4,13 @@
 #include <vector>
 #include <atomic>
 
-//if a globals.hpp is made, move this.
-//if reusing this and size is not compile time or is dynamic,
-//just replace all uses of "& RINGBUFFER_MASK" with "% bufferSize"
-inline constexpr int RINGBUFFER_MASK = 16383;
-
 class RingBuffer {
 public:
     //allows default or manual construction, if default, run init before use
     //no moves or copies, since the atomics make that a pain
     RingBuffer() = default;
     RingBuffer(ma_uint32 size, ma_uint32 channelAmt) {
-        bufferSize = size;
+		mask = size - 1;
         channels = channelAmt;
         buffer.resize(size);
     }
@@ -29,105 +24,53 @@ public:
     const float& operator[](size_t i) const { return buffer[i]; }
 
     void init(ma_uint32 size, ma_uint32 channelAmt) {
-        bufferSize = size;
+		mask = size - 1;
         channels = channelAmt;
         buffer.resize(size);
     }
 
-	//NOTE: copies last count of samples read to given out buffer. 
+	//NOTE: copies last count of samples read to given out buffer.
 	//Handles channel count. Just needs frame count in miniaudio terms.
-	//if you would like for this to be considered as a read for your read index, 
+	//if you would like for this to be considered as a read for your read index,
 	//call setReadIndexForwardByFrames
-	void getWindow(float* out, ma_uint32 frameAmt, uint32_t passedWrite = 0) {
-		uint32_t localWrite = (passedWrite == 0) ? writeIndex.load() : passedWrite;
-		frameAmt *= channels;
-		ma_uint32 start = (localWrite - frameAmt + bufferSize) & RINGBUFFER_MASK;
+	void getWindow(float* out, ma_uint32 frameAmt, uint32_t start) {
+		ma_uint32 samples = frameAmt * channels;
 
-		for (ma_uint32 i = 0; i < frameAmt; ++i) {
-			uint32_t index = (start + i) & RINGBUFFER_MASK;
+		for (ma_uint32 i = 0; i < samples; ++i) {
+			uint32_t index = (start + i) & mask;
 			out[i] = buffer[index];
 		}
 	}
 
-	void getMonoSummedWindow(float* out, ma_uint32 frameAmt, uint32_t passedWrite = 0) {
-		uint32_t localWrite = (passedWrite == 0) ? writeIndex.load() : passedWrite;
-		frameAmt *= channels;
-		uint32_t start = (localWrite - frameAmt + bufferSize) & RINGBUFFER_MASK;
-
-		for (ma_uint32 i = 0; i < frameAmt; i += channels) {
+	void getMonoSummedWindow(float* out, ma_uint32 frameAmt, uint32_t start) {
+		float sumMult = 1.0f / channels;
+		for (ma_uint32 i = 0; i < frameAmt; ++i) {
 			float sum = 0;
 			for (ma_uint32 ch = 0; ch < channels; ++ch) {
-				sum += buffer[(start + i + ch) & RINGBUFFER_MASK];
+				sum += buffer[(start + i * channels + ch) & mask];
 			}
-			out[i / channels] = sum / (float)channels;
+			out[i] = sum * sumMult;
 		}
 	}
 
-	int pop(float* out, ma_uint32 maxFrames, uint32_t passedWrite = 0) {
-		uint32_t localRead = readIndex.load();
-		uint32_t localWrite = (passedWrite == 0) ? writeIndex.load() : passedWrite;
-		ma_uint32 readSize = 0;
-		maxFrames *= channels;
-
-		if (localWrite < localRead) {
-			readSize = localWrite + (bufferSize - localRead);
-		}
-		else {
-			readSize = localWrite - localRead;
-		}
-
-		if (readSize > maxFrames) {
-			readSize = maxFrames;
-		}
-
-		for (ma_uint32 i = 0; i < readSize; ++i) {
-			int index = (localRead + i) & RINGBUFFER_MASK;
-			out[i] = buffer[index];
-		}
-
-		readIndex.store((localRead + readSize) & RINGBUFFER_MASK);
-
-		return readSize / channels;
-	}
-
-	bool setReadIndexForwardByFrames(uint32_t i, uint32_t passedWrite = 0) {
-		if (i > bufferSize / channels) {
-			return false;
-		}
+	void setReadIndexForwardByFrames(uint32_t hopSize) {
 		ma_uint32 oldRead = readIndex.load();
-		ma_uint32 advance = i * channels;
-		ma_uint32 write = (passedWrite == 0) ? writeIndex.load() : passedWrite;
-		ma_uint32 available = (write - oldRead + bufferSize) & RINGBUFFER_MASK;
-		if (advance > available) {
-			advance = available;
-		}
-		readIndex.store((oldRead + advance) & RINGBUFFER_MASK);
-        return true;
-	}
-
-	uint32_t getWindowStartFromWrite(uint32_t windowSize) {
-		uint32_t samples = windowSize * channels;
-		return (writeIndex.load() + bufferSize - samples) & RINGBUFFER_MASK;
-	}
-
-	uint32_t getBufferSizeInSamples() {
-		return bufferSize;
-	}
-
-	uint32_t getBufferSizeInFrames() {
-		return bufferSize / channels;
+		ma_uint32 advance = hopSize * channels;
+		readIndex.store((oldRead + advance) & mask);
 	}
 
 	float* getRawBufferPointer() {
 		return buffer.data();
 	}
 
+	uint32_t getMask() const { return mask; }
+
 	std::atomic<ma_uint32> writeIndex{0};
 	std::atomic<ma_uint32> readIndex{0};
 
 private:
 	std::vector<float> buffer;
-    ma_uint32 bufferSize = 0;
-    ma_uint32 channels = 2;
+    ma_uint32 channels = 0;
+	uint32_t mask = 0;
 };
 

@@ -1,6 +1,5 @@
 #pragma once
 
-//#include <atomic>
 #include <cmath>
 #include <vector>
 
@@ -33,13 +32,14 @@ public:
         measurements[1] = rmsValue;
     }
 
-    void getPeakFromRingBuffer(const float* buffer, const int numSamples, const int start) {
+    void getMeasurementsFromRingBuffer(const float* buffer, const int numSamples,
+                                       const int start, const int channels,
+                                       const int bufferMask) {
         for (int ch = 0; ch < channels; ++ch) {
             float peakValue = 0.0f;
             float rmsValue = 0.0f;
-            for (int i = ch; i < numSamples; i += channels) {
-                //hardcoded for now until I make an excuse for a globals.hpp
-                int idx = (i + start) & 16383;
+            for (int i = ch; i < numSamples * channels; i += channels) {
+                int idx = (i + start) & bufferMask;
                 float samp = buffer[idx];
                 float absSample = std::abs(samp);
                 if (absSample > peakValue) {
@@ -54,17 +54,17 @@ public:
         }
     }
 
-    void resize(bool isMono, int ch) {
-        channels = ch;
+    void resize(bool isMono, int channels) {
         (isMono) ? measurements.resize(2) : measurements.resize(channels * 2);
     }
 
 private:
     std::vector<float> measurements;
-    int channels = 0;
 };
 
 /*
+old generic version. keeping for reference for now
+
 
 //peak measurement per channel
 struct PeakMeter {

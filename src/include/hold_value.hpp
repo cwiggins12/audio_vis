@@ -112,16 +112,26 @@ public:
     void countdownAll() {
         int n = values.size();
         for (int i = 0; i < n; ++i) {
-            countdownIndex(i);
+            countdowns[i] = std::max(countdowns[i] - 1, -1);
+        }
+        float epMin = minValue + 1e-5f;
+        for (int i = 0; i < n; ++i) {
+            if (countdowns[i] < 0 && values[i] > epMin) {
+                values[i] = (values[i] - minValue) * linearDropScalar + minValue;
+            }
         }
     }
 
-    //fix for when linear drop puts hold below current val
-    //will optimize these loops l8r
     void countdownAll(const float* compVals) {
         int n = values.size();
         for (int i = 0; i < n; ++i) {
-            countdownIndex(i);
+            countdowns[i] = std::max(countdowns[i] - 1, -1);
+        }
+        float epMin = minValue + 1e-5f;
+        for (int i = 0; i < n; ++i) {
+            if (countdowns[i] < 0 && values[i] > epMin) {
+                values[i] = (values[i] - minValue) * linearDropScalar + minValue;
+            }
             if (values[i] < compVals[i]) {
                 values[i] = compVals[i];
                 countdowns[i] = maxSteps;

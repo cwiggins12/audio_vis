@@ -141,15 +141,13 @@ struct SmoothArraySoA {
 
     float getCurrentVal(size_t i) const { return current[i]; }
     float getTargetVal(size_t i)  const { return target[i];  }
-    bool  isSmoothing(size_t i)   const { return stepsRemaining[i] > 0; }
+    bool isSmoothing(size_t i) const { return stepsRemaining[i] > 0; }
 
     float getNextVal(size_t i) {
-        if (!isSmoothing(i)) return target[i];
-        --stepsRemaining[i];
-        if (isSmoothing(i)) {
+        if (!isSmoothing(i)) return current[i];
+        if (--stepsRemaining[i] > 0) {
             current[i] += increment[i];
-        }
-        else {
+        } else {
             current[i] = target[i];
         }
         return current[i];
@@ -159,7 +157,12 @@ struct SmoothArraySoA {
 
     void advanceAll() {
         for (size_t i = 0; i < current.size(); i++) {
-            getNextVal(i);
+            if (!isSmoothing(i)) continue;
+            if (--stepsRemaining[i] > 0) {
+                current[i] += increment[i];
+            } else {
+                current[i] = target[i];
+            }
         }
     }
 
