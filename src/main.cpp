@@ -61,7 +61,9 @@ int main() {
     //get initial width and height from framebuffer then log gl info
     int w, h;
     glfw.initFramebuffer(w, h);
-    glfw.logGLInfo();
+    size_t maxFBBufferFloats = glfw.logGLInfo() / sizeof(float);
+    //set max feedback buffer size to the lower of a 4k framebuffer or hardware limit
+    maxFBBufferFloats = std::min(maxFBBufferFloats, (size_t)33177600);
     //init shaders
     ShaderSystem shaders(getAssetPath("shaders/"));
     if (!shaders.isValid()) return -1;
@@ -73,7 +75,7 @@ int main() {
     GPUBuffers gpuBuffs(shaders.active->spec.feedbackBufferInitValue);
     //swap all configs to first preset, unless eval error, then use errorShader
     evalPresetExprs(w, h, glfw.displayHz, audioSys, shaders.active);
-    assertUserDefinedBufferSizes(shaders.active);
+    assertUserDefinedBufferSizes(shaders.active, maxFBBufferFloats);
     doSwap(shaders.active, audioSys, gpuBuffs);
     //catches button presses and handles them
     InputHandler input;
@@ -92,7 +94,7 @@ int main() {
         //do swap if necessary, if eval fails, update active's error msg
         if (needsSwap) {
             evalPresetExprs(w, h, glfw.displayHz, audioSys, shaders.active);
-            assertUserDefinedBufferSizes(shaders.active);
+            assertUserDefinedBufferSizes(shaders.active, maxFBBufferFloats);
             std::cout << "Swapping to: " << shaders.active->name << "\n";
             doSwap(shaders.active, audioSys, gpuBuffs);
             glfw.setTitleBarForPreset(shaders.getIndex(), shaders.active->name);
@@ -122,7 +124,7 @@ int main() {
         //set swap and count frame counter
         glfwSwapBuffers(glfw.window);
     }
-    std::cout << "Program ended :)";
+    std::cout << "Program ended successfully :)";
     return 0;
 }
 

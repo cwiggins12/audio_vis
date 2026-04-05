@@ -77,7 +77,7 @@ vec3 addChannelNum(vec3 color, vec2 uv) {
 vec3 addFFTBars(vec3 color, vec2 uv) {
     vec2 px = toPx();
 
-    int   bars    = 32;
+    int   bars    = fftArrSize;
     float totalW  = W * 0.75;
     float startX  = (W - totalW) * 0.5;
     float gapX    = 4.0;

@@ -62,12 +62,26 @@ public:
         });
     }
 
-    void logGLInfo() {
+    size_t logGLInfo() {
         //print info to log
         std::cout << "GL Version: " << glGetString(GL_VERSION) << "\n";
         std::cout << "GLSL Version: " <<
                      glGetString(GL_SHADING_LANGUAGE_VERSION) << "\n";
         std::cout << "Found device frame rate: " << displayHz << std::endl;
+
+        GLint maxBinds = 0;
+        glGetIntegerv(GL_MAX_SHADER_STORAGE_BUFFER_BINDINGS, &maxBinds);
+        std::cout << "Max SSBO bindings: " << maxBinds << "\n";
+        GLint maxBlock = 0;
+        glGetIntegerv(GL_MAX_SHADER_STORAGE_BLOCK_SIZE, &maxBlock);
+        std::cout << "Max SSBO block size: " << maxBlock << " bytes\n";
+
+        if (maxBinds < 6) {
+            std::cerr << "WARNING: GPU only supports " << maxBinds
+                      << " SSBO bindings, but audio_vis requires 6. "
+                      << "Feedback buffers may not work.\n";
+        }
+        return (size_t)maxBlock;
     }
 
     void toggleFullscreen() {

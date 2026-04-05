@@ -17,7 +17,7 @@ void main() {
 
     // map angle to bin index
     float t       = (angle / TWO_PI) + 0.5;
-    int   bin     = clamp(int(t * float(512)), 0, 512 - 1);
+    int   bin     = clamp(int(t * float(fftArrSize)), 0, fftArrSize - 1);
     float binVal  = dbToT(fftData[bin]);
 
     // ring: inner edge is RING_RADIUS, outer edge expands with bin value

@@ -4,8 +4,6 @@ const int   TOTAL_MEL_BINS  = 256;
 const int   SECONDS_SHOWN   = 5;
 const int   EST_AUDIO_FPS   = 24;
 const int   FB_BUFFER_SIZE  = TOTAL_MEL_BINS * SECONDS_SHOWN * EST_AUDIO_FPS;
-const int   COLUMN_AMT      = SECONDS_SHOWN * EST_AUDIO_FPS;
-const float COLUMN_WIDTH    = 1.0 / float(COLUMN_AMT);
 
 float hzToMel(float hz) {
     return 2595.0 * log(1.0 + hz / 700.0) / log(10.0);
@@ -73,12 +71,15 @@ float powToDB(float pow) {
 
 void main() {
     vec2 uv = uvBottomLeft();
+    int hopsPerSec = sampleRate * 4 / fftSize;
+    int columnAmt = hopsPerSec * SECONDS_SHOWN;
+    float columnWidth = 1.0 / float(columnAmt);
     int m = int(uv.y * float(TOTAL_MEL_BINS));
     m = clamp(m, 0, TOTAL_MEL_BINS - 1);
-    int column = int(uv.x * float(COLUMN_AMT));
+    int column = int(uv.x * float(columnAmt));
     int index = column * TOTAL_MEL_BINS + m;
     if (newAudioWindow != 0) {
-        if (column == COLUMN_AMT - 1) {
+        if (column == columnAmt - 1) {
             //get mel norm, write, get color and print
             float energy = melBinEnergy(m);
             float db = powToDB(energy);
