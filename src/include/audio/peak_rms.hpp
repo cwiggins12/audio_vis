@@ -31,13 +31,13 @@ public:
     }
 
     void getMeasurementsFromRingBuffer(const float* buffer, const int numSamples,
-                                       const int start, const int channels,
-                                       const int bufferMask) {
+                                       const int start, const int channels) {
+        int size = channels * numSamples;
         for (int ch = 0; ch < channels; ++ch) {
             float peakValue = 0.0f;
             float rmsValue = 0.0f;
             for (int i = ch; i < numSamples * channels; i += channels) {
-                int idx = (i + start) & bufferMask;
+                int idx = (i + start) % size;
                 float samp = buffer[idx];
                 float absSample = std::abs(samp);
                 if (absSample > peakValue) {

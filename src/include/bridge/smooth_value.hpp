@@ -13,16 +13,16 @@ struct SmoothArraySoA {
     SmoothArraySoA() = default;
 
     SmoothArraySoA(uint32_t sampleRate, float rampLengthInSecs, size_t size,
-                   float atkSecs = -1.0f, float rlsSecs = -1.0f) {
-        atkSecs = (atkSecs < 0.0f) ? rampLengthInSecs : atkSecs;
-        rlsSecs = (rlsSecs < 0.0f) ? rampLengthInSecs : rlsSecs;
+                   float atkSecs = 0.0f, float rlsSecs = 0.0f) {
+        atkSecs = (atkSecs < 0.0f) ? 0.0f : atkSecs;
+        rlsSecs = (rlsSecs < 0.0f) ? 0.0f : rlsSecs;
         setAsym(sampleRate, atkSecs, rlsSecs);
         resize(size);
     }
 
-    SmoothArraySoA(int steps, size_t size, int atk = -1, int rls = -1) {
-        atk = (atk < 0) ? steps : atk;
-        rls = (rls < 0) ? steps : rls;
+    SmoothArraySoA(int steps, size_t size, int atk = 0, int rls = 0) {
+        atk = (atk < 0) ? 0 : atk;
+        rls = (rls < 0) ? 0 : rls;
         setAsym(atk, rls);
         resize(size);
     }

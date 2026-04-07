@@ -1,15 +1,16 @@
 THIS WEEK:
 hella documentation:
- - a full doc to explain each item in the spec and what the options do and outline the entire process of how a user can add and build shaders outside of using the spec (in progress)
- - github readme
- - gifs of some shaders
+ - one more debug check for the new uniforms
+ - rewrite write up
+ - need to give more info for having a loopback device in readme and author's guide
+ - gifs of each shader in full screen
  - 1.0.0 gitHub release
- - demo video(have some footage of the pi running it too)
- - portfolio write up
+ - demo video(have some footage of the pi running it too) and add to site
 
+full Raspberry pi test:
 pi target notes: need Mesa's V3DV driver, how will audio pass through happen?, check its device listings(should be the same standard linux devices),
 
-Next week goals:
+1.1 goals:
  - raw audio sample ssbo (would need to be hop size and can be stored as an array in bridge to pass to the ssbo easily)
  - mouseX, mouseY, and mouseDown uniforms
  - beat detection with a simple onset detector
@@ -19,7 +20,7 @@ Next week goals:
  - put hot reload notifictations on a bg thread with inotify/ReadDirectoryChangesW wrapper (profile this and make sure the context switches don't outweigh the savings). Also, try and get it to recognize a new directory being created and add it to presets array
  - windows build(AudioCapture and CMake will require the largest changes, but should be mostly painless. Famous last words. Also, make all the libs static during this process). REMINDER: during final profiling pass, look into speed diffs between clang and gcc (OTHER reminder: stb_image might only use SIMD on GCC when using the -msse2 flag)
 
-FUTURE ADDITIONS:
+1.2 goals:
  - Have 2 separate builds to allow for Linux and Windows users to not have to use GL ES. Def a lot of speed to gain from that on my end as well.
  - utility exes and a config.ini for device(audio & video) listing/choosing. maybe done through a dropdown menu of the audio_vis.exe?
  - timed shuffle mode (pressing a button opens a dialog box, user enters a time? or may want to wait to add until I have an application wide config in task 7)
@@ -45,7 +46,9 @@ Done This Week:
 11. general shader fixes
 12. feedback buffer size limit is now the lower of 4k framebuffer or hardware limit
 13. feedback buffers may not work on devices that allow less than 6 bindings. Best I can think to do is just warn users in the log
-14. 
+14. a full doc to explain each item in the spec and what the options do and outline the entire process of how a user can add and build shaders outside of using the spec
+15. github readme
+16. 
 
 OPTIMIZATION NOTES: the db conversions in av_bridge are hella pow() calls are rough instead it seems lookup tables could help. It would be the last big save to make that I can spot.
 debug_build = cmake -S . -B debug_build -DCMAKE_BUILD_TYPE=Debug -DASAN=ON

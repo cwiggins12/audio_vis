@@ -87,6 +87,36 @@ inline std::string parseFloat(const std::string& val, int lineNum,
     }
 }
 
+inline std::string parseExpr(const std::string& expr, std::bitset<EXPR_VAR_AMT>& uses,
+                             int lineNum = -1) {
+    if (expr.empty()) {
+        uses.reset();
+        return "";
+    }
+    //dummy context for syntax check
+    ExprContext ctx{};
+    ctx.windowWidth  = 1;
+    ctx.windowHeight = 1;
+    ctx.displayHz    = 1;
+    ctx.numChannels  = 1;
+    ctx.sampleRate   = 1;
+    ctx.fftSize      = 1;
+    ctx.fftBinAmt    = 1;
+
+    ExprParser p(expr, ctx);
+    p.evaluate();
+    uses = ctx.uses;
+
+    if (!p.errorMsg.empty()) {
+        std::string ret = "parseSpec: line " + std::to_string(lineNum) +
+                          ": expression error: " + p.errorMsg +
+                          " in \"" + expr + "\"\n";
+        std::cerr << ret;
+        return ret;
+    }
+    return "";
+}
+
 inline std::string parseSpec(const std::string& path, Spec& out) {
     std::string ret = "";
     std::ifstream file(path);
@@ -143,9 +173,9 @@ inline std::string parseSpec(const std::string& path, Spec& out) {
         }
         else if (key == "customFFTSize") {
             out.customFFTSizeExpr = val;
-            ExprContext ctx{};
-            if (evalExpr(val, ctx, out.customFFTSize,
-                         out.fftUsesExprVar, lineNum) != "") {
+            ret = parseExpr(val, out.fftUsesExprVar, lineNum);
+            if (!ret.empty())
+            {
                 return ret;
             }
         }
@@ -235,9 +265,8 @@ inline std::string parseSpec(const std::string& path, Spec& out) {
         }
         else if (key == "feedbackBufferSize") {
             out.feedbackBufferSizeExpr = val;
-            ExprContext ctx{};
-            if (evalExpr(val, ctx, out.feedbackBufferSize,
-                         out.feedbackUsesExprVar, lineNum) != "") {
+            ret = parseExpr(val, out.feedbackUsesExprVar, lineNum);
+            if (!ret.empty()) {
                 return ret;
             }
         }

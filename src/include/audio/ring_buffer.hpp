@@ -10,7 +10,7 @@ public:
     //no moves or copies, since the atomics make that a pain
     RingBuffer() = default;
     RingBuffer(ma_uint32 size, ma_uint32 channelAmt) {
-		mask = size - 1;
+		bufferSize = size;
         channels = channelAmt;
         buffer.resize(size);
     }
@@ -24,7 +24,7 @@ public:
     const float& operator[](size_t i) const { return buffer[i]; }
 
     void init(ma_uint32 size, ma_uint32 channelAmt) {
-		mask = size - 1;
+		bufferSize = size;
         channels = channelAmt;
         buffer.resize(size);
     }
@@ -37,7 +37,7 @@ public:
 		ma_uint32 samples = frameAmt * channels;
 
 		for (ma_uint32 i = 0; i < samples; ++i) {
-			uint32_t index = (start + i) & mask;
+			uint32_t index = (start + i) % bufferSize;
 			out[i] = buffer[index];
 		}
 	}
@@ -47,7 +47,7 @@ public:
 		for (ma_uint32 i = 0; i < frameAmt; ++i) {
 			float sum = 0;
 			for (ma_uint32 ch = 0; ch < channels; ++ch) {
-				sum += buffer[(start + i * channels + ch) & mask];
+				sum += buffer[(start + i * channels + ch) % bufferSize];
 			}
 			out[i] = sum * sumMult;
 		}
@@ -56,14 +56,14 @@ public:
 	void setReadIndexForwardByFrames(uint32_t hopSize) {
 		ma_uint32 oldRead = readIndex.load();
 		ma_uint32 advance = hopSize * channels;
-		readIndex.store((oldRead + advance) & mask);
+		readIndex.store((oldRead + advance) % bufferSize);
 	}
 
 	float* getRawBufferPointer() {
 		return buffer.data();
 	}
 
-	uint32_t getMask() const { return mask; }
+	uint32_t getMask() const { return bufferSize; }
 
 	std::atomic<ma_uint32> writeIndex{0};
 	std::atomic<ma_uint32> readIndex{0};
@@ -71,6 +71,6 @@ public:
 private:
 	std::vector<float> buffer;
     ma_uint32 channels = 0;
-	uint32_t mask = 0;
+	uint32_t bufferSize = 0;
 };
 

@@ -2,8 +2,6 @@ const float DB_FLOOR        = -90.0;
 const float DB_CEIL         = 0.0;
 const int   TOTAL_MEL_BINS  = 256;
 const int   SECONDS_SHOWN   = 5;
-const int   EST_AUDIO_FPS   = 24;
-const int   FB_BUFFER_SIZE  = TOTAL_MEL_BINS * SECONDS_SHOWN * EST_AUDIO_FPS;
 
 float hzToMel(float hz) {
     return 2595.0 * log(1.0 + hz / 700.0) / log(10.0);
@@ -71,8 +69,7 @@ float powToDB(float pow) {
 
 void main() {
     vec2 uv = uvBottomLeft();
-    int hopsPerSec = sampleRate * 4 / fftSize;
-    int columnAmt = hopsPerSec * SECONDS_SHOWN;
+    int columnAmt = int(float(sampleRate) * 4.0 / float(fftSize) * float(SECONDS_SHOWN));
     float columnWidth = 1.0 / float(columnAmt);
     int m = int(uv.y * float(TOTAL_MEL_BINS));
     m = clamp(m, 0, TOTAL_MEL_BINS - 1);

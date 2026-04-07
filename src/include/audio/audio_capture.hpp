@@ -147,11 +147,10 @@ private:
 		if (resetFlag.load()) return;
 		ma_uint32 localWrite = buffer.writeIndex.load();
 		ma_uint32 totalSamples = frameCount * device.capture.channels;
-		ma_uint32 mask = bufferSize - 1;
 
 		for (ma_uint32 i = 0; i < totalSamples; ++i) {
 			buffer[localWrite] = input[i];
-			localWrite = (localWrite + 1) & mask;
+			localWrite = (localWrite + 1) % bufferSize;
 		}
 
 		buffer.writeIndex.store(localWrite);

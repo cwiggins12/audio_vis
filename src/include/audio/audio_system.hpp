@@ -4,10 +4,10 @@
 #include "bridge/av_bridge.hpp"
 
 struct AudioSystem {
-    static constexpr int fftOrder = 13;
-    static constexpr int fftSize = 1 << 13;
-    static constexpr int fftBinAmt = fftSize / 2 + 1;
-    static constexpr int hopAmt = 4;
+    int fftOrder = 13;
+    int fftSize = 1 << 13;
+    int fftBinAmt = fftSize / 2 + 1;
+    int hopAmt = 4;
 
     Audio    audio;
     AVBridge bridge;
