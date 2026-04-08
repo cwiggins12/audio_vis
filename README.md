@@ -61,7 +61,7 @@ cd audio_vis
 ./audio_vis
 ```
 
-The `shaders/` directory and `audio_vis` executable must stay in the same directory. Make sure audio is playing on your system before or after launching.
+The `shaders/` directory and `audio_vis` executable must stay in the same directory.
 
 
 ## Controls
@@ -136,9 +136,9 @@ Tested with GCC and Clang on Ubuntu 24. C++20 required. If using GCC, `stb_image
 
 Got any suggestions for features you would like to see? Check out the [Planned Additions Document](planned_additions.txt) and see if its already on the way. If you don't see it, reach out to me at my email or through GitHub and I'll add it to the list!
 
-Found a bug or have a suggestion? Open an issue on [GitHub Issues](https://github.com/cwiggins12/audio_vis/issues) or email me at the email below.
+Found a bug or have a suggestion? Open an issue on [GitHub Issues](https://github.com/cwiggins12/audio_vis/issues) or email me at my email.
 
-Want your shader added to the examples? Email me with your shader directory (frag.glsl, spec.cfg, and any textures).
+Want your shader added to the examples? Email me with your shader directory (frag.glsl, spec.cfg, and any textures), and I'll add it to the examples!
 
 
 ## Author
