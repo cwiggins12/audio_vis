@@ -4,7 +4,7 @@ A real-time audio visualization engine that captures your system audio and drive
 
 Use this for live visuals, desktop audio-reactive backgrounds, shader experimentation, or as a foundation for other creative coding projects. All of the audio pipeline in particular is made to be reusable and modular for other projects with very few changes.
 
-[analyser with crt and vhs effects](gifs/crt_vhs_analyser.gif)
+![analyser with crt and vhs effects](gifs/crt_vhs_analyser.gif)
 
 
 ## Features
@@ -22,11 +22,11 @@ Use this for live visuals, desktop audio-reactive backgrounds, shader experiment
 
 ## Screenshots
 
-[standard spectrum analyser](gifs/basic_analyser.gif)
+![standard spectrum analyser](gifs/basic_analyser.gif)
 
-[mel spectrogram](gifs/mel_spec.gif)
+![mel spectrogram](gifs/mel_spec.gif)
 
-[center pulsing abstract shader](gifs/center_pulse.gif)
+![center pulsing abstract shader](gifs/center_pulse.gif)
 
 ## Download
 
