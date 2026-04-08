@@ -4,7 +4,7 @@ A real-time audio visualization engine that captures your system audio and drive
 
 Use this for live visuals, desktop audio-reactive backgrounds, shader experimentation, or as a foundation for other creative coding projects. All of the audio pipeline in particular is made to be reusable and modular for other projects with very few changes.
 
-![analyser with crt and vhs effects](gifs/crt_vhs_analyser.gif)
+[analyser with crt and vhs effects](gifs/crt_vhs_analyser.gif)
 
 
 ## Features
@@ -22,11 +22,11 @@ Use this for live visuals, desktop audio-reactive backgrounds, shader experiment
 
 ## Screenshots
 
-![standard spectrum analyser](gifs/basic_analyser.gif)
+[standard spectrum analyser](gifs/basic_analyser.gif)
 
-![mel spectrogram](gifs/mel_spec.gif)
+[mel spectrogram](gifs/mel_spec.gif)
 
-![center pulsing abstract shader](gifs/center_pulse.gif)
+[center pulsing abstract shader](gifs/center_pulse.gif)
 
 ## Download
 
@@ -136,9 +136,9 @@ Tested with GCC and Clang on Ubuntu 24. C++20 required. If using GCC, `stb_image
 
 Got any suggestions for features you would like to see? Check out the [Planned Additions Document](planned_additions.txt) and see if its already on the way. If you don't see it, reach out to me at my email or through GitHub and I'll add it to the list!
 
-Found a bug or have a suggestion? Open an issue on [GitHub Issues](https://github.com/cwiggins12/audio_vis/issues) or email me at codywigginsdev@gmail.com.
+Found a bug or have a suggestion? Open an issue on [GitHub Issues](https://github.com/cwiggins12/audio_vis/issues) or email me at the email below.
 
-Want your shader added to the examples? Email me at codywigginsdev@gmail.com with your shader directory (frag.glsl, spec.cfg, and any textures).
+Want your shader added to the examples? Email me with your shader directory (frag.glsl, spec.cfg, and any textures).
 
 
 ## Author
