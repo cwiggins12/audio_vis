@@ -1,6 +1,6 @@
 # audio_vis
 
-A real-time audio visualization engine that captures your system audio and drives GLSL fragment shaders with FFT, peak/RMS, and feedback buffer data each frame. Write shaders, tweak a config file, and see changes instantly with hot-reload. Currently supports Linux (desktop and Raspberry Pi 4+)
+A shader-driven, real-time audio visualization engine that captures your system audio and drives GLSL fragment shaders with FFT, peak/RMS, and feedback buffer data each frame. Write shaders, tweak a config file, and see changes instantly with hot-reload. Currently supports Linux (desktop and Raspberry Pi 4+)
 
 Use this for live visuals, desktop audio-reactive backgrounds, shader experimentation, or as a foundation for other creative coding projects. All of the audio pipeline in particular is made to be reusable and modular for other projects with very few changes.
 
