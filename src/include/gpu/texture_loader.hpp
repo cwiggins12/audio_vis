@@ -156,4 +156,3 @@ inline void unbindTextures(const ShaderPreset& p) {
         glBindTexture(GL_TEXTURE_2D, 0);
     }
 }
-

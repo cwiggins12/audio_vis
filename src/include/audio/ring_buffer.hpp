@@ -63,7 +63,7 @@ public:
 		return buffer.data();
 	}
 
-	uint32_t getMask() const { return bufferSize; }
+	uint32_t getBufferSize() const { return bufferSize; }
 
 	std::atomic<ma_uint32> writeIndex{0};
 	std::atomic<ma_uint32> readIndex{0};

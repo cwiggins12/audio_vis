@@ -108,7 +108,7 @@ public:
 		return buffer.readIndex.load();
 	}
 
-	uint32_t getBufferMask() { return buffer.getMask(); }
+	uint32_t getBufferSize() { return buffer.getBufferSize(); }
 
 	uint32_t getAccumulatedFrames() {
 		return framesAccumulated.load();

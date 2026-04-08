@@ -167,7 +167,7 @@ private:
         //config peak/RMS smooth array
         float prMin = newSpec.isPeakRMSdB ? MIN_DB : 0.0f;
         if (newSpec.usePeakRMSSmoothing) {
-            gpuPeakRMS.reset(frameRate, 1.0f, newSpec.peakRMSAtk, newSpec.peakRMSAtk,
+            gpuPeakRMS.reset(frameRate, 1.0f, newSpec.peakRMSAtk, newSpec.peakRMSRls,
                              peakRMSSize, prMin);
         }
         else {

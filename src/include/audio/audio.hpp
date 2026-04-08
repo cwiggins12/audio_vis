@@ -68,7 +68,8 @@ public:
         }
         else {
             float* buf = capture.getRawBufferPointer();
-            pr.getMeasurementsFromRingBuffer(buf, fftSize, start, channels);
+            pr.getMeasurementsFromRingBuffer(buf, fftSize, start,
+                                             channels, capture.getBufferSize());
         }
         fft->runFFT();
         capture.setReadIndexForwardByFrames(hopSize);

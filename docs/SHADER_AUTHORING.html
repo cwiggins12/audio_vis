@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>audio_vis — Shader Authoring Guide</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:system-ui,sans-serif; font-size:17px; line-height:1.75; color:#ccc; background:#111; padding:40px; max-width:960px; margin:0 auto; }
+  h1 { font-size:32px; color:#eee; margin-bottom:4px; }
+  h1 span { color:#4ec9b0; }
+  .sub { color:#777; margin-bottom:48px; padding-bottom:24px; border-bottom:1px solid #282828; }
+  h2 { font-size:24px; color:#eee; margin:48px 0 16px; padding-bottom:6px; border-bottom:1px solid #282828; }
+  h3 { font-size:19px; color:#ddd; margin:28px 0 10px; }
+  h4 { font-size:16px; color:#4ec9b0; font-family:monospace; margin:22px 0 8px; }
+  p { margin-bottom:14px; }
+  strong { color:#eee; }
+  a { color:#6bbbf7; }
+  code { font-family:monospace; font-size:15px; background:#1a1a1a; color:#4ec9b0; padding:2px 5px; border-radius:3px; }
+  pre { background:#1a1a1a; border:1px solid #282828; border-radius:5px; padding:14px 18px; overflow-x:auto; margin:12px 0 16px; line-height:1.6; }
+  pre code { background:none; padding:0; color:#ccc; }
+  .kw { color:#c084fc; } .fn { color:#6bbbf7; } .num { color:#f59e0b; } .cm { color:#555; }
+  table { width:100%; border-collapse:collapse; margin:12px 0 18px; }
+  th { background:#181818; color:#ddd; text-align:left; padding:9px 12px; border:1px solid #282828; font-size:15px; }
+  td { padding:8px 12px; border:1px solid #282828; }
+  td code { font-size:14px; }
+  .note,.warn { border-radius:5px; padding:12px 16px; margin:14px 0; }
+  .note { background:rgba(78,201,176,0.06); border-left:3px solid #4ec9b0; }
+  .warn { background:rgba(245,158,11,0.06); border-left:3px solid #f59e0b; }
+  .checklist { list-style:none; padding:0; }
+  .checklist li { padding:5px 0 5px 28px; position:relative; }
+  .checklist li::before { content:'-'; position:absolute; left:2px; color:#4ec9b0; }
+  kbd { font-family:monospace; font-size:14px; background:#1a1a1a; border:1px solid #282828; border-radius:3px; padding:2px 8px; color:#eee; }
+  .keys { display:grid; grid-template-columns:auto 1fr; gap:6px 16px; align-items:center; margin:12px 0; }
+</style>
+</head>
+<body>
+
+<h1>Shader <span>Authoring</span> Guide</h1>
+<p class="sub">Everything you need to write shaders for the audio_vis engine.</p>
+
+<h2 id="getting-started">Getting Started</h2>
+<p>Each shader lives in its own subdirectory inside the <code>shaders/</code> folder. A shader needs at minimum one file named "frag.glsl" as your fragment shader. If any audio or feedback buffer configuration different than the defaults is needed, a file named "spec.cfg" will be used to insert configurations. The directory and frag.glsl must be made prior to the engine opening for it to be recognized (for now). The title window will display the name of the subdirectory containing the "frag.glsl" and optional "spec.cfg" when the shader is selected. </p>
+
+<p>The engine automatically prepends a header to your <code>frag.glsl</code> that provides uniforms, SSBOs, helper functions, and a built-in bitmap font. You only need to write a <code>void main()</code> and set <code>FragColor</code>. A copy of the header can be found in the same directory as this document if you would like to look at it directly.</p>
+
+<p>Shaders and specs <strong>hot-reload on save</strong>. Edit either file while the program is running and the engine will detect the change and reload automatically. If your shader has a compile error or your spec has a parse error, the engine will display an error message on screen pointing you to the erroneous file, give you more detail in the log.txt in the audio_vis root directory, and restore your working version on the next successful save of an error-free shader.</p>
+
+<h2 id="minimal-example">Minimal Example</h2>
+<pre><code><span class="kw">void</span> <span class="fn">main</span>() {
+    <span class="kw">vec2</span> uv = <span class="fn">uvBottomLeft</span>();
+    <span class="kw">int</span> bin = <span class="kw">int</span>(uv.x * <span class="kw">float</span>(fftArrSize));
+    <span class="kw">float</span> val = fftData[<span class="fn">clamp</span>(bin, <span class="num">0</span>, fftArrSize - <span class="num">1</span>)];
+    FragColor = <span class="kw">vec4</span>(<span class="kw">vec3</span>(val), <span class="num">1.0</span>);
+}</code></pre>
+<p>This draws the FFT output as a horizontal brightness gradient. No <code>spec.cfg</code> needed — defaults will be used.</p>
+
+<h2 id="controls">Controls</h2>
+<div class="keys">
+  <kbd>←</kbd> <span>Previous shader preset</span>
+  <kbd>→</kbd> <span>Next shader preset</span>
+  <kbd>↑</kbd> <span>Toggle fullscreen</span>
+  <kbd>↓</kbd> <span>Random shader</span>
+  <kbd>Esc</kbd> <span>Quit</span>
+</div>
+<p>Shaders and specs hot-reload on save within your text editor. There is no need to restart or press any key.</p>
+
+<h2 id="uniforms">Uniforms</h2>
+<p>These are available in every shader automatically.</p>
+<table>
+  <tr><th>Uniform</th><th>Type</th><th>Description</th></tr>
+  <tr><td><code>time</code></td><td>float</td><td>Seconds since program start</td></tr>
+  <tr><td><code>W</code></td><td>float</td><td>Framebuffer width in pixels</td></tr>
+  <tr><td><code>H</code></td><td>float</td><td>Framebuffer height in pixels</td></tr>
+  <tr><td><code>fftSize</code></td><td>int</td><td>Amount of samples used in FFT window</td></tr>
+  <tr><td><code>fftBinAmt</code></td><td>int</td><td>Raw FFT bin count (fftSize / 2 + 1)</td></tr>
+  <tr><td><code>fftArrSize</code></td><td>int</td><td>Size of the <code>fftData[]</code> array sent to the GPU</td></tr>
+  <tr><td><code>newAudioWindow</code></td><td>int</td><td>1 on frames with new audio analysis, 0 otherwise</td></tr>
+  <tr><td><code>numChannels</code></td><td>int</td><td>Number of audio channels from capture device</td></tr>
+  <tr><td><code>displayHz</code></td><td>int</td><td>Monitor refresh rate</td></tr>
+  <tr><td><code>sampleRate</code></td><td>int</td><td>Audio device sample rate in Hz</td></tr>
+</table>
+<div class="note"><strong>Important:</strong> <code>fftArrSize</code> is the length you should use when indexing into <code>fftData[]</code> and <code>fftHolds[]</code>. It reflects the actual output size after spec configuration. If you hardcode bin counts, your shader won't stay in sync with the spec.</div>
+
+<h2 id="ssbos">SSBOs and Their Formatting</h2>
+
+<h3><code>peakRmsData[]</code>: binding 0, readonly</h3>
+<p>Peak and RMS measurements. Layout depends on <code>isPeakRMSMono</code>:</p>
+<p><strong>Stereo</strong> (default): <code>[L_peak, L_rms, R_peak, R_rms, ...]</code>: 2 floats per channel</p>
+<p><strong>Mono</strong> (<code>isPeakRMSMono = true</code>): <code>[peak, rms]</code>: 2 floats total</p>
+<p>Values are in dB (default) or linear magnitude depending on <code>isPeakRMSdB</code>.</p>
+
+<h3><code>fftData[]</code>: binding 1, readonly</h3>
+<p>FFT output array. Length is <code>fftArrSize</code>. Value range depends on spec settings:</p>
+<table>
+  <tr><th>Measurement</th><th>Range</th></tr>
+  <tr><td><code>DECIBELS</code> (default)</td><td>-96.0 to 0.0 dB</td></tr>
+  <tr><td><code>MAGNITUDE</code></td><td>0.0 to ~1.0</td></tr>
+  <tr><td><code>POWER</code></td><td>0.0 to ~1.0 (squared magnitude)</td></tr>
+</table>
+
+<h3><code>prHolds[]</code>: binding 2, readonly</h3>
+<p>Peak hold values for peak/RMS data. Same layout, formatting, and value measurements as <code>peakRmsData[]</code>. Only populated when <code>getsPeakRMSHolds = true</code>.</p>
+
+<h3><code>fftHolds[]</code>: binding 3, readonly</h3>
+<p>Peak hold values for FFT data. Same length, formatting, and value measurements as <code>fftData[]</code>. Only populated when <code>getsFFTHolds = true</code>.</p>
+
+<h3><code>feedbackIn[]</code>: binding 4, readonly</h3>
+<p>Previous frame's feedback buffer. Only available when <code>feedbackBufferSize &gt; 0</code>. Use for ping-pong effects, spectrograms, trails, particle systems, etc.</p>
+
+<h3><code>feedbackOut[]</code>: binding 5, writeonly</h3>
+<p>Write your feedback data here. Whatever you write appears in <code>feedbackIn[]</code> on the next frame. The engine handles all double-buffering internally.</p>
+
+<h2 id="coordinates">Coordinate Helpers</h2>
+
+<h3>UV Space (0 to 1)</h3>
+<table>
+  <tr><th>Function</th><th>Origin</th><th>Y Direction</th><th>Use Case</th></tr>
+  <tr><td><code>uvBottomLeft()</code></td><td>bottom-left</td><td>up</td><td>GL/math convention</td></tr>
+  <tr><td><code>uvTopLeft()</code></td><td>top-left</td><td>down</td><td>image/screen convention</td></tr>
+</table>
+
+<h3>NDC Space (-1 to 1)</h3>
+<table>
+  <tr><th>Function</th><th>Origin</th><th>Y Direction</th><th>Use Case</th></tr>
+  <tr><td><code>ndcBottomLeft()</code></td><td>center</td><td>up</td><td>general purpose</td></tr>
+  <tr><td><code>ndcTopLeft()</code></td><td>center</td><td>down</td><td>screen-style centered coords</td></tr>
+  <tr><td><code>ndcBottomLeftAR()</code></td><td>center</td><td>up</td><td>circles, SDFs, anything geometric</td></tr>
+  <tr><td><code>ndcTopLeftAR()</code></td><td>center</td><td>down</td><td>same, with Y-down convention</td></tr>
+</table>
+<p>The <strong>AR</strong> (aspect ratio) variants correct for non-square viewports. Use these whenever you need circles to look like circles, not ellipses.</p>
+
+<h3>Pixel Space</h3>
+<table>
+  <tr><th>Function</th><th>Returns</th></tr>
+  <tr><td><code>toPx()</code></td><td>pixel coords, (0,0) at bottom-left</td></tr>
+  <tr><td><code>toCenter()</code></td><td>pixel coords, (0,0) at screen center</td></tr>
+</table>
+
+<h2 id="text">Text Rendering</h2>
+<p>A built-in CP437 bitmap font is available for on-screen text.</p>
+<pre><code><span class="cm">// Render a single character</span>
+<span class="kw">float</span> <span class="fn">renderChar</span>(<span class="kw">int</span> charCode, <span class="kw">vec2</span> origin, <span class="kw">float</span> size, <span class="kw">vec2</span> fragPx);
+
+<span class="cm">// Render a string from an int array</span>
+<span class="kw">float</span> <span class="fn">renderText</span>(<span class="kw">int</span>[<span class="num">128</span>] chars, <span class="kw">int</span> len, <span class="kw">vec2</span> origin, <span class="kw">float</span> size, <span class="kw">vec2</span> fragPx, <span class="kw">int</span> offset);</code></pre>
+<p>Both return <code>1.0</code> where the glyph is drawn and <code>0.0</code> elsewhere. Use with <code>mix()</code> to color the text:</p>
+<pre><code><span class="kw">vec2</span> px = <span class="fn">toPx</span>();
+<span class="kw">int</span> chars[<span class="num">128</span>];
+chars[<span class="num">0</span>] = <span class="num">72</span>; <span class="cm">// 'H'</span>
+chars[<span class="num">1</span>] = <span class="num">73</span>; <span class="cm">// 'I'</span>
+<span class="kw">float</span> text = <span class="fn">renderText</span>(chars, <span class="num">2</span>, <span class="kw">vec2</span>(<span class="num">10.0</span>, <span class="num">10.0</span>), <span class="num">32.0</span>, px, <span class="num">0</span>);
+FragColor = <span class="fn">mix</span>(backgroundColor, <span class="kw">vec4</span>(<span class="num">1.0</span>), text);</code></pre>
+<p>Character codes are standard ASCII (32–126).</p>
+
+<h2 id="textures-shader">Textures</h2>
+<p>Load image files as textures by declaring them in <code>spec.cfg</code> and your shader.</p>
+<p>In <code>spec.cfg</code>:</p>
+<pre><code>texture.&lt;uniformName&gt; = &lt;filename&gt;</code></pre>
+<p>Declare one per line. The uniform name becomes a <code>sampler2D</code> in your shader. The file must be in the same directory as <code>frag.glsl</code>. Path traversal (e.g. <code>../../other.png</code>) is rejected for security. Do not place your textures in a subdirectory.</p>
+<p>In <code>frag.glsl</code>:</p>
+<pre><code><span class="kw">uniform</span> sampler2D &lt;uniformName&gt;</code></pre>
+<p>This 2 line pattern will ensure that your texture properly goes from a file in your shader's directory to the sampler2D in your fragment shader</p>
+<p>Supported formats: PNG, JPG, BMP, TGA, GIF.</p>
+
+<h2 id="fft-output">FFT Output Customization options</h2>
+<p>The spec file uses a simple <code>key = value</code> format. Lines starting with <code>//</code> are comments. All fields are optional. Defaults are in the table below. Each key has its own section below to explain each of the available options.</p>
+<table>
+  <tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr>
+  <tr><td><code>fftOutputMode</code></td><td>enum</td><td><code>CUSTOM_SIZE</code></td><td>How FFT data is shaped before sending to the GPU</td></tr>
+  <tr><td><code>customFFTSize</code></td><td>expr</td><td><code>1000</code></td><td>Number of output bins when mode is CUSTOM_SIZE. Supports expressions (explained below).</td></tr>
+  <tr><td><code>customFFTSizeScalesWithWindow</code></td><td>enum</td><td><code>NO_SCALE</code></td><td>Auto-scale custom size on window resize</td></tr>
+  <tr><td><code>highMode</code></td><td>enum</td><td><code>RMS</code></td><td>How to collate bins when multiple map to one output index</td></tr>
+  <tr><td><code>lowMode</code></td><td>enum</td><td><code>GAUSSIAN</code></td><td>How to interpolate when output indices are sparser than bins</td></tr>
+  <tr><td><code>fftOutputMeasurement</code></td><td>enum</td><td><code>DECIBELS</code></td><td>Output value format</td></tr>
+  <tr><td><code>perceptualSlopeDegrees</code></td><td>float</td><td><code>3.0</code></td><td>Frequency-dependent gain tilt</td></tr>
+  <tr><td><code>isFFTHannWindowed</code></td><td>bool</td><td><code>true</code></td><td>Apply Hann window with normalization before FFT</td></tr>
+</table>
+
+<h4>fftOutputMode</h4>
+<table>
+  <tr><th>Value</th><th>Description</th></tr>
+  <tr><td><code>FULL_BIN</code></td><td>Send all fftSize/2+1 bins directly. No interpolation or collation.</td></tr>
+  <tr><td><code>AUDIBLE_BIN</code></td><td>Send only bins in the 20Hz-20kHz range.</td></tr>
+  <tr><td><code>CUSTOM_SIZE</code></td><td>Resample to exactly <code>customFFTSize</code> bins using log-frequency mapping with the chosen interpolation and collation strategies. This is the option to use to avoid any of the log/linear spacing math that many run into when displaying the fftData array.</td></tr>
+</table>
+
+<h4>lowMode: interpolation for sparse bins</h4>
+<table>
+  <tr><th>Value</th><th>Description</th></tr>
+  <tr><td><code>LINEAR</code></td><td>Simple linear interpolation between neighboring bins</td></tr>
+  <tr><td><code>PCHIP</code></td><td>Piecewise Cubic Hermite: monotone, no overshoot</td></tr>
+  <tr><td><code>LANCZOS</code></td><td>Lanczos kernel (4-lobe): sharp but can ring</td></tr>
+  <tr><td><code>GAUSSIAN</code></td><td>Gaussian-weighted average: smooth and natural, but lifts around peaks (default)</td></tr>
+  <tr><td><code>CUBIC_B</code></td><td>Cubic B-spline: very smooth, slightly blurs peaks</td></tr>
+  <tr><td><code>AKIMA</code></td><td>Akima spline: local, resistant to outliers</td></tr>
+</table>
+
+<h4>highMode: collation for dense bins</h4>
+<table>
+  <tr><th>Value</th><th>Description</th></tr>
+  <tr><td><code>RMS</code></td><td>Root mean square of bins in each output range (default)</td></tr>
+  <tr><td><code>PEAK</code></td><td>Maximum value in each range</td></tr>
+  <tr><td><code>POWER_MEAN</code></td><td>Power-weighted mean: emphasizes louder components</td></tr>
+</table>
+
+<h4>fftOutputMeasurement</h4>
+<table>
+  <tr><th>Value</th><th>Description</th></tr>
+  <tr><td><code>POWER</code></td><td>Squared magnitude, 0.0 to ~1.0</td></tr>
+  <tr><td><code>MAGNITUDE</code></td><td>Linear magnitude, 0.0 to ~1.0</td></tr>
+  <tr><td><code>DECIBELS</code></td><td>Decibel scale, -96.0 to 0.0 dB (default)</td></tr>
+</table>
+<div class="note"><strong>Note:</strong> When using <code>CUSTOM_SIZE</code> mode, the engine internally processes in dB then converts to the requested measurement. <code>FULL_BIN</code> and <code>AUDIBLE_BIN</code> output directly in the requested measurement.</div>
+
+<h4>customFFTSizeScalesWithWindow</h4>
+<table>
+  <tr><th>Value</th><th>Description</th></tr>
+  <tr><td><code>NO_SCALE</code></td><td>Size is fixed (default)</td></tr>
+  <tr><td><code>WIDTH_SCALE</code></td><td>Scales proportionally to window width changes</td></tr>
+  <tr><td><code>HEIGHT_SCALE</code></td><td>Scales proportionally to window height changes</td></tr>
+  <tr><td><code>RESOLUTION_SCALE</code></td><td>Scales proportionally to total pixel count changes</td></tr>
+</table>
+<div class="warn"><strong>Warning:</strong> Using window scaling alongside a <code>WINDOW_WIDTH</code> or <code>WINDOW_HEIGHT</code> variable in your <code>customFFTSize</code> will cause double scaling on resize.</div>
+
+<h4>perceptualSlopeDegrees</h4>
+<p>Applies a frequency-dependent gain tilt to the FFT output. Common values:</p>
+<table>
+  <tr><th>Value</th><th>Effect</th></tr>
+  <tr><td><code>0.0</code></td><td>Flat: white noise reference, analytical displays</td></tr>
+  <tr><td><code>3.0</code></td><td>Pink noise reference: good general-purpose starting point</td></tr>
+  <tr><td><code>4.5</code></td><td>Music-focused: extra high-end boost, popularized by FabFilter Pro-Q</td></tr>
+</table>
+
+<h2>FFT Smoothing</h2>
+<table>
+  <tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr>
+  <tr><td><code>useFFTSmoothing</code></td><td>bool</td><td><code>true</code></td><td>Enable temporal smoothing on FFT output</td></tr>
+  <tr><td><code>fftAtk</code></td><td>float</td><td><code>0.05</code></td><td>Attack time in seconds (how fast values rise)</td></tr>
+  <tr><td><code>fftRls</code></td><td>float</td><td><code>0.3</code></td><td>Release time in seconds (how fast values fall)</td></tr>
+</table>
+<p>Smoothing is <strong>asymmetric</strong>. You can have a fast attack to catch transients and a slow release for smooth decay. Values are converted to frame counts based on your display refresh rate. Setting either to 0.0 or below disables smoothing for that direction even if the bool is true.</p>
+
+<h2 id="fft-holds">FFT Hold Customization Options</h2>
+<table>
+  <tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr>
+  <tr><td><code>getsFFTHolds</code></td><td>bool</td><td><code>true</code></td><td>Enable peak-hold tracking for FFT data</td></tr>
+  <tr><td><code>fftHoldTime</code></td><td>float</td><td><code>1.0</code></td><td>Seconds to hold a peak before it starts dropping</td></tr>
+  <tr><td><code>fftHoldScalar</code></td><td>float</td><td><code>0.975</code></td><td>Exponential decay multiplier after hold time expires</td></tr>
+</table>
+<p>When enabled, <code>fftHolds[]</code> is populated with the same size as <code>fftData[]</code>. Each element tracks the highest value seen at that bin, holds it for <code>fftHoldTime</code> seconds, then decays exponentially by <code>fftHoldScalar</code> per frame until it either hits the minimum value or a new FFT value at its point is larger than the scaled value, which will cause the FFT value to be the new hold.</p>
+
+<h2 id="peak-rms">Peak / RMS Customization Options</h2>
+<table>
+  <tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr>
+  <tr><td><code>isPeakRMSMono</code></td><td>bool</td><td><code>false</code></td><td>Mono-sum channels before measuring</td></tr>
+  <tr><td><code>isPeakRMSdB</code></td><td>bool</td><td><code>true</code></td><td>Output in dB (true) or linear magnitude (false)</td></tr>
+  <tr><td><code>usePeakRMSSmoothing</code></td><td>bool</td><td><code>true</code></td><td>Enable temporal smoothing</td></tr>
+  <tr><td><code>peakRMSAtk</code></td><td>float</td><td><code>0.05</code></td><td>Attack time in seconds</td></tr>
+  <tr><td><code>peakRMSRls</code></td><td>float</td><td><code>0.3</code></td><td>Release time in seconds</td></tr>
+  <tr><td><code>getsPeakRMSHolds</code></td><td>bool</td><td><code>true</code></td><td>Enable peak-hold tracking</td></tr>
+  <tr><td><code>peakRMSHoldTime</code></td><td>float</td><td><code>1.0</code></td><td>Hold time in seconds</td></tr>
+  <tr><td><code>peakRMSHoldScalar</code></td><td>float</td><td><code>0.975</code></td><td>Decay multiplier after hold expires</td></tr>
+</table>
+<p>Since the peak values follow the conventions of the FFT values, I'll spare you from having to scroll past more explanations. :)</p>
+
+<h4>peakRmsData layout</h4>
+<p><strong>Stereo</strong> (default, <code>isPeakRMSMono = false</code>):</p>
+<pre><code>Index <span class="num">0</span>: Left Peak
+Index <span class="num">1</span>: Left RMS
+Index <span class="num">2</span>: Right Peak
+Index <span class="num">3</span>: Right RMS
+<span class="cm">... (2 per additional channel)</span></code></pre>
+<p><strong>Mono</strong> (<code>isPeakRMSMono = true</code>):</p>
+<pre><code>Index <span class="num">0</span>: Peak (all channels summed)
+Index <span class="num">1</span>: RMS  (all channels summed)</code></pre>
+
+<h2 id="pr-holds">Peak/RMS Hold Customization Options</h2>
+<table>
+  <tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr>
+  <tr><td><code>getsPeakRMSHolds</code></td><td>bool</td><td><code>true</code></td><td>Enable peak-hold tracking for peak and RMS data</td></tr>
+  <tr><td><code>peakRMSHoldTime</code></td><td>float</td><td><code>1.0</code></td><td>Seconds to hold a peak before it starts dropping</td></tr>
+  <tr><td><code>peakRMSHoldScalar</code></td><td>float</td><td><code>0.975</code></td><td>Exponential decay multiplier after hold time expires</td></tr>
+</table>
+<p><code>prHolds[]</code> follows the same layout as <code>peakRMSData[]</code> and follows all the same conventions as <code>fftHolds[]</code>.</p>
+
+<h2 id="feedback">Feedback Buffer</h2>
+<table>
+  <tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr>
+  <tr><td><code>feedbackBufferSize</code></td><td>expr</td><td><code>0</code></td><td>Size in floats. 0 = disabled. Supports expressions.</td></tr>
+  <tr><td><code>feedbackBufferScalesWithWindow</code></td><td>enum</td><td><code>NO_SCALE</code></td><td>Auto-scale on resize</td></tr>
+  <tr><td><code>feedbackBufferInitValue</code></td><td>float</td><td><code>0.0</code></td><td>Initial value for all elements on load/swap</td></tr>
+</table>
+<p>The feedback system provides two SSBOs: <code>feedbackIn[]</code> (read previous frame) and <code>feedbackOut[]</code> (write this frame). The engine ping-pongs them automatically each frame.</p>
+<p>Same expression variables and scaling modes as <code>customFFTSize</code>. Same double-scaling warning applies.</p>
+<div class="note"><strong>Size limit:</strong> Clamped to the smaller of 33,177,600 floats (the size of a 4K framebuffer) or your GPU's reported <code>GL_MAX_SHADER_STORAGE_BLOCK_SIZE</code>. At 4 bytes per float, 33M floats ≈ 126 MB.</div>
+<p>Common patterns:</p>
+<pre><code><span class="cm">// Per-pixel RGBA feedback (full framebuffer)</span>
+feedbackBufferSize = WINDOW_HEIGHT * WINDOW_WIDTH * <span class="num">4</span>
+
+<span class="cm">// Scrolling spectrogram (256 mel bins, ~5 seconds)</span>
+feedbackBufferSize = <span class="num">256</span> * <span class="num">5</span> * SAMPLE_RATE * <span class="num">4</span> / FFT_SIZE
+
+<span class="cm">// Fixed-size system</span>
+feedbackBufferSize = <span class="num">4096</span></code></pre>
+
+<h2 id="expressions">Expressions</h2>
+<p><code>customFFTSize</code> and <code>feedbackBufferSize</code> accept math expressions using these variables:</p>
+<table>
+  <tr><th>Variable</th><th>Value</th></tr>
+  <tr><td><code>WINDOW_WIDTH</code></td><td>Current framebuffer width in pixels</td></tr>
+  <tr><td><code>WINDOW_HEIGHT</code></td><td>Current framebuffer height in pixels</td></tr>
+  <tr><td><code>DISPLAY_HZ</code></td><td>Monitor refresh rate</td></tr>
+  <tr><td><code>NUM_CHANNELS</code></td><td>Audio channel count</td></tr>
+  <tr><td><code>SAMPLE_RATE</code></td><td>Audio sample rate</td></tr>
+  <tr><td><code>FFT_SIZE</code></td><td>Raw FFT window size</td></tr>
+  <tr><td><code>FFT_BIN_AMT</code></td><td>Raw bin count (FFT_SIZE / 2 + 1)</td></tr>
+</table>
+<p>Supported operators: <code>+</code>, <code>-</code>, <code>*</code>, <code>/</code>, <code>()</code>. Result is truncated to an unsigned integer (no errors or truncation will happen within the expression unless it at any point surpasses the size of type Double). Subtraction clamps to 0 if the right side is larger. Any errors in expressions will hard set the size to 0 before relaying back to you where the error occured on screen in the error shader or in more detail in the log.txt in the audio_vis root directory like any other error will.</p>
+<p>Examples:</p>
+<pre><code>customFFTSize = <span class="num">512</span>
+customFFTSize = WINDOW_WIDTH
+customFFTSize = WINDOW_WIDTH * <span class="num">1000</span> / <span class="num">1280</span>
+feedbackBufferSize = (WINDOW_HEIGHT * WINDOW_WIDTH) * <span class="num">4</span></code></pre>
+
+<h2 id="tips">Tips</h2>
+
+<h4>Shader not showing up in engine?</h4>
+<p>Make sure to have a shaders directory in the same location as your executable, a subdirectory in shaders with the name you want, and at minimum a frag.glsl within that subdirectory before the program runs. From there, any changes you make, will either show your shader or an error message showing you where the issue is</p>
+
+<h4>Audio output not showing up in your shaders?</h4>
+<p>Check the Audio Troubleshooting section at the bottom for some suggestions regardless of which audio backend/distro you may be using. Sorry, if you are only willing to run ALSA, audio_vis will need Pipewire or Pulse Audio :(.</p>
+
+<h4>dB mapping helper</h4>
+<p>Most shaders working in dB mode will want a normalization function:</p>
+<pre><code><span class="kw">float</span> <span class="fn">dbToT</span>(<span class="kw">float</span> db) {
+    <span class="kw">return</span> <span class="fn">clamp</span>((db - DB_MIN) / (DB_MAX - DB_MIN), <span class="num">0.0</span>, <span class="num">1.0</span>);
+}</code></pre>
+<p>A range of -80.0 to 0.0 works well for most visualizations. Widen to -96.0 for quieter material, but there may be some artifacts from temporal smoothing around the noise floor.</p>
+
+<h4>Aspect ratio</h4>
+<p>Use <code>ndcBottomLeftAR()</code> or <code>ndcTopLeftAR()</code> whenever you're drawing circles, regular polygons, or SDFs. The non-AR versions will stretch on non-square windows.</p>
+
+<h4>Smoothing tradeoffs</h4>
+<p>Temporal smoothing at some value is generally recommended for most visualizations to reduce the artifacts that come from dramatic changes between audio windows. Fast attack + slow release (e.g. <code>fftAtk = 0.05</code>, <code>fftRls = 0.3</code>) gives reactive-but-smooth visuals, is set in the default setting, and is generally the recommended approach for more musical/artistic visualizers. Setting both to 0 or below gives raw unsmoothed data — useful for spectrograms and analytical displays. Matching attack and release gives symmetrical decay.</p>
+
+<h4>Perceptual slope</h4>
+<p>If your visualizer looks like the bass is always dominant and the highs are invisible, increase <code>perceptualSlopeDegrees</code>. 3.0 is a good starting point, 4.5 gives extra high-end boost. Set to 0.0 for flat/analytical displays.</p>
+
+<h4>newAudioWindow</h4>
+<p>Audio analysis doesn't run every display frame. It is dependent on sample rate and FFT hop size. Check <code>newAudioWindow != 0</code> to only do heavy feedback writes when there's actually new data, and just read/pass-through on other frames.</p>
+
+<h2 id="checklist">Shader Author Checklist</h2>
+<ul class="checklist">
+  <li>"shaders" directory and audio_vis executable is still within "audio_vis" directory</li>
+  <li>Create and name a new directory within the "shaders" directory</li>
+  <li>New directory contains <code>frag.glsl</code> with the minimal working code</li>
+  <li><code>frag.glsl</code> compiles without errors (full glsl error log prints to log.txt)</li>
+  <li><code>spec.cfg</code> parses without errors (spec errors/warnings will also print to log.txt)</li>
+  <li>Avoid hardcoded bin counts. Stick to using <code>fftArrSize</code> for FFT indexing</li>
+  <li>Feedback buffer reads use <code>feedbackIn[]</code>, writes use <code>feedbackOut[]</code></li>
+  <li>If necessary, feedback shaders pass through data on non-audio frames (<code>newAudioWindow == 0</code>)</li>
+  <li>Scales properly with window sizes and fullscreen mode</li>
+  <li>Texture files are directly in the shader directory (no path traversal)</li>
+  <li>Expression variables match scaling mode (be careful about double-scaling)</li>
+</ul>
+<p></p>
+<p>I hope you enjoy making some shaders that will surely be cooler than mine with this. I've had a lot of fun with it, and I'd love to see what other folks make with it. Reach out with what you've made or if you have any issues to me at the email on my gitHub. I'd love to hear from anyone to know about more fixes needed or to just see some cool shaders!</p>
+
+<p></p>
+<p></p>
+<h2 id="audio-troubleshooting">Audio Loopback Troubleshooting</h2>
+
+<p>If the program launches but doesn't react to audio, you likely don't have a monitor/loopback capture device available. The engine searches for a capture device with "monitor" or "Monitor" in its name.</p>
+
+<h4>Check your audio backend</h4>
+<pre><code># See which audio server is running
+pactl info | grep "Server Name"</code></pre>
+<p>This will show something like "PulseAudio" or "PipeWire (on PulseAudio)".</p>
+
+<h4>Check for a monitor device</h4>
+<pre><code>pactl list sources short</code></pre>
+<p>Look for a source with "monitor" in the name, like:</p>
+<pre><code>alsa_output.pci-0000_00_1f.3.analog-stereo.monitor</code></pre>
+<p>If you see one, the engine should find it automatically. If not, follow the steps for your backend below.</p>
+
+<h4>PipeWire (most modern distros)</h4>
+<p>PipeWire usually creates monitor sources automatically. If yours is missing:</p>
+<pre><code># Make sure the PipeWire PulseAudio compatibility layer is installed
+sudo apt install pipewire-pulse
+
+# Restart PipeWire
+systemctl --user restart pipewire pipewire-pulse</code></pre>
+<p>Then run <code>pactl list sources short</code> again to check.</p>
+
+<h4>PulseAudio</h4>
+<p>PulseAudio creates monitor sources for each sink by default. If yours is missing, check that your sink exists:</p>
+<pre><code>pactl list sinks short</code></pre>
+<p>If you see a sink listed, its monitor should exist. Try unloading and reloading the sink:</p>
+<pre><code># List loaded modules
+pactl list modules short | grep detect
+
+# Reload device detection
+pactl unload-module module-udev-detect
+pactl load-module module-udev-detect</code></pre>
+<p>Then check <code>pactl list sources short</code> again.</p>
+
+<h4>ALSA only (no PulseAudio or PipeWire)</h4>
+<p>The engine requires PulseAudio or PipeWire. Raw ALSA does not provide monitor/loopback devices by default. Install one of:</p>
+<pre><code># Option 1: PipeWire (recommended)
+sudo apt install pipewire pipewire-pulse wireplumber
+
+# Option 2: PulseAudio
+sudo apt install pulseaudio</code></pre>
+<p>Reboot or start the service, then check for a monitor device with <code>pactl list sources short</code>.</p>
+</body>
+</html>

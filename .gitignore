@@ -1,7 +1,6 @@
 /build
 /.cache
 /unused
-/docs
 miniaudio.h
 stb_image.h
 stb_truetype.h
