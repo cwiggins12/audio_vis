@@ -13,9 +13,8 @@
  - Have 2 separate builds to allow for Linux and Windows users to not have to use GL ES. Def a lot of speed to gain from that on my end as well.
  - utility exes and a config.ini for device(audio & video) listing/choosing. maybe done through a dropdown menu of the audio_vis.exe?
  - timed shuffle mode (pressing a button opens a dialog box, user enters a time? or may want to wait to add until I have an application wide config in task 7)
- - look into a wayland fullscreen and window pos workaround, or if its necessary at all
  - More possible smoothing modes: Research for high end smoothing: precollation smoothing(super spency), weighted collation(wont do much without log bin grouping), log bin grouping with overlap(spency), or second smoothing pass on high end with the interp again
- - better sample rate changes(disallow resampling at any level and detect changes)(this would only be necessary or relevant for a user that needs the highest quality/speed, but is changing their hardware sample rate mid session. The analysis still works currently, but it analyzes resampled audio by either the OS internal audio processes(pipewire, pulse, winapi) or miniaudio in certain scenarios(alsa, certain windows configs))
+ - better sample rate/channel amount changes(disallow resampling at any level and detect changes)(this would only be necessary or relevant for a user that needs the highest quality/speed, but is changing their hardware sample rate mid session. The analysis still works currently, but it analyzes resampled audio by either the OS internal audio processes(pipewire, pulse, winapi) or miniaudio in certain scenarios(alsa, certain windows configs)), may require new plumbing in miniaudio
  - trim all but what is used from miniaudio.h to chill out the binary size
  - Allow for user defined uniforms that could be adjusted by midi, key input, or ui
  - pre-built widgets/api for the graphically challenged (meters, mel-bin, etc.)

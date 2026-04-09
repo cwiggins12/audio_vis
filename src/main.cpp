@@ -41,8 +41,9 @@ void doSwap(ShaderPreset* p, AudioSystem& a, GPUBuffers& g) {
                         p->spec.feedbackBufferSize * sizeof(float),
                         p->spec.feedbackBufferScalesWithWindow);
     r.fbInit = p->spec.feedbackBufferInitValue;
-    r.prHSize = (p->spec.getsPeakRMSHolds) ? r.prSize : 0;
-    r.fftHSize = (p->spec.getsFFTHolds) ? r.fftSize : 0;
+    r.prHSize = (p->spec.getPeakRMSHolds) ? r.prSize : 0;
+    r.fftHSize = (p->spec.getFFTHolds) ? r.fftSize : 0;
+    r.hopSize = (p->spec.getRawSamples) ? a.bridge.getHopSizeInBytes() : 0;
     g.swap(r);
 }
 

@@ -55,6 +55,10 @@ public:
         return peakRMSHolds.getValuePtr();
     }
 
+    const float* getRawSamplePtr() {
+        return audio.getSamplePtr();
+    }
+
     void resize(int w, int h) {
         currentWidth = w;
         currentHeight = h;
@@ -73,7 +77,7 @@ public:
         else {
             gpuFFT.reset(frameRate, 0.0f, 0.0f, 0.0f, gpuFFTSize, fftMin);
         }
-        if (currSpec.getsFFTHolds) {
+        if (currSpec.getFFTHolds) {
             fftHolds.reset(frameRate, currSpec.fftHoldTime, currSpec.fftHoldScalar,
                            isFFTdB, gpuFFTSize);
         }
@@ -98,6 +102,10 @@ public:
 
     size_t getPeakRMSGPUSizeInBytes() {
         return getPeakRMSGPUSize() * sizeof(float);
+    }
+
+    size_t getHopSizeInBytes() {
+        return hopSize * sizeof(float);
     }
 
     size_t getValFromHeightScalar(size_t size) {
@@ -132,7 +140,7 @@ public:
                 prPtr[i] = gainToDB(prPtr[i]);
             }
         }
-        if (currSpec.getsPeakRMSHolds) {
+        if (currSpec.getPeakRMSHolds) {
             peakRMSHolds.compareValsToArray(prPtr);
         }
         gpuPeakRMS.setAllTargetsWithPtr(prPtr);
@@ -144,7 +152,7 @@ public:
             case 2: customSizeFFTPlacement();   break;
             default: fullBinPlacement();        break;
         }
-        if (currSpec.getsFFTHolds) {
+        if (currSpec.getFFTHolds) {
             fftHolds.compareValsToArray(gpuFFT.getCurrents());
         }
     }
@@ -156,7 +164,7 @@ private:
         fftSize = audio.getFFTSize();
         //config peak/RMS hold array
         uint32_t peakRMSSize = (newSpec.isPeakRMSMono) ? 2 : channels * 2;
-        if (newSpec.getsPeakRMSHolds) {
+        if (newSpec.getPeakRMSHolds) {
             peakRMSHolds.reset(frameRate, newSpec.peakRMSHoldTime,
                                newSpec.peakRMSHoldScalar,
                                newSpec.isPeakRMSdB, peakRMSSize);
@@ -199,7 +207,7 @@ private:
         }
         const bool isFFTdB = newSpec.fftOutputMeasurement == DECIBELS;
         //config FFT holds
-        if (newSpec.getsFFTHolds) {
+        if (newSpec.getFFTHolds) {
             fftHolds.reset(frameRate, newSpec.fftHoldTime, newSpec.fftHoldScalar,
                            isFFTdB, gpuFFTSize);
         }

@@ -91,13 +91,17 @@ struct Spec {
     bool useFFTSmoothing = true;
     //want fft holds?
     //will give an array the same size as the fft ouput array(given in numBins)
-    bool getsFFTHolds = true;
+    bool getFFTHolds = true;
     //adds a windowing function with normalization to the fft output
     bool isFFTHannWindowed = true;
 
+    //if you want the samples from each hop for a waveform or something.
+    //Currently, mono sum of channels only. Same data fft gets, but just the new hop
+    bool getRawSamples = true;
+
     //these do the same as the fft options, but for peak and RMS values.
     bool usePeakRMSSmoothing = true;
-    bool getsPeakRMSHolds = true;
+    bool getPeakRMSHolds = true;
     //only able to do magnitude or db for these outputs, affects values and holds
     bool isPeakRMSdB = true;
     bool isPeakRMSMono = false;

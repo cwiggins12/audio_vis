@@ -5,7 +5,7 @@
 #include <unordered_map>
 #include <vector>
 #include <cstring>
-#include <iostream>
+//#include <iostream>
 #include "gpu/fragment_header.hpp"
 
 inline constexpr int UNIFORM_AMT = 13;
@@ -77,10 +77,12 @@ public:
         for (int i = 0; i < UNIFORM_AMT; ++i) {
             uniforms[i] = glGetUniformLocation(id, uniformNames[i].c_str());
         }
+        /*
         for (int i = 0; i < UNIFORM_AMT; ++i) {
             std::cout << "uniform[" << i << "] \"" << uniformNames[i]
                   << "\" = " << uniforms[i] << "\n";
         }
+        */
         glDeleteShader(vert);
         glDeleteShader(frag);
 

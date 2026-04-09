@@ -57,12 +57,14 @@ public:
 
     void useActiveShader(float t, AudioSystem& a, int h, int w,
                          bool newAudioWindow, int hz) {
+        /*
         if (active->shader.uniforms[U_FFT_SIZE] != -1) {
             std::cout << "setting fftSize loc=" << active->shader.uniforms[U_FFT_SIZE]
                       << " val=" << a.fftSize
                       << " sampleRate loc=" << active->shader.uniforms[U_SAMPLE_RATE]
                       << " val=" << a.sampleRate << "\n";
         }
+        */
         active->shader.use();
         glUniform1f(active->shader.uniforms[U_TIME], t);
         glUniform1i(active->shader.uniforms[U_FFT_SIZE], a.fftSize);

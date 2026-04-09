@@ -36,7 +36,7 @@ public:
                                     spec.isFFTHannWindowed, spec.fftOutputMeasurement,
                                     true, spec.perceptualSlopeDegrees);
         fft->initFFT(sampleRate);
-
+        rawSampleData.resize(spec.getRawSamples ? hopSize : 0);
         return true;
     }
 
@@ -60,11 +60,13 @@ public:
 
     void analyze() {
         uint32_t start = capture.getReadIndex();
-        capture.getMonoSummedWindow(fft->getInputBuffer(), fftSize, start);
-
+        float* temp = fft->getInputBuffer();
+        capture.getMonoSummedWindow(temp, fftSize, start);
+        if (getRawSamples) {
+            std::memcpy(rawSampleData.data(), temp + fftSize - hopSize, hopSize);
+        }
         if (isPeakRMSMono) {
-            float* buf = fft->getInputBuffer();
-            pr.getMeasurementsFromMonoSummedBlock(buf, fftSize);
+            pr.getMeasurementsFromMonoSummedBlock(temp, fftSize);
         }
         else {
             float* buf = capture.getRawBufferPointer();
@@ -80,6 +82,8 @@ public:
         isPeakRMSMono = spec.isPeakRMSMono;
         pr.clear();
         pr.resize(isPeakRMSMono, channels);
+        getRawSamples = spec.getRawSamples;
+        rawSampleData.resize(spec.getRawSamples ? hopSize : 0);
         //set this way to account for custom sized array being more efficient to
         //just get db then convert after all the ops it does
         FFTMeasurement m = (spec.fftOutputMode == CUSTOM_SIZE) ? DECIBELS :
@@ -117,6 +121,10 @@ public:
         return pr.getPtr();
     }
 
+    const float* getSamplePtr() {
+        return rawSampleData.data();
+    }
+
     void prClear() {
         pr.clear();
     }
@@ -136,7 +144,10 @@ private:
     uint32_t channels = 0;
     uint32_t sampleRate = 0;
 
+    std::vector<float> rawSampleData;
+
     bool firstWindowAccumulated = false;
     bool isPeakRMSMono = false;
+    bool getRawSamples = true;
 };
 
