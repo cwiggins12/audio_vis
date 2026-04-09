@@ -50,17 +50,7 @@ public:
         GLuint frag = compile(GL_FRAGMENT_SHADER, fragFinal.c_str(), fragErr);
 
         if (!vertErr.empty()) errorLog += "VERT: " + vertErr;
-        if (!fragErr.empty()) {
-            //skips shader index of error printout, subtracts header lines from line num
-            //to make the errors easier for users to find
-            try {
-                int line = std::stoi(fragErr.substr(2, 3)) - headerLines;
-                fragErr = std::to_string(line) + fragErr.substr(5);
-            } catch (...) {
-                //driver returned an unexpected error format. just use it as is
-            }
-            errorLog += "FRAG: " + fragErr;
-        }
+        if (!fragErr.empty()) errorLog += "FRAG: " + fragErr;
 
         id = glCreateProgram();
         glAttachShader(id, vert);
@@ -77,12 +67,7 @@ public:
         for (int i = 0; i < UNIFORM_AMT; ++i) {
             uniforms[i] = glGetUniformLocation(id, uniformNames[i].c_str());
         }
-        /*
-        for (int i = 0; i < UNIFORM_AMT; ++i) {
-            std::cout << "uniform[" << i << "] \"" << uniformNames[i]
-                  << "\" = " << uniforms[i] << "\n";
-        }
-        */
+
         glDeleteShader(vert);
         glDeleteShader(frag);
 

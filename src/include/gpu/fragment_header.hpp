@@ -205,5 +205,6 @@ vec2 toCenter() {
     vec2 uv = uvBottomLeft();
     return vec2((uv.x - 0.5) * W, (uv.y - 0.5) * H);
 }
+#line 1
 )";
 
