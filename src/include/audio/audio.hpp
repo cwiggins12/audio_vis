@@ -4,13 +4,14 @@
 #include "audio/peak_rms.hpp"
 #include "audio/fft.hpp"
 #include "config/spec.hpp"
+#include "config/globals.hpp"
 #include <cstdint>
 #include <memory>
 #include <iostream>
 
 class Audio {
 public:
-    Audio(uint32_t fft_o, uint32_t hops) : fftOrder(fft_o), hopAmt(hops) {}
+    Audio(Globals& g) : globals(g) {}
 	~Audio() {}
     //no moves, no copies
 	Audio(const Audio&) = delete;
@@ -19,24 +20,24 @@ public:
 	Audio& operator=(Audio&&) = delete;
 
     bool init(Spec& spec) {
-        fftSize = 1 << fftOrder;
-        hopSize = fftSize / hopAmt;
-        const int frameAmount = fftSize * 2;
+        globals.fftSize = 1 << spec.fftOrder;
+        globals.hopSize = globals.fftSize / spec.hopAmount;
+        const int frameAmount = globals.fftSize * 2;
 
         if (!capture.init(frameAmount)) {
             std::cerr << "Failed to initialize AudioCapture." << std::endl;
             return false;
         }
 
-        channels = capture.getNumChannels();
-        sampleRate = capture.getSampleRate();
+        globals.numChannels = capture.getNumChannels();
+        globals.sampleRate = capture.getSampleRate();
 
-        pr.resize(spec.isPeakRMSMono, channels);
-        fft = std::make_unique<FFT>(fftSize, spec.perceptualSlopeDegrees != 0.0f,
+        pr.resize(spec.isPeakRMSMono, globals.numChannels);
+        fft = std::make_unique<FFT>(globals.fftSize, spec.perceptualSlopeDegrees != 0.0f,
                                     spec.isFFTHannWindowed, spec.fftOutputMeasurement,
                                     true, spec.perceptualSlopeDegrees);
-        fft->initFFT(sampleRate);
-        rawSampleData.resize(spec.getRawSamples ? hopSize : 0);
+        fft->initFFT(globals.sampleRate);
+        rawSampleData.resize(spec.getRawSamples ? globals.hopSize : 0);
         return true;
     }
 
@@ -44,15 +45,15 @@ public:
     bool canAnalyze() {
         uint32_t accumulated = capture.getAccumulatedFrames();
         if (!firstWindowAccumulated) {
-            if (accumulated < fftSize) {
+            if (accumulated < globals.fftSize) {
                 return false;
             }
             firstWindowAccumulated = true;
-            capture.moveAccumulator(fftSize);
+            capture.moveAccumulator(globals.fftSize);
             return true;
         }
-        if (accumulated >= hopSize) {
-            capture.moveAccumulator(hopSize);
+        if (accumulated >= globals.hopSize) {
+            capture.moveAccumulator(globals.hopSize);
             return true;
         }
         return false;
@@ -61,35 +62,35 @@ public:
     void analyze() {
         uint32_t start = capture.getReadIndex();
         float* temp = fft->getInputBuffer();
-        capture.getMonoSummedWindow(temp, fftSize, start);
+        capture.getMonoSummedWindow(temp, globals.fftSize, start);
         if (getRawSamples) {
-            std::memcpy(rawSampleData.data(), temp + fftSize - hopSize, hopSize);
+            std::memcpy(rawSampleData.data(), temp + globals.fftSize - globals.hopSize, globals.hopSize);
         }
         if (isPeakRMSMono) {
-            pr.getMeasurementsFromMonoSummedBlock(temp, fftSize);
+            pr.getMeasurementsFromMonoSummedBlock(temp, globals.fftSize);
         }
         else {
             float* buf = capture.getRawBufferPointer();
-            pr.getMeasurementsFromRingBuffer(buf, fftSize, start,
-                                             channels, capture.getBufferSize());
+            pr.getMeasurementsFromRingBuffer(buf, globals.fftSize, start,
+                                             globals.numChannels, capture.getBufferSize());
         }
         fft->runFFT();
-        capture.setReadIndexForwardByFrames(hopSize);
+        capture.setReadIndexForwardByFrames(globals.hopSize);
     }
 
     void swapSpec(Spec& spec) {
         resetAccumulator();
         isPeakRMSMono = spec.isPeakRMSMono;
         pr.clear();
-        pr.resize(isPeakRMSMono, channels);
+        pr.resize(isPeakRMSMono, globals.numChannels);
         getRawSamples = spec.getRawSamples;
-        rawSampleData.resize(spec.getRawSamples ? hopSize : 0);
+        rawSampleData.resize(spec.getRawSamples ? globals.hopSize : 0);
         //set this way to account for custom sized array being more efficient to
         //just get db then convert after all the ops it does
         FFTMeasurement m = (spec.fftOutputMode == CUSTOM_SIZE) ? DECIBELS :
                                                               spec.fftOutputMeasurement;
         fft->swapSpec(spec.isFFTHannWindowed, m,
-                      spec.perceptualSlopeDegrees, sampleRate);
+                      spec.perceptualSlopeDegrees, globals.sampleRate);
     }
 
     void resetAccumulator() {
@@ -97,6 +98,7 @@ public:
         capture.resetAccumulator();
     }
 
+/*
     uint32_t getNumChannels() {
         return channels;
     }
@@ -108,8 +110,9 @@ public:
     uint32_t getFFTSize () {
         return fftSize;
     }
+*/
 
-    void getAudibleRange(uint32_t* start, uint32_t* size) {
+    void getAudibleRange(int* start, int* size) {
         fft->getAudibleRange(capture.getSampleRate(), start, size);
     }
 
@@ -135,14 +138,17 @@ private:
     PeakRMSMeter pr;
     std::unique_ptr<FFT> fft;
 
-    const uint32_t fftOrder;
-    const uint32_t hopAmt;
+//    Spec& spec;
+    Globals& globals;
 
-    uint32_t fftSize = 0;
-    uint32_t hopSize = 0;
+    //const uint32_t fftOrder;
+    //const uint32_t hopAmt;
 
-    uint32_t channels = 0;
-    uint32_t sampleRate = 0;
+    //uint32_t fftSize = 0;
+    //uint32_t hopSize = 0;
+
+    //uint32_t channels = 0;
+    //uint32_t sampleRate = 0;
 
     std::vector<float> rawSampleData;
 

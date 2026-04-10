@@ -5,17 +5,7 @@
 #include <unordered_map>
 #include <vector>
 #include <cstring>
-//#include <iostream>
 #include "gpu/fragment_header.hpp"
-
-inline constexpr int UNIFORM_AMT = 13;
-inline const std::string uniformNames[] = {"time", "W", "H", "fftSize", "fftBinAmt",
-                                           "fftArrSize", "newAudioWindow",
-                                           "numChannels", "displayHz", "sampleRate",
-                                           "errorLen", "showError", "errorChars"};
-enum UNIFORM_E { U_TIME = 0, U_W, U_H, U_FFT_SIZE, U_FFT_BIN_AMT, U_FFT_ARR_SIZE,
-                 U_NEW_AUDIO_WINDOW, U_NUM_CHANNELS, U_DISPLAY_HZ, U_SAMPLE_RATE,
-                 U_ERROR_LEN, U_SHOW_ERROR, U_ERROR_CHARS };
 
 static const int headerLines = 205;
 
@@ -24,17 +14,14 @@ class Shader {
 public:
     Shader() = default;
     ~Shader() { if (id) glDeleteProgram(id); }
-    Shader(Shader&& o) noexcept : id(o.id), uniforms{},
-                                  samplerLocations(std::move(o.samplerLocations)) {
+    Shader(Shader&& o) noexcept : id(o.id), samplerLocations(std::move(o.samplerLocations)) {
         o.id = 0;
-        std::memcpy(uniforms, o.uniforms, UNIFORM_AMT * sizeof(GLint));
     }
 
     Shader& operator=(Shader&& o) noexcept {
         if (this != &o) {
             if (id) glDeleteProgram(id);
             id = o.id; o.id = 0;
-            std::memcpy(uniforms, o.uniforms, UNIFORM_AMT * sizeof(GLint));
             samplerLocations = std::move(o.samplerLocations);
         }
         return *this;
@@ -64,9 +51,6 @@ public:
             glGetProgramInfoLog(id, 512, nullptr, log);
             errorLog += std::string(log) + "\n";
         }
-        for (int i = 0; i < UNIFORM_AMT; ++i) {
-            uniforms[i] = glGetUniformLocation(id, uniformNames[i].c_str());
-        }
 
         glDeleteShader(vert);
         glDeleteShader(frag);
@@ -80,11 +64,9 @@ public:
             samplerLocations[name] = glGetUniformLocation(id, name.c_str());
         }
     }
-
     void use() { glUseProgram(id); }
 
     GLuint id = 0;
-    GLint uniforms[UNIFORM_AMT] = {-1};
     std::unordered_map<std::string, GLint> samplerLocations;
 
 private:
@@ -100,7 +82,6 @@ private:
             glGetShaderInfoLog(shader, 512, nullptr, log);
             errOut = std::string(log);
         }
-
         return shader;
     }
 };

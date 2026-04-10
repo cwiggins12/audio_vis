@@ -6,20 +6,29 @@ precision highp float;
 in vec2 v_pos;
 out vec4 FragColor;
 
-uniform float time;
-uniform float W;
-uniform float H;
-uniform int fftSize;
-uniform int fftBinAmt;
-uniform int fftArrSize;
-uniform int newAudioWindow;
-uniform int numChannels;
-uniform int displayHz;
-uniform int sampleRate;
-uniform int errorChars[128];
-uniform int errorLen;
-uniform int showError;
-
+layout(std140, binding = 0) uniform FrameUniforms {
+    float time;
+    float startTime;
+    float bpm;
+    float mouseX;
+    float mouseY;
+    float windowX;
+    float windowY;
+    int W;
+    int H;
+    int mouseDown;
+    int fftSize;
+    int hopSize;
+    int fftBinAmt;
+    int fftArrSize;
+    int newAudioWindow;
+    int numChannels;
+    int displayHz;
+    int sampleRate;
+    int showError;
+    int errorLen;
+    ivec4 errorChars[32];
+};
 layout(std430, binding = 0) readonly buffer PeakRMS {
     float peakRmsData[];
 };

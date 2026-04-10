@@ -226,7 +226,7 @@ inline std::string parseSpec(const std::string& path, Spec& out) {
             if (!parseBool(out.useFFTSmoothing)) return ret;
         }
         else if (key == "getsFFTHolds") {
-            if (!parseBool(out.getsFFTHolds)) return ret;
+            if (!parseBool(out.getFFTHolds)) return ret;
         }
         else if (key == "isFFTHannWindowed") {
             if (!parseBool(out.isFFTHannWindowed)) return ret;
@@ -235,7 +235,7 @@ inline std::string parseSpec(const std::string& path, Spec& out) {
             if (!parseBool(out.usePeakRMSSmoothing)) return ret;
         }
         else if (key == "getsPeakRMSHolds") {
-            if (!parseBool(out.getsPeakRMSHolds)) return ret;
+            if (!parseBool(out.getPeakRMSHolds)) return ret;
         }
         else if (key == "isPeakRMSdB") {
             if (!parseBool(out.isPeakRMSdB)) return ret;

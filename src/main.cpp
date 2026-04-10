@@ -16,15 +16,15 @@ std::string getAssetPath(const std::string& relative) {
     return (binDir / relative).string();
 }
 
-void evalPresetExprs(int w, int h, int hz, AudioSystem& a, ShaderPreset* pre) {
+void evalPresetExprs(Globals& g, ShaderPreset* pre) {
     ExprContext ctx;
-    ctx.windowWidth  = w;
-    ctx.windowHeight = h;
-    ctx.numChannels  = a.channels;
-    ctx.displayHz    = hz;
-    ctx.sampleRate   = a.sampleRate;
-    ctx.fftSize      = a.fftSize;
-    ctx.fftBinAmt    = a.fftBinAmt;
+    ctx.windowWidth  = g.W;
+    ctx.windowHeight = g.H;
+    ctx.numChannels  = g.numChannels;
+    ctx.displayHz    = g.displayHz;
+    ctx.sampleRate   = g.sampleRate;
+    ctx.fftSize      = g.fftSize;
+    ctx.fftBinAmt    = g.fftBinAmt;
     std::string ret = evalSpecExprs(pre->spec, ctx);
     if (!ret.empty()) {
         pre->errorMessage = ret;
@@ -52,7 +52,8 @@ int main() {
     Log log(getAssetPath("log.txt"));
     //init glfw, monitor, window, mode, and displayHz
     if (!glfwInit()) { std::cerr << "glfwInit failed\n"; return -1; }
-    GLFWContext glfw;
+    Globals globals;
+    GLFWContext glfw(globals);
     if (!glfw.isValid()) return -1;
     //init glad
     if (!gladLoadGLES2Loader((GLADloadproc)glfwGetProcAddress)) {
@@ -60,8 +61,9 @@ int main() {
         return -1;
     }
     //get initial width and height from framebuffer then log gl info
-    int w, h;
-    glfw.initFramebuffer(w, h);
+    //int w, h;
+    glfw.initFramebuffer(globals.W, globals.H);
+    //globals.H = h; globals.W = w;
     size_t maxFBBufferFloats = glfw.logGLInfo() / sizeof(float);
     //set max feedback buffer size to the lower of a 4k framebuffer or hardware limit
     maxFBBufferFloats = std::min(maxFBBufferFloats, (size_t)33177600);
@@ -69,13 +71,13 @@ int main() {
     ShaderSystem shaders(getAssetPath("shaders/"));
     if (!shaders.isValid()) return -1;
     //init audio
-    AudioSystem audioSys(shaders.active->spec, glfw.displayHz, w, h);
+    AudioSystem audioSys(globals, shaders.active->spec);
     if (!audioSys.isValid()) return -1;
     glfw.setTitleBarForPreset(shaders.getIndex(), shaders.active->name);
     //init gpu verts and buffers
     GPUBuffers gpuBuffs(shaders.active->spec.feedbackBufferInitValue);
     //swap all configs to first preset, unless eval error, then use errorShader
-    evalPresetExprs(w, h, glfw.displayHz, audioSys, shaders.active);
+    evalPresetExprs(globals, shaders.active);
     assertUserDefinedBufferSizes(shaders.active, maxFBBufferFloats);
     doSwap(shaders.active, audioSys, gpuBuffs);
     //catches button presses and handles them
@@ -87,14 +89,14 @@ int main() {
         //poll for input and handle it
         input.handleInput(glfw, shaders, needsSwap);
         //check for resize
-        glfw.checkForResize(audioSys, shaders.active, w, h, needsSwap);
+        glfw.checkForResize(audioSys, shaders.active, globals.W, globals.H, needsSwap);
         //check for frame rate change
         glfw.checkForFrameRateChange(shaders.active, needsSwap);
         //check for hot reload
         shaders.hotReloadCheck(needsSwap);
         //do swap if necessary, if eval fails, update active's error msg
         if (needsSwap) {
-            evalPresetExprs(w, h, glfw.displayHz, audioSys, shaders.active);
+            evalPresetExprs(globals, shaders.active);
             assertUserDefinedBufferSizes(shaders.active, maxFBBufferFloats);
             std::cout << "Swapping to: " << shaders.active->name << "\n";
             doSwap(shaders.active, audioSys, gpuBuffs);
@@ -105,16 +107,17 @@ int main() {
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
         //either analyze new frame and format, or just temporally move values to send
-        bool newAudioWindow = audioSys.analyzeAndFormat();
+        globals.newAudioWindow = audioSys.analyzeAndFormat();
         //write to gpu buffers
-        gpuBuffs.writeToBuffers(audioSys.bridge, shaders.active->spec);
+        globals.time = glfwGetTime();
+        gpuBuffs.writeToBuffers(audioSys.bridge, shaders.active->spec, globals);
         //use shader based on error state
         if (shaders.active->hasError) {
-            shaders.useErrorShader(w, h);
+            shaders.useErrorShader(globals.W, globals.H);
         }
         else {
             shaders.useActiveShader((float)glfwGetTime(), audioSys,
-                                    h, w, newAudioWindow, glfw.displayHz);
+                                    globals.H, globals.W, globals.newAudioWindow, globals.displayHz);
         }
         glDrawArrays(GL_TRIANGLES, 0, 3);
         glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);

@@ -39,6 +39,7 @@ public:
 
     void useErrorShader(int w, int h) {
         error.use();
+        /*
         //only rebuild the char array when the error message changes
         if (active->errorMessage != cachedErrorMsg) {
             cachedErrorMsg = active->errorMessage;
@@ -53,6 +54,7 @@ public:
         glUniform1f(error.uniforms[U_W], (float)w);
         glUniform1f(error.uniforms[U_H], (float)h);
         glUniform1i(error.uniforms[U_SHOW_ERROR], 1);
+        */
     }
 
     void useActiveShader(float t, AudioSystem& a, int h, int w,
@@ -66,6 +68,7 @@ public:
         }
         */
         active->shader.use();
+        /*
         glUniform1f(active->shader.uniforms[U_TIME], t);
         glUniform1i(active->shader.uniforms[U_FFT_SIZE], a.fftSize);
         glUniform1i(active->shader.uniforms[U_FFT_BIN_AMT], a.fftBinAmt);
@@ -77,6 +80,7 @@ public:
         glUniform1i(active->shader.uniforms[U_SAMPLE_RATE], a.sampleRate);
         glUniform1i(active->shader.uniforms[U_DISPLAY_HZ], hz);
         glUniform1i(active->shader.uniforms[U_SHOW_ERROR], 0);
+        */
         bindTextures(active);
     }
 
@@ -131,7 +135,7 @@ public:
         active = &presets[index];
         active->hasError = true;
         active->errorMessage = removedName +
-            " was removed. Moved to: " + active->name;
+            " was removed. Moving to: " + active->name;
         std::cout << active->errorMessage << "\n";
     }
 
@@ -140,8 +144,8 @@ private:
     Shader                    error;
     int                       index = 0;
 
-    std::string cachedErrorMsg;
-    int         cachedErrorChars[128] = {};
-    int         cachedErrorLen = 0;
+    //std::string cachedErrorMsg;
+    //int         cachedErrorChars[128] = {};
+    //int         cachedErrorLen = 0;
 };
 

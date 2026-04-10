@@ -3,6 +3,7 @@
 #include "gpu/ssbo.hpp"
 #include "config/spec.hpp"
 #include "bridge/av_bridge.hpp"
+#include "gpu/ubo.hpp"
 
 struct ResizeValues {
     size_t prSize = 0;
@@ -36,7 +37,7 @@ public:
         glDeleteVertexArrays(1, &vao);
     }
 
-    void writeToBuffers(AVBridge& bridge, Spec& spec) {
+    void writeToBuffers(AVBridge& bridge, Spec& spec, Globals& globals) {
         //write to gpu buffers
         size_t prSize  = bridge.getPeakRMSGPUSizeInBytes();
         size_t fftSize = bridge.getFFTGPUSizeInBytes();
@@ -52,7 +53,9 @@ public:
         if (spec.getRawSamples) {
             ssbos[6].write(bridge.getRawSamplePtr(), hopSize);
         }
+        ubo.update(globals);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+        glBindBuffer(GL_UNIFORM_BUFFER, 0);
     }
 
     void swap(ResizeValues& r) {
@@ -74,6 +77,7 @@ public:
 
 private:
     SSBO   ssbos[7];
+    UBO    ubo;
     GLuint vao;
     bool   feedbackFlip = false;
 };

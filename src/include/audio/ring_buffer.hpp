@@ -11,7 +11,7 @@ public:
     RingBuffer() = default;
     RingBuffer(ma_uint32 size, ma_uint32 channelAmt) {
 		bufferSize = size;
-        channels = channelAmt;
+		channels = channelAmt;
         buffer.resize(size);
     }
 	RingBuffer(const RingBuffer&) = delete;
@@ -25,7 +25,7 @@ public:
 
     void init(ma_uint32 size, ma_uint32 channelAmt) {
 		bufferSize = size;
-        channels = channelAmt;
+		channels = channelAmt;
         buffer.resize(size);
     }
 
@@ -70,7 +70,7 @@ public:
 
 private:
 	std::vector<float> buffer;
-    ma_uint32 channels = 0;
+	uint32_t channels = 0;
 	uint32_t bufferSize = 0;
 };
 

@@ -4,25 +4,23 @@
 #include "bridge/av_bridge.hpp"
 
 struct AudioSystem {
-    int fftOrder = 13;
-    int fftSize = 1 << 13;
-    int fftBinAmt = fftSize / 2 + 1;
-    int hopAmt = 4;
+    //int fftOrder = 13;
+    //int fftSize = 1 << 13;
+    //int fftBinAmt = fftSize / 2 + 1;
+    //int hopAmt = 4;
 
     Audio    audio;
     AVBridge bridge;
     int      sampleRate = 0;
     int      channels = 0;
 
-    AudioSystem(Spec& initSpec, int displayHz, int w, int h) :
-                audio(fftOrder, hopAmt), bridge(audio, initSpec) {
+    AudioSystem(Globals& g, Spec& initSpec) :
+                globals(g), audio(g), bridge(audio, initSpec, g) {
         if (!audio.init(initSpec)) {
             std::cerr << "Audio initialization failed\n";
             return;
         }
-        bridge.init(displayHz, w, h);
-        sampleRate = audio.getSampleRate();
-        channels = audio.getNumChannels();
+        bridge.init();
     }
 
     bool isValid() {
@@ -44,5 +42,7 @@ struct AudioSystem {
         audio.swapSpec(spec);
         bridge.swapSpec(spec);
     }
+private:
+    Globals& globals;
 };
 

@@ -44,6 +44,7 @@ public:
         }
         prevShuffleKey = shuffleKey;
     }
+
 private:
     int prevRightKey    = GLFW_RELEASE;
     int prevLeftKey     = GLFW_RELEASE;

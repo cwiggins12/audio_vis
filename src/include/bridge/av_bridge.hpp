@@ -13,22 +13,23 @@ static constexpr float MIN_DB = -96.0f;
 
 class AVBridge {
 public:
-    AVBridge(Audio& a, Spec& spec) : audio(a), currSpec(spec) {}
+    AVBridge(Audio& a, Spec& spec, Globals& g) : audio(a), currSpec(spec), globals(g) {}
     ~AVBridge() {}
     AVBridge(const AVBridge&) = delete;
     AVBridge& operator=(const AVBridge&) = delete;
     AVBridge(AVBridge&&) = delete;
     AVBridge& operator=(AVBridge&&) = delete;
 
-    void init(uint32_t deviceFrameRate, int w, int h) {
-        frameRate = deviceFrameRate;
-        binAmt = audio.getFFTSize() / 2 + 1;
-        channels = audio.getNumChannels();
-        sampleRate = audio.getSampleRate();
-        initWidth = w;
-        initHeight = h;
-        currentWidth = w;
-        currentHeight = h;
+    void init() {
+        //frameRate = g.displayHz;
+        //binAmt = audio.getFFTSize() / 2 + 1;
+        //channels = audio.getNumChannels();
+        //sampleRate = audio.getSampleRate();
+        initWidth = globals.W;
+        initHeight = globals.H;
+        //currentWidth = w;
+        //currentHeight = h;
+        //globals = g;
         swap(currSpec);
     }
 
@@ -60,26 +61,24 @@ public:
     }
 
     void resize(int w, int h) {
-        currentWidth = w;
-        currentHeight = h;
         if (currSpec.customFFTSizeScalesWithWindow == NO_SCALE ||
             currSpec.fftOutputMode != CUSTOM_SIZE) return;
 
-        gpuFFTSize = getSizeFromModeSwitch(currSpec.customFFTSize,
+        globals.fftArrSize = getSizeFromModeSwitch(currSpec.customFFTSize,
                                            currSpec.customFFTSizeScalesWithWindow);
-        setIndexFreqs(gpuFFTSize);
+        setIndexFreqs(globals.fftArrSize);
         const bool isFFTdB = currSpec.fftOutputMeasurement == 2;
         float fftMin = isFFTdB ? MIN_DB : 0.0f;
         if (currSpec.useFFTSmoothing) {
-            gpuFFT.reset(frameRate, 1.0, currSpec.fftAtk, currSpec.fftRls,
-                         gpuFFTSize, fftMin);
+            gpuFFT.reset(globals.displayHz, 1.0, currSpec.fftAtk, currSpec.fftRls,
+                         globals.fftArrSize, fftMin);
         }
         else {
-            gpuFFT.reset(frameRate, 0.0f, 0.0f, 0.0f, gpuFFTSize, fftMin);
+            gpuFFT.reset(globals.displayHz, 0.0f, 0.0f, 0.0f, globals.fftArrSize, fftMin);
         }
         if (currSpec.getFFTHolds) {
-            fftHolds.reset(frameRate, currSpec.fftHoldTime, currSpec.fftHoldScalar,
-                           isFFTdB, gpuFFTSize);
+            fftHolds.reset(globals.displayHz, currSpec.fftHoldTime,
+                           currSpec.fftHoldScalar, isFFTdB, globals.fftArrSize);
         }
     }
 
@@ -88,36 +87,40 @@ public:
         currSpec = newSpec;
     }
 
+/*
     size_t getFFTGPUSize() {
         return gpuFFTSize;
     }
+*/
 
     size_t getPeakRMSGPUSize() {
-        return (currSpec.isPeakRMSMono) ? 2 : channels * 2;
+        return (currSpec.isPeakRMSMono) ? 2 : globals.numChannels * 2;
     }
 
+/*
     size_t getFFTGPUSizeInBytes() {
         return getFFTGPUSize() * sizeof(float);
     }
+*/
 
     size_t getPeakRMSGPUSizeInBytes() {
         return getPeakRMSGPUSize() * sizeof(float);
     }
 
     size_t getHopSizeInBytes() {
-        return hopSize * sizeof(float);
+        return globals.hopSize * sizeof(float);
     }
 
     size_t getValFromHeightScalar(size_t size) {
-        return std::round(size * ((float)currentHeight / (float)initHeight));
+        return std::round(size * ((float)globals.H / (float)initHeight));
     }
 
     size_t getValFromWidthScalar(size_t size) {
-        return std::round(size * ((float)currentWidth / (float)initWidth));
+        return std::round(size * ((float)globals.W / (float)initWidth));
     }
 
     size_t getValFromResolutionScalar(size_t size) {
-        return std::round(size * ((float)currentHeight * (float)currentWidth)
+        return std::round(size * ((float)globals.H * (float)globals.W)
                                / ((float)initHeight * (float)initWidth));
     }
 
@@ -133,7 +136,7 @@ public:
 
     void formatData() {
         //peak/rms pop and format
-        const int size = (currSpec.isPeakRMSMono) ? 2 : channels * 2;
+        const int size = (currSpec.isPeakRMSMono) ? 2 : globals.numChannels * 2;
         float* prPtr = audio.getPRPtr();
         if (currSpec.isPeakRMSdB) {
             for (int i = 0; i < size; ++i) {
@@ -161,79 +164,79 @@ private:
     //refactor pls
     void swap(Spec& newSpec) {
         //set fftSize, probably just need this in init, but its gonna live here for now
-        fftSize = audio.getFFTSize();
+        //fftSize = audio.getFFTSize();
         //config peak/RMS hold array
-        uint32_t peakRMSSize = (newSpec.isPeakRMSMono) ? 2 : channels * 2;
+        uint32_t peakRMSSize = (newSpec.isPeakRMSMono) ? 2 : globals.numChannels * 2;
         if (newSpec.getPeakRMSHolds) {
-            peakRMSHolds.reset(frameRate, newSpec.peakRMSHoldTime,
+            peakRMSHolds.reset(globals.displayHz, newSpec.peakRMSHoldTime,
                                newSpec.peakRMSHoldScalar,
                                newSpec.isPeakRMSdB, peakRMSSize);
         }
         else {
-            peakRMSHolds.reset(frameRate, 0.0f, 0.0f, false, 0);
+            peakRMSHolds.reset(globals.displayHz, 0.0f, 0.0f, false, 0);
         }
         //config peak/RMS smooth array
         float prMin = newSpec.isPeakRMSdB ? MIN_DB : 0.0f;
         if (newSpec.usePeakRMSSmoothing) {
-            gpuPeakRMS.reset(frameRate, 1.0f, newSpec.peakRMSAtk, newSpec.peakRMSRls,
-                             peakRMSSize, prMin);
+            gpuPeakRMS.reset(globals.displayHz, 1.0f, newSpec.peakRMSAtk,
+                             newSpec.peakRMSRls, peakRMSSize, prMin);
         }
         else {
-            gpuPeakRMS.reset(frameRate, 0.0f, 0.0f, 0.0f, peakRMSSize, prMin);
+            gpuPeakRMS.reset(globals.displayHz, 0.0f, 0.0f, 0.0f, peakRMSSize, prMin);
         }
         //get fft size
         switch (newSpec.fftOutputMode) {
             case 0: {
-                gpuFFTSize = binAmt;
+                globals.fftArrSize = globals.fftBinAmt;
                 middlemanBuffer.resize(0);
                 indexFreqs.resize(0);
                 break;
             }
             case 1: {
                 audio.getAudibleRange(&audibleStart, &audibleSize);
-                gpuFFTSize = audibleSize;
+                globals.fftArrSize = audibleSize;
                 middlemanBuffer.resize(0);
                 indexFreqs.resize(0);
                 break;
             }
             case 2: {
                 size_t s = newSpec.customFFTSize;
-                gpuFFTSize = getSizeFromModeSwitch(s,
+                globals.fftArrSize = getSizeFromModeSwitch(s,
                                                  newSpec.customFFTSizeScalesWithWindow);
-                middlemanBuffer.resize(gpuFFTSize);
-                setIndexFreqs(gpuFFTSize);
+                middlemanBuffer.resize(globals.fftArrSize);
+                setIndexFreqs(globals.fftArrSize);
                 break;
             }
         }
         const bool isFFTdB = newSpec.fftOutputMeasurement == DECIBELS;
         //config FFT holds
         if (newSpec.getFFTHolds) {
-            fftHolds.reset(frameRate, newSpec.fftHoldTime, newSpec.fftHoldScalar,
-                           isFFTdB, gpuFFTSize);
+            fftHolds.reset(globals.displayHz, newSpec.fftHoldTime,
+                           newSpec.fftHoldScalar, isFFTdB, globals.fftArrSize);
         }
         else {
-            fftHolds.reset(frameRate, 0.0f, 0.0f, false, 0);
+            fftHolds.reset(globals.displayHz, 0.0f, 0.0f, false, 0);
         }
         //config fft smooth array
         float fftMin = isFFTdB ? MIN_DB : 0.0f;
         if (newSpec.useFFTSmoothing) {
-            gpuFFT.reset(frameRate, 1.0, newSpec.fftAtk, newSpec.fftRls,
-                         gpuFFTSize, fftMin);
+            gpuFFT.reset(globals.displayHz, 1.0, newSpec.fftAtk, newSpec.fftRls,
+                         globals.fftArrSize, fftMin);
         }
         else {
-            gpuFFT.reset(frameRate, 0.0f, 0.0f, 0.0f, gpuFFTSize, fftMin);
+            gpuFFT.reset(globals.displayHz, 0.0f, 0.0f, 0.0f, globals.fftArrSize, fftMin);
         }
     }
 
     //sets arbitrary size smoothAoS and finds midpoint for the below bin collating algo
-    void setIndexFreqs(uint32_t size) {
+    void setIndexFreqs(int size) {
         indexFreqs.resize(size);
-        const float scale = (float)fftSize / (float)sampleRate;
+        const float scale = (float)globals.fftSize / (float)globals.sampleRate;
         setSwapFreq(scale);
         bool swapIndexFound = false;
         if (size < 2) return;
 
-        for (uint32_t i = 0; i < size; ++i) {
+        for (int i = 0; i < size; ++i) {
             float norm = (float)(i) / (float)(size - 1);
             float freq = MIN_FREQ * std::pow(MAX_FREQ / MIN_FREQ, norm);
             if (!swapIndexFound && freq > swapFreq) {
@@ -242,7 +245,8 @@ private:
                 //std::cout << "Swap Index: " << swapIndex << std::endl;
             }
             float binIndexFloat = freq * scale;
-            indexFreqs[i] = std::min(std::max(binIndexFloat, 0.0f), (float)binAmt - 1);
+            indexFreqs[i] = std::min(std::max(binIndexFloat, 0.0f),
+                                             (float)globals.fftBinAmt - 1);
         }
     }
 
@@ -260,8 +264,8 @@ private:
         const float* fftOut = audio.getFFTPtr();
         float* buffPtr = middlemanBuffer.data();
         switchOnInterps(0, swapIndex, fftOut, buffPtr, currSpec.lowMode);
-        switchOnCollates(swapIndex, gpuFFTSize, fftOut, buffPtr, currSpec.highMode);
-        switchOnMeasurement(gpuFFTSize, buffPtr, currSpec.fftOutputMeasurement);
+        switchOnCollates(swapIndex, globals.fftArrSize, fftOut, buffPtr, currSpec.highMode);
+        switchOnMeasurement(globals.fftArrSize, buffPtr, currSpec.fftOutputMeasurement);
         gpuFFT.setAllTargetsWithPtr(buffPtr);
     }
 
@@ -311,9 +315,9 @@ private:
     void getLinear(int start, int end, const float* in, float* out) {
         for (int i = start; i < end; ++i) {
             float cf = indexFreqs[i];
-            uint32_t bin1 = (uint32_t)cf;
+            int bin1 = cf;
             float t = cf - bin1;
-            uint32_t bin2 = std::min(binAmt - 1, bin1 + 1);
+            int bin2 = std::min(globals.fftBinAmt - 1, bin1 + 1);
             float val = in[bin1] + t * (in[bin2] - in[bin1]);
             out[i] = val;
         }
@@ -323,11 +327,11 @@ private:
     void getPCHIP(int start, int end, const float* in, float* out) {
         for (int i = start; i < end; ++i) {
             float cf = indexFreqs[i];
-            uint32_t bin1 = (uint32_t)cf;
+            int bin1 = cf;
             float t = cf - bin1;
-            uint32_t bin0 = (bin1 == 0) ? 0 : bin1 - 1;
-            uint32_t bin2 = std::min(binAmt - 1, bin1 + 1);
-            uint32_t bin3 = std::min(binAmt - 1, bin1 + 2);
+            int bin0 = (bin1 == 0) ? 0 : bin1 - 1;
+            int bin2 = std::min(globals.fftBinAmt - 1, bin1 + 1);
+            int bin3 = std::min(globals.fftBinAmt - 1, bin1 + 2);
             float y0 = in[bin0], y1 = in[bin1];
             float y2 = in[bin2], y3 = in[bin3];
             // Secants
@@ -364,13 +368,13 @@ private:
                 return (float)A * std::sin(px) * std::sin(px / (float)A) / (px * px);
             };
             float cf = indexFreqs[i];
-            uint32_t center = (uint32_t)cf;
+            int center = cf;
             float frac = cf - center;
             float sum = 0.0f, wsum = 0.0f;
             for (int k = -A + 1; k <= A; ++k) {
-                int bin = (int)center + k;
+                int bin = center + k;
                 if (bin < 0) bin = 0;
-                if (bin >= (int)binAmt) bin = (int)binAmt - 1;
+                if (bin >= globals.fftBinAmt) bin = globals.fftBinAmt - 1;
                 float w = lanczosKernel((float)k - frac);
                 sum  += w * in[bin];
                 wsum += w;
@@ -386,13 +390,13 @@ private:
             constexpr float SIGMA = 1.0f;   // std-dev in bins; increase for more blur
             constexpr int   HALF  = 3;      // half-window (3*sigma covers 99.7 %)
             float cf = indexFreqs[i];
-            uint32_t center = (uint32_t)cf;
+            int center = cf;
             float frac = cf - center;
             float sum = 0.0f, wsum = 0.0f;
             for (int k = -HALF; k <= HALF; ++k) {
-                int bin = (int)center + k;
+                int bin = center + k;
                 if (bin < 0) bin = 0;
-                if (bin >= (int)binAmt) bin = (int)binAmt - 1;
+                if (bin >= globals.fftBinAmt) bin = globals.fftBinAmt - 1;
                 float dist = (float)k - frac;
                 float w    = std::exp(-0.5f * dist * dist / (SIGMA * SIGMA));
                 sum  += w * in[bin];
@@ -407,11 +411,11 @@ private:
     void getBSpline(int start, int end, const float* in, float* out) {
         for(int i = start; i < end; ++i) {
             float cf = indexFreqs[i];
-            uint32_t bin1 = (uint32_t)cf;
+            int bin1 = cf;
             float t = cf - bin1;
-            uint32_t bin0 = (bin1 == 0) ? 0 : bin1 - 1;
-            uint32_t bin2 = std::min(binAmt - 1, bin1 + 1);
-            uint32_t bin3 = std::min(binAmt - 1, bin1 + 2);
+            int bin0 = (bin1 == 0) ? 0 : bin1 - 1;
+            int bin2 = std::min(globals.fftBinAmt - 1, bin1 + 1);
+            int bin3 = std::min(globals.fftBinAmt - 1, bin1 + 2);
             float y0 = in[bin0], y1 = in[bin1];
             float y2 = in[bin2], y3 = in[bin3];
             float t2 = t * t, t3 = t2 * t;
@@ -430,18 +434,18 @@ private:
     void getAkima(int start, int end, const float* in, float* out) {
         for(int i = start; i < end; ++i) {
             float cf = indexFreqs[i];
-            uint32_t bin2 = (uint32_t)cf;   // left bracket
+            int bin2 = cf;   // left bracket
             float t = cf - bin2;
             // Clamp extended neighbourhood
-            auto clampBin = [&](int b) -> uint32_t {
-                return (uint32_t)std::max(0, std::min((int)binAmt - 1, b));
+            auto clampBin = [&](int b) -> int {
+                return std::max(0, std::min(globals.fftBinAmt - 1, b));
             };
             float y[5] = {
-                in[clampBin((int)bin2 - 2)],
-                in[clampBin((int)bin2 - 1)],
-                in[clampBin((int)bin2    )],
-                in[clampBin((int)bin2 + 1)],
-                in[clampBin((int)bin2 + 2)]
+                in[clampBin(bin2 - 2)],
+                in[clampBin(bin2 - 1)],
+                in[clampBin(bin2    )],
+                in[clampBin(bin2 + 1)],
+                in[clampBin(bin2 + 2)]
             };
             // Finite differences (uniform spacing h=1)
             float m[4];
@@ -522,14 +526,14 @@ private:
 
     void audibleBinPlacement() {
         const float* fftPtr = audio.getFFTPtr();
-        for (uint32_t i = 0; i < audibleSize; ++i) {
+        for (int i = 0; i < audibleSize; ++i) {
             gpuFFT.setTargetVal(i, fftPtr[i + audibleStart]);
         }
     }
 
     void fullBinPlacement() {
         const float* fftPtr = audio.getFFTPtr();
-        for (uint32_t i = 0; i < binAmt; ++i) {
+        for (int i = 0; i < globals.fftBinAmt; ++i) {
             gpuFFT.setTargetVal(i, fftPtr[i]);
         }
     }
@@ -553,6 +557,7 @@ private:
 
     Audio& audio;
     Spec currSpec;
+    Globals& globals;
 
     SmoothArraySoA gpuPeakRMS;
     HoldArray peakRMSHolds;
@@ -566,26 +571,26 @@ private:
     //pray for vectorizing
     std::vector<float> middlemanBuffer;
 
-    uint32_t fftSize = 0;
-    uint32_t hopSize = 0;
-    uint32_t hopAmt = 0;
-    uint32_t binAmt = 0;
+    //uint32_t fftSize = 0;
+    //uint32_t hopSize = 0;
+    //uint32_t hopAmt = 0;
+    //uint32_t binAmt = 0;
 
-    uint32_t channels = 0;
-    uint32_t sampleRate = 0;
-    uint32_t frameRate = 0;
+    //uint32_t channels = 0;
+    //uint32_t sampleRate = 0;
+    //uint32_t frameRate = 0;
 
-    uint32_t audibleStart = 0;
-    uint32_t audibleSize = 0;
+    int audibleStart = 0;
+    int audibleSize = 0;
 
-    uint32_t baseFFTSize = 0;
-    uint32_t gpuFFTSize = 0;
-    uint32_t swapIndex = 0;
+    //uint32_t baseFFTSize = 0;
+    //uint32_t gpuFFTSize = 0;
+    int swapIndex = 0;
 
     int initWidth = 0;
     int initHeight = 0;
-    int currentWidth = 0;
-    int currentHeight = 0;
+    //int currentWidth = 0;
+    //int currentHeight = 0;
 
     float swapFreq = 0.0f;
 };

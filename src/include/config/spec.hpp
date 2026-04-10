@@ -38,8 +38,9 @@ enum FFTMeasurement {
     DECIBELS,
 };
 
-
 struct Spec {
+    int fftOrder = 13;
+    int hopAmount = 4;
     //0 = full direct bin amt(no high/low mode processing), 1 = audbileBins only,
     //2 = customFFTSize related output
     //Amount sent each frame will always be passed to the fftArrSize uniform

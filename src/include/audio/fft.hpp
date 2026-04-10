@@ -96,7 +96,7 @@ struct FFT{
     }
 
     //return first index then amount of bins used in spectral analysis
-    void getAudibleRange(uint32_t sr, uint32_t* start, uint32_t* size) {
+    void getAudibleRange(int sr, int* start, int* size) {
         const float binMult = (float)sr / (float) n;
         bool firstAudibleSet = false;
 
