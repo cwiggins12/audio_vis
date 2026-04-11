@@ -3,6 +3,7 @@
 #include "gpu/shader_preset.hpp"
 #include "config/spec_parser.hpp"
 #include "gpu/texture_loader.hpp"
+#include "config/globals.hpp"
 #include <algorithm>
 
 inline std::string loadFile(const std::string& path) {
@@ -14,6 +15,15 @@ inline std::string loadFile(const std::string& path) {
     std::ostringstream ss;
     ss << f.rdbuf();
     return ss.str();
+}
+
+inline std::array<int, 128> formatErrorMessageForPreset(const std::string& msg, int& errorLen) {
+    errorLen = std::min((int)msg.size(), 128);
+    std::array<int, 128> errorChars;
+    for (int i = 0; i < errorLen; i++) {
+        errorChars[i] = (int)msg[i];
+    }
+    return errorChars;
 }
 
 inline std::vector<ShaderPreset> loadPresets(const std::string& shadersDir) {
@@ -60,8 +70,9 @@ inline std::vector<ShaderPreset> loadPresets(const std::string& shadersDir) {
             if (ret != "") {
                 std::cerr << "loadPresets: Error in " + p.name +
                              " spec.cfg - " + ret;
-                p.errorMessage = "loadPresets: Error in " + p.name +
+                const std::string err = "loadPresets: Error in " + p.name +
                       " spec.cfg. Check log.txt for more details.";
+                p.errorMessage = formatErrorMessageForPreset(err, p.errorLen);
                 p.hasError = true;
                 presets.push_back(std::move(p));
                 std::cout << "loadPresets: using ErrorShader in " << p.name << "\n";
@@ -115,9 +126,10 @@ inline std::vector<ShaderPreset> loadPresets(const std::string& shadersDir) {
         if (!ret.empty()) {
             std::cerr << "loadPresets: " << loadedName <<
                          " - shader compile failed - " << ret;
-            p.errorMessage = "loadPresets: " + loadedName +
-                             " - shader compilation failed. " +
-                             "Check log.txt for more details.\n";
+            const std::string err = "loadPresets: " + loadedName +
+                                    " - shader compilation failed. " +
+                                    "Check log.txt for more details.\n";
+            p.errorMessage = formatErrorMessageForPreset(err, p.errorLen);
             p.hasError = true;
             presets.push_back(std::move(p));
             std::cout << "loadPresets: using ErrorShader in " << loadedName << "\n";
@@ -137,8 +149,9 @@ inline void reloadPreset(ShaderPreset* p) {
     std::string fragSrc = loadFile(fragPath);
     if (fragSrc.empty()) {
         p->hasError     = true;
-        p->errorMessage = "Hot Reload - " + p->name +
-                         " failed to open file - frag.glsl\n";
+        const std::string err = "Hot Reload - " + p->name +
+                                " failed to open file - frag.glsl\n";
+        p->errorMessage = formatErrorMessageForPreset(err, p->errorLen);
         std::cout << "Hot Reload: using ErrorShader in " << p->name << "\n";
         return;
     }
@@ -149,8 +162,9 @@ inline void reloadPreset(ShaderPreset* p) {
         errLog = parseSpec(specPath, newSpec);
         if (errLog != "") {
             p->hasError     = true;
-            p->errorMessage = "Hot Reload - " + p->name +
-                             " spec parse failed. Check log.txt for more details.";
+            const std::string err = "Hot Reload - " + p->name +
+                                    " spec parse failed. Check log.txt for more details.";
+            p->errorMessage = formatErrorMessageForPreset(err, p->errorLen);
             std::cerr << "Hot Reload - " + p->name +
                          " spec parse failed - " + errLog;
             std::cout << "Hot Reload: using ErrorShader in " << p->name << "\n";
@@ -164,8 +178,9 @@ inline void reloadPreset(ShaderPreset* p) {
     errLog = newShader.init(vertexSrc, fragSrc.c_str());
     if (!errLog.empty()) {
         p->hasError     = true;
-        p->errorMessage = "Hot Reload - " + p->name + " shader error. " +
-                          "Check Log.txt for more details\n";
+        const std::string err = "Hot Reload - " + p->name + " shader error. " +
+                                "Check Log.txt for more details\n";
+        p->errorMessage = formatErrorMessageForPreset(err, p->errorLen);
         std::cerr << "Hot Reload - " + p->name + " - " + errLog + "\n";
         std::cout << "Hot Reload: using ErrorShader in " << p->name << "\n";
         p->destroyTextures();
@@ -176,7 +191,7 @@ inline void reloadPreset(ShaderPreset* p) {
     p->shader       = std::move(newShader);
     p->spec         = newSpec;
     p->hasError     = false;
-    p->errorMessage = "";
+    p->errorMessage = {0};
     buildTextures(p);
 }
 
@@ -187,7 +202,7 @@ inline void assertUserDefinedBufferSizes(ShaderPreset* p, size_t maxFBSize) {
         ret = p->name + " - customFFTSize outside of bounds: 0 to 8192 (inclusive). " +
               "customFFTSize has been set to 0.\n";
         std::cerr << ret;
-        p->errorMessage = ret;
+        p->errorMessage = formatErrorMessageForPreset(ret, p->errorLen);
         p->hasError = true;
         p->spec.customFFTSize = 0;
         std::cout << "Using ErrorShader in" << p->name << "\n";
@@ -197,7 +212,7 @@ inline void assertUserDefinedBufferSizes(ShaderPreset* p, size_t maxFBSize) {
             std::to_string(p->spec.feedbackBufferSize) + " floats) exceeds gpu limit ("
             + std::to_string(maxFBSize) + ". feedbackBufferSize has been set to 0.\n";
         std::cerr << ret;
-        p->errorMessage = ret;
+        p->errorMessage = formatErrorMessageForPreset(ret, p->errorLen);
         p->hasError = true;
         p->spec.feedbackBufferSize = 0;
         std::cout << "Using ErrorShader in " << p->name << "\n";
@@ -211,5 +226,40 @@ inline std::string evalSpecExprs(Spec& spec, ExprContext& ctx) {
     ret = evalExpr(spec.feedbackBufferSizeExpr, ctx,
                    spec.feedbackBufferSize, spec.feedbackUsesExprVar);
     return ret;
+}
+
+//if sampleRate > displayHz * hopSize, lower hopAmount until it hits 1,
+//if sr > output still, raise fft order by 1 until output > sr
+//cout new values, and change spec values to new values
+inline void validateFFTRates(Globals& g, ShaderPreset* s) {
+    bool valuesChanged = false;
+    FFTOrder specOrder = s->spec.fftOrder;
+    HopAmount specHops = s->spec.hopAmount;
+    while (g.sampleRate > g.displayHz * g.hopSize) {
+        if (s->spec.hopAmount > 1) {
+            s->spec.hopAmount = static_cast<HopAmount>(s->spec.hopAmount / 2);
+            g.hopSize = g.fftSize / s->spec.hopAmount;
+            valuesChanged = true;
+            continue;
+        }
+        if (s->spec.fftOrder == 13) {
+            const std::string err = "Display Hz: " + std::to_string(g.displayHz) +
+                                    ". Sample rate: " + std::to_string(g.sampleRate) +
+                                    ". All shaders will not work without a lower sample rate or higher display rate.\n";
+            s->hasError = true;
+            s->errorMessage = formatErrorMessageForPreset(err, s->errorLen);
+            return;
+        }
+        s->spec.fftOrder = static_cast<FFTOrder>(s->spec.fftOrder + 1);
+        g.hopSize = 1 << s->spec.fftOrder;
+        g.fftSize = g.hopSize;
+        valuesChanged = true;
+    }
+    if (valuesChanged) {
+        std::cout << "fftOrder: " << specOrder << ", hopAmount: " << specHops
+                  << ", and displayHz: " << g.displayHz << " cannot keep up with sample rate: "
+                  << g.sampleRate << ". To avoid buffer overlap, hopAmount is now" << s->spec.hopAmount
+                  << " and fftOrder is now " << s->spec.fftOrder << ".\n";
+    }
 }
 

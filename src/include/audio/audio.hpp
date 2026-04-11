@@ -20,9 +20,7 @@ public:
 	Audio& operator=(Audio&&) = delete;
 
     bool init(Spec& spec) {
-        globals.fftSize = 1 << spec.fftOrder;
-        globals.hopSize = globals.fftSize / spec.hopAmount;
-        const int frameAmount = globals.fftSize * 2;
+        const int frameAmount = MAX_FFT_SIZE * 2;
 
         if (!capture.init(frameAmount)) {
             std::cerr << "Failed to initialize AudioCapture." << std::endl;
@@ -85,32 +83,13 @@ public:
         pr.resize(isPeakRMSMono, globals.numChannels);
         getRawSamples = spec.getRawSamples;
         rawSampleData.resize(spec.getRawSamples ? globals.hopSize : 0);
-        //set this way to account for custom sized array being more efficient to
-        //just get db then convert after all the ops it does
-        FFTMeasurement m = (spec.fftOutputMode == CUSTOM_SIZE) ? DECIBELS :
-                                                              spec.fftOutputMeasurement;
-        fft->swapSpec(spec.isFFTHannWindowed, m,
-                      spec.perceptualSlopeDegrees, globals.sampleRate);
+        fft->swapSpec(spec, globals.sampleRate);
     }
 
     void resetAccumulator() {
         firstWindowAccumulated = false;
         capture.resetAccumulator();
     }
-
-/*
-    uint32_t getNumChannels() {
-        return channels;
-    }
-
-    uint32_t getSampleRate() {
-        return sampleRate;
-    }
-
-    uint32_t getFFTSize () {
-        return fftSize;
-    }
-*/
 
     void getAudibleRange(int* start, int* size) {
         fft->getAudibleRange(capture.getSampleRate(), start, size);
@@ -138,17 +117,7 @@ private:
     PeakRMSMeter pr;
     std::unique_ptr<FFT> fft;
 
-//    Spec& spec;
     Globals& globals;
-
-    //const uint32_t fftOrder;
-    //const uint32_t hopAmt;
-
-    //uint32_t fftSize = 0;
-    //uint32_t hopSize = 0;
-
-    //uint32_t channels = 0;
-    //uint32_t sampleRate = 0;
 
     std::vector<float> rawSampleData;
 

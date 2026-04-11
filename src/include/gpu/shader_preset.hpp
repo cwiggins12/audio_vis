@@ -5,6 +5,7 @@
 #include <string>
 #include <filesystem>
 #include <vector>
+#include <array>
 
 using FileTime = std::filesystem::file_time_type;
 
@@ -18,12 +19,13 @@ struct TextureSlot {
 struct ShaderPreset {
     std::string name = "";
     std::string shaderDir = "";
-    Spec        spec;
-    Shader      shader;
-    FileTime    lastFragWrite;
-    FileTime    lastSpecWrite;
-    bool        hasError = false;
-    std::string errorMessage = "";
+    Spec spec;
+    Shader shader;
+    FileTime lastFragWrite;
+    FileTime lastSpecWrite;
+    std::array<int, 128> errorMessage = {0};
+    int errorLen = 0;
+    bool hasError = false;
     std::vector<TextureSlot> textures;
 
     void destroyTextures() {

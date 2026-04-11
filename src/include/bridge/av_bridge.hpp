@@ -6,11 +6,6 @@
 #include "config/spec.hpp"
 #include <algorithm>
 
-//probably want to put these in a globals.h at some point if I wind up with too many
-static constexpr float MIN_FREQ = 20.0f;
-static constexpr float MAX_FREQ = 20000.0f;
-static constexpr float MIN_DB = -96.0f;
-
 class AVBridge {
 public:
     AVBridge(Audio& a, Spec& spec, Globals& g) : audio(a), currSpec(spec), globals(g) {}
@@ -21,16 +16,7 @@ public:
     AVBridge& operator=(AVBridge&&) = delete;
 
     void init() {
-        //frameRate = g.displayHz;
-        //binAmt = audio.getFFTSize() / 2 + 1;
-        //channels = audio.getNumChannels();
-        //sampleRate = audio.getSampleRate();
-        initWidth = globals.W;
-        initHeight = globals.H;
-        //currentWidth = w;
-        //currentHeight = h;
-        //globals = g;
-        swap(currSpec);
+        swapSpec(currSpec);
     }
 
     void nextFrame() {
@@ -60,48 +46,16 @@ public:
         return audio.getSamplePtr();
     }
 
-    void resize(int w, int h) {
-        if (currSpec.customFFTSizeScalesWithWindow == NO_SCALE ||
-            currSpec.fftOutputMode != CUSTOM_SIZE) return;
-
-        globals.fftArrSize = getSizeFromModeSwitch(currSpec.customFFTSize,
-                                           currSpec.customFFTSizeScalesWithWindow);
-        setIndexFreqs(globals.fftArrSize);
-        const bool isFFTdB = currSpec.fftOutputMeasurement == 2;
-        float fftMin = isFFTdB ? MIN_DB : 0.0f;
-        if (currSpec.useFFTSmoothing) {
-            gpuFFT.reset(globals.displayHz, 1.0, currSpec.fftAtk, currSpec.fftRls,
-                         globals.fftArrSize, fftMin);
-        }
-        else {
-            gpuFFT.reset(globals.displayHz, 0.0f, 0.0f, 0.0f, globals.fftArrSize, fftMin);
-        }
-        if (currSpec.getFFTHolds) {
-            fftHolds.reset(globals.displayHz, currSpec.fftHoldTime,
-                           currSpec.fftHoldScalar, isFFTdB, globals.fftArrSize);
-        }
-    }
-
     void swapSpec(Spec& newSpec) {
-        swap(newSpec);
+        swapPeakRMS(newSpec);
+        swapSizeChanges(newSpec);
+        swapFFT(newSpec);
         currSpec = newSpec;
     }
-
-/*
-    size_t getFFTGPUSize() {
-        return gpuFFTSize;
-    }
-*/
 
     size_t getPeakRMSGPUSize() {
         return (currSpec.isPeakRMSMono) ? 2 : globals.numChannels * 2;
     }
-
-/*
-    size_t getFFTGPUSizeInBytes() {
-        return getFFTGPUSize() * sizeof(float);
-    }
-*/
 
     size_t getPeakRMSGPUSizeInBytes() {
         return getPeakRMSGPUSize() * sizeof(float);
@@ -111,31 +65,8 @@ public:
         return globals.hopSize * sizeof(float);
     }
 
-    size_t getValFromHeightScalar(size_t size) {
-        return std::round(size * ((float)globals.H / (float)initHeight));
-    }
-
-    size_t getValFromWidthScalar(size_t size) {
-        return std::round(size * ((float)globals.W / (float)initWidth));
-    }
-
-    size_t getValFromResolutionScalar(size_t size) {
-        return std::round(size * ((float)globals.H * (float)globals.W)
-                               / ((float)initHeight * (float)initWidth));
-    }
-
-    size_t getSizeFromModeSwitch(size_t size, int mode) {
-        switch (mode) {
-            case 0: return size;
-            case 1: return getValFromWidthScalar(size);
-            case 2: return getValFromHeightScalar(size);
-            case 3: return getValFromResolutionScalar(size);
-            default: return size;
-        }
-    }
-
     void formatData() {
-        //peak/rms pop and format
+        //peak/rms
         const int size = (currSpec.isPeakRMSMono) ? 2 : globals.numChannels * 2;
         float* prPtr = audio.getPRPtr();
         if (currSpec.isPeakRMSdB) {
@@ -148,7 +79,7 @@ public:
         }
         gpuPeakRMS.setAllTargetsWithPtr(prPtr);
         audio.prClear();
-        //fft output then check holds against that
+        //fft
         switch (currSpec.fftOutputMode) {
             case 0: fullBinPlacement();         break;
             case 1: audibleBinPlacement();      break;
@@ -161,10 +92,7 @@ public:
     }
 
 private:
-    //refactor pls
-    void swap(Spec& newSpec) {
-        //set fftSize, probably just need this in init, but its gonna live here for now
-        //fftSize = audio.getFFTSize();
+    void swapPeakRMS(Spec& newSpec) {
         //config peak/RMS hold array
         uint32_t peakRMSSize = (newSpec.isPeakRMSMono) ? 2 : globals.numChannels * 2;
         if (newSpec.getPeakRMSHolds) {
@@ -184,7 +112,9 @@ private:
         else {
             gpuPeakRMS.reset(globals.displayHz, 0.0f, 0.0f, 0.0f, peakRMSSize, prMin);
         }
-        //get fft size
+    }
+
+    void swapSizeChanges(Spec& newSpec) {
         switch (newSpec.fftOutputMode) {
             case 0: {
                 globals.fftArrSize = globals.fftBinAmt;
@@ -201,15 +131,17 @@ private:
             }
             case 2: {
                 size_t s = newSpec.customFFTSize;
-                globals.fftArrSize = getSizeFromModeSwitch(s,
+                globals.fftArrSize = globals.getSizeFromModeSwitch(s,
                                                  newSpec.customFFTSizeScalesWithWindow);
                 middlemanBuffer.resize(globals.fftArrSize);
                 setIndexFreqs(globals.fftArrSize);
                 break;
             }
         }
+    }
+
+    void swapFFT(Spec& newSpec) {
         const bool isFFTdB = newSpec.fftOutputMeasurement == DECIBELS;
-        //config FFT holds
         if (newSpec.getFFTHolds) {
             fftHolds.reset(globals.displayHz, newSpec.fftHoldTime,
                            newSpec.fftHoldScalar, isFFTdB, globals.fftArrSize);
@@ -250,8 +182,7 @@ private:
         }
     }
 
-    //currently set to start when bin density >= index density
-    //may want an int scalar > 1 to allow more customization later
+    //set to swap when bin density >= index density
     void setSwapFreq(const float scale) {
         const float binWidth = 1.0f / scale;
         const float logRatio = std::log(MAX_FREQ / MIN_FREQ);
@@ -429,8 +360,6 @@ private:
     }
 
     // 5. AKIMA
-    // Local cubic that is less prone to oscillation than standard Catmull-Rom
-    // Uses 5 points; slope weighting suppresses outliers.
     void getAkima(int start, int end, const float* in, float* out) {
         for(int i = start; i < end; ++i) {
             float cf = indexFreqs[i];
@@ -460,9 +389,7 @@ private:
             };
             float s1 = akimaSlope(m[0], m[1], m[2], m[3]);   // slope at bin2
             float s2 = akimaSlope(m[1], m[2], m[3],          // slope at bin2+1
-                                                        // need m[4]; mirror last delta
-                                  m[3] + (m[3] - m[2]));
-            // Hermite interpolation
+                                  m[3] + (m[3] - m[2]));     // need m[4]; mirror last delta
             float t2 = t*t, t3 = t2*t;
             float val = ( 2*t3 - 3*t2 + 1) * y[2]
                         + (   t3 - 2*t2 + t) * s1
@@ -538,25 +465,22 @@ private:
         }
     }
 
-    //float to float gain/mag to dB helper
     float gainToDB(float gain) {
         return std::max(MIN_DB, 20.0f * std::log10(gain));
     }
 
-    //float to float db to gain/mag helper
     float dBToGain(float dB) {
         dB = std::max(MIN_DB, dB);
         return std::pow(10.0f, dB * 0.05f);
     }
 
-    //float to float db to power helper
     float dBToPower(float dB) {
         dB = std::max(MIN_DB, dB);
         return std::pow(10.0f, dB * 0.1f);
     }
 
     Audio& audio;
-    Spec currSpec;
+    Spec& currSpec;
     Globals& globals;
 
     SmoothArraySoA gpuPeakRMS;
@@ -565,33 +489,12 @@ private:
     SmoothArraySoA gpuFFT;
     HoldArray fftHolds;
     std::vector<float> indexFreqs;
-    //truly thought I could go without a single middlemanBuffer array
-    //was hoping for ring buffer, to analysis objs, straight to smooth
-    //but adding this made everything easier for me and, hopefully, the compiler
-    //pray for vectorizing
     std::vector<float> middlemanBuffer;
-
-    //uint32_t fftSize = 0;
-    //uint32_t hopSize = 0;
-    //uint32_t hopAmt = 0;
-    //uint32_t binAmt = 0;
-
-    //uint32_t channels = 0;
-    //uint32_t sampleRate = 0;
-    //uint32_t frameRate = 0;
 
     int audibleStart = 0;
     int audibleSize = 0;
 
-    //uint32_t baseFFTSize = 0;
-    //uint32_t gpuFFTSize = 0;
     int swapIndex = 0;
-
-    int initWidth = 0;
-    int initHeight = 0;
-    //int currentWidth = 0;
-    //int currentHeight = 0;
-
     float swapFreq = 0.0f;
 };
 

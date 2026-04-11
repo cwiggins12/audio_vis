@@ -25,26 +25,37 @@ void evalPresetExprs(Globals& g, ShaderPreset* pre) {
     ctx.sampleRate   = g.sampleRate;
     ctx.fftSize      = g.fftSize;
     ctx.fftBinAmt    = g.fftBinAmt;
-    std::string ret = evalSpecExprs(pre->spec, ctx);
+    std::string ret  = evalSpecExprs(pre->spec, ctx);
     if (!ret.empty()) {
-        pre->errorMessage = ret;
+        pre->errorMessage = formatErrorMessageForPreset(ret, pre->errorLen);
         pre->hasError = true;
     }
 }
 
-void doSwap(ShaderPreset* p, AudioSystem& a, GPUBuffers& g) {
-    a.swap(p->spec);
+ResizeValues getResizeValues(Globals& gl, AudioSystem& a, ShaderSystem& s) {
     ResizeValues r;
     r.prSize = a.bridge.getPeakRMSGPUSizeInBytes();
-    r.fftSize = a.bridge.getFFTGPUSizeInBytes();
-    r.fbSize = a.bridge.getSizeFromModeSwitch(
-                        p->spec.feedbackBufferSize * sizeof(float),
-                        p->spec.feedbackBufferScalesWithWindow);
-    r.fbInit = p->spec.feedbackBufferInitValue;
-    r.prHSize = (p->spec.getPeakRMSHolds) ? r.prSize : 0;
-    r.fftHSize = (p->spec.getFFTHolds) ? r.fftSize : 0;
-    r.hopSize = (p->spec.getRawSamples) ? a.bridge.getHopSizeInBytes() : 0;
+    r.fftSize = gl.fftArrSize * sizeof(float);
+    r.fbSize = gl.getSizeFromModeSwitch(s.active->spec.feedbackBufferSize * sizeof(float),
+                                        s.active->spec.feedbackBufferScalesWithWindow);
+    r.fbInit = s.active->spec.feedbackBufferInitValue;
+    r.prHSize = (s.active->spec.getPeakRMSHolds) ? r.prSize : 0;
+    r.fftHSize = (s.active->spec.getFFTHolds) ? r.fftSize : 0;
+    r.hopSize = (s.active->spec.getRawSamples) ? gl.hopSize * sizeof(float) : 0;
+    return r;
+}
+
+void doSwap(ShaderSystem& s, AudioSystem& a, GPUBuffers& g,
+            Globals& gl, size_t fbMax) {
+    std::cout << "Swapping to: " << s.active->name << "\n";
+    evalPresetExprs(gl, s.active);
+    assertUserDefinedBufferSizes(s.active, fbMax);
+    validateFFTRates(gl, s.active);
+    a.swap(s.active->spec);
+    ResizeValues r = getResizeValues(gl, a, s);
     g.swap(r);
+    s.swap();
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 }
 
 int main() {
@@ -61,27 +72,24 @@ int main() {
         return -1;
     }
     //get initial width and height from framebuffer then log gl info
-    //int w, h;
-    glfw.initFramebuffer(globals.W, globals.H);
-    //globals.H = h; globals.W = w;
+    glfw.initFramebuffer();
+    int initW = globals.W, initH = globals.H;
     size_t maxFBBufferFloats = glfw.logGLInfo() / sizeof(float);
     //set max feedback buffer size to the lower of a 4k framebuffer or hardware limit
     maxFBBufferFloats = std::min(maxFBBufferFloats, (size_t)33177600);
     //init shaders
-    ShaderSystem shaders(getAssetPath("shaders/"));
+    ShaderSystem shaders(getAssetPath("shaders/"), globals);
     if (!shaders.isValid()) return -1;
     //init audio
     AudioSystem audioSys(globals, shaders.active->spec);
     if (!audioSys.isValid()) return -1;
-    glfw.setTitleBarForPreset(shaders.getIndex(), shaders.active->name);
     //init gpu verts and buffers
     GPUBuffers gpuBuffs(shaders.active->spec.feedbackBufferInitValue);
-    //swap all configs to first preset, unless eval error, then use errorShader
-    evalPresetExprs(globals, shaders.active);
-    assertUserDefinedBufferSizes(shaders.active, maxFBBufferFloats);
-    doSwap(shaders.active, audioSys, gpuBuffs);
+    //swap all configs to first preset
+    doSwap(shaders, audioSys, gpuBuffs, globals, maxFBBufferFloats);
+    glfw.setTitleBarForPreset(shaders.getIndex(), shaders.active->name);
     //catches button presses and handles them
-    InputHandler input;
+    InputHandler input(globals);
     //per frame loop
     while (!glfwWindowShouldClose(glfw.window)) {
         //flag for swap
@@ -89,36 +97,27 @@ int main() {
         //poll for input and handle it
         input.handleInput(glfw, shaders, needsSwap);
         //check for resize
-        glfw.checkForResize(audioSys, shaders.active, globals.W, globals.H, needsSwap);
+        glfw.checkForResize(audioSys, shaders.active, needsSwap);
         //check for frame rate change
         glfw.checkForFrameRateChange(shaders.active, needsSwap);
         //check for hot reload
         shaders.hotReloadCheck(needsSwap);
         //do swap if necessary, if eval fails, update active's error msg
         if (needsSwap) {
-            evalPresetExprs(globals, shaders.active);
-            assertUserDefinedBufferSizes(shaders.active, maxFBBufferFloats);
-            std::cout << "Swapping to: " << shaders.active->name << "\n";
-            doSwap(shaders.active, audioSys, gpuBuffs);
+            doSwap(shaders, audioSys, gpuBuffs, globals, maxFBBufferFloats);
             glfw.setTitleBarForPreset(shaders.getIndex(), shaders.active->name);
-            glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
         }
         //clear
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
         //either analyze new frame and format, or just temporally move values to send
         globals.newAudioWindow = audioSys.analyzeAndFormat();
-        //write to gpu buffers
         globals.time = glfwGetTime();
+        //write to gpu buffers
         gpuBuffs.writeToBuffers(audioSys.bridge, shaders.active->spec, globals);
         //use shader based on error state
-        if (shaders.active->hasError) {
-            shaders.useErrorShader(globals.W, globals.H);
-        }
-        else {
-            shaders.useActiveShader((float)glfwGetTime(), audioSys,
-                                    globals.H, globals.W, globals.newAudioWindow, globals.displayHz);
-        }
+        if (shaders.active->hasError) { shaders.useErrorShader(); }
+        else { shaders.useActiveShader(); }
         glDrawArrays(GL_TRIANGLES, 0, 3);
         glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
         //flip for user defined feedback ssbo

@@ -5,7 +5,7 @@
 
 struct InputHandler {
 public:
-    InputHandler() {
+    InputHandler(Globals& g) : globals(g) {
         srand(time(nullptr));
     }
 
@@ -43,9 +43,17 @@ public:
             needsSwap = true;
         }
         prevShuffleKey = shuffleKey;
+        //get mouse coords relative to top left of window. Clamped to window edges
+        double xPos, yPos;
+        glfwGetCursorPos(glfw.window, &xPos, &yPos);
+        globals.mouseX = std::clamp((float)xPos, 0.0f, (float)globals.W);
+        globals.mouseY = std::clamp((float)yPos, 0.0f, (float)globals.H);
+        //get mouse down state
+        globals.mouseDown = (glfwGetMouseButton(glfw.window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) ? 1 : 0;
     }
 
 private:
+    Globals& globals;
     int prevRightKey    = GLFW_RELEASE;
     int prevLeftKey     = GLFW_RELEASE;
     int prevFSKey       = GLFW_RELEASE;

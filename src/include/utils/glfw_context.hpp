@@ -9,7 +9,6 @@
 struct GLFWContext {
 public:
     GLFWwindow*        window    = nullptr;
-    //int                displayHz = 60;
 
     GLFWContext(Globals& g) : globals(g) {
         monitor = glfwGetPrimaryMonitor();
@@ -48,11 +47,11 @@ public:
         return (window && mode);
     }
 
-    void initFramebuffer(int& w, int& h) {
-        glfwGetFramebufferSize(window, &w, &h);
-        windowedW = w; windowedH = h;
-        pendingW  = w; pendingH  = h;
-        glViewport(0, 0, w, h);
+    void initFramebuffer() {
+        glfwGetFramebufferSize(window, &globals.W, &globals.H);
+        windowedW = globals.W; windowedH = globals.H;
+        pendingW  = globals.W; pendingH  = globals.H;
+        glViewport(0, 0, globals.W, globals.H);
         glfwSwapInterval(1);
         glfwSetWindowUserPointer(window, this);
         glfwSetFramebufferSizeCallback(window, [](GLFWwindow* win, int w, int h) {
@@ -100,16 +99,15 @@ public:
                                  windowedW, windowedH, 0);
         }
         isFullscreen = !isFullscreen;
+        glfwSwapInterval(1);
     }
 
-    void checkForResize(AudioSystem& a, ShaderPreset* p,
-                        int& w, int& h, bool& needsSwap) {
+    void checkForResize(AudioSystem& a, ShaderPreset* p, bool& needsSwap) {
         if (!resizePending) return;
         resizePending = false;
-        w = pendingW;
-        h = pendingH;
-        glViewport(0, 0, w, h);
-        a.bridge.resize(w, h);
+        globals.W = pendingW;
+        globals.H = pendingH;
+        glViewport(0, 0, globals.W, globals.H);
         if (p->spec.fftUsesExprVar[WINDOW_WIDTH] ||
             p->spec.fftUsesExprVar[WINDOW_HEIGHT] ||
             p->spec.customFFTSizeScalesWithWindow ||

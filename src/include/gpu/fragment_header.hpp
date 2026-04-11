@@ -7,13 +7,9 @@ in vec2 v_pos;
 out vec4 FragColor;
 
 layout(std140, binding = 0) uniform FrameUniforms {
-    float time;
-    float startTime;
-    float bpm;
     float mouseX;
     float mouseY;
-    float windowX;
-    float windowY;
+    int time;
     int W;
     int H;
     int mouseDown;

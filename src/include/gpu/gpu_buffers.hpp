@@ -40,8 +40,8 @@ public:
     void writeToBuffers(AVBridge& bridge, Spec& spec, Globals& globals) {
         //write to gpu buffers
         size_t prSize  = bridge.getPeakRMSGPUSizeInBytes();
-        size_t fftSize = bridge.getFFTGPUSizeInBytes();
-        size_t hopSize = bridge.getHopSizeInBytes();
+        size_t fftSize = globals.fftArrSize * sizeof(float);
+        size_t hopSize = globals.hopSize * sizeof(float);
         ssbos[0].write(bridge.getPeakRMSPtr(), prSize);
         ssbos[1].write(bridge.getFFTPtr(), fftSize);
         if (spec.getPeakRMSHolds) {
