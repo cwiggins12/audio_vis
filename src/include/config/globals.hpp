@@ -8,9 +8,9 @@
 struct Globals {
     float mouseX = 0;  //input handler DONE
     float mouseY = 0;  //input handler DONE
-    int time = 0;    //in main DONE
-    int W = 0;       //glfw context DONE
-    int H = 0;       //glfw context DONE
+    float time = 0;    //in main DONE
+    float W = 0;       //glfw context DONE
+    float H = 0;       //glfw context DONE
     int mouseDown = 0; //input handler DONE
 
     int fftSize = 0;    //set in AudioSystem DONE

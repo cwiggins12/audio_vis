@@ -8,7 +8,7 @@
 
 class AVBridge {
 public:
-    AVBridge(Audio& a, Spec& spec, Globals& g) : audio(a), currSpec(spec), globals(g) {}
+    AVBridge(Audio& a, Spec& spec, Globals& g) : audio(a), globals(g) { currSpec = &spec; }
     ~AVBridge() {}
     AVBridge(const AVBridge&) = delete;
     AVBridge& operator=(const AVBridge&) = delete;
@@ -16,7 +16,9 @@ public:
     AVBridge& operator=(AVBridge&&) = delete;
 
     void init() {
-        swapSpec(currSpec);
+        swapPeakRMS();
+        swapSizeChanges();
+        swapFFT();
     }
 
     void nextFrame() {
@@ -47,14 +49,14 @@ public:
     }
 
     void swapSpec(Spec& newSpec) {
-        swapPeakRMS(newSpec);
-        swapSizeChanges(newSpec);
-        swapFFT(newSpec);
-        currSpec = newSpec;
+        currSpec = &newSpec;
+        swapPeakRMS();
+        swapSizeChanges();
+        swapFFT();
     }
 
     size_t getPeakRMSGPUSize() {
-        return (currSpec.isPeakRMSMono) ? 2 : globals.numChannels * 2;
+        return (currSpec->isPeakRMSMono) ? 2 : globals.numChannels * 2;
     }
 
     size_t getPeakRMSGPUSizeInBytes() {
@@ -67,55 +69,55 @@ public:
 
     void formatData() {
         //peak/rms
-        const int size = (currSpec.isPeakRMSMono) ? 2 : globals.numChannels * 2;
+        const int size = (currSpec->isPeakRMSMono) ? 2 : globals.numChannels * 2;
         float* prPtr = audio.getPRPtr();
-        if (currSpec.isPeakRMSdB) {
+        if (currSpec->isPeakRMSdB) {
             for (int i = 0; i < size; ++i) {
                 prPtr[i] = gainToDB(prPtr[i]);
             }
         }
-        if (currSpec.getPeakRMSHolds) {
+        if (currSpec->getPeakRMSHolds) {
             peakRMSHolds.compareValsToArray(prPtr);
         }
         gpuPeakRMS.setAllTargetsWithPtr(prPtr);
         audio.prClear();
         //fft
-        switch (currSpec.fftOutputMode) {
+        switch (currSpec->fftOutputMode) {
             case 0: fullBinPlacement();         break;
             case 1: audibleBinPlacement();      break;
             case 2: customSizeFFTPlacement();   break;
             default: fullBinPlacement();        break;
         }
-        if (currSpec.getFFTHolds) {
+        if (currSpec->getFFTHolds) {
             fftHolds.compareValsToArray(gpuFFT.getCurrents());
         }
     }
 
 private:
-    void swapPeakRMS(Spec& newSpec) {
+    void swapPeakRMS() {
         //config peak/RMS hold array
-        uint32_t peakRMSSize = (newSpec.isPeakRMSMono) ? 2 : globals.numChannels * 2;
-        if (newSpec.getPeakRMSHolds) {
-            peakRMSHolds.reset(globals.displayHz, newSpec.peakRMSHoldTime,
-                               newSpec.peakRMSHoldScalar,
-                               newSpec.isPeakRMSdB, peakRMSSize);
+        uint32_t peakRMSSize = (currSpec->isPeakRMSMono) ? 2 : globals.numChannels * 2;
+        if (currSpec->getPeakRMSHolds) {
+            peakRMSHolds.reset(globals.displayHz, currSpec->peakRMSHoldTime,
+                               currSpec->peakRMSHoldScalar,
+                               currSpec->isPeakRMSdB, peakRMSSize);
         }
         else {
             peakRMSHolds.reset(globals.displayHz, 0.0f, 0.0f, false, 0);
         }
         //config peak/RMS smooth array
-        float prMin = newSpec.isPeakRMSdB ? MIN_DB : 0.0f;
-        if (newSpec.usePeakRMSSmoothing) {
-            gpuPeakRMS.reset(globals.displayHz, 1.0f, newSpec.peakRMSAtk,
-                             newSpec.peakRMSRls, peakRMSSize, prMin);
+        float prMin = currSpec->isPeakRMSdB ? MIN_DB : 0.0f;
+        if (currSpec->usePeakRMSSmoothing) {
+            gpuPeakRMS.reset(globals.displayHz, 1.0f, currSpec->peakRMSAtk,
+                             currSpec->peakRMSRls, peakRMSSize, prMin);
         }
         else {
             gpuPeakRMS.reset(globals.displayHz, 0.0f, 0.0f, 0.0f, peakRMSSize, prMin);
         }
     }
 
-    void swapSizeChanges(Spec& newSpec) {
-        switch (newSpec.fftOutputMode) {
+    void swapSizeChanges() {
+        switch (currSpec->fftOutputMode) {
             case 0: {
                 globals.fftArrSize = globals.fftBinAmt;
                 middlemanBuffer.resize(0);
@@ -130,9 +132,9 @@ private:
                 break;
             }
             case 2: {
-                size_t s = newSpec.customFFTSize;
+                size_t s = currSpec->customFFTSize;
                 globals.fftArrSize = globals.getSizeFromModeSwitch(s,
-                                                 newSpec.customFFTSizeScalesWithWindow);
+                                                 currSpec->customFFTSizeScalesWithWindow);
                 middlemanBuffer.resize(globals.fftArrSize);
                 setIndexFreqs(globals.fftArrSize);
                 break;
@@ -140,19 +142,19 @@ private:
         }
     }
 
-    void swapFFT(Spec& newSpec) {
-        const bool isFFTdB = newSpec.fftOutputMeasurement == DECIBELS;
-        if (newSpec.getFFTHolds) {
-            fftHolds.reset(globals.displayHz, newSpec.fftHoldTime,
-                           newSpec.fftHoldScalar, isFFTdB, globals.fftArrSize);
+    void swapFFT() {
+        const bool isFFTdB = currSpec->fftOutputMeasurement == DECIBELS;
+        if (currSpec->getFFTHolds) {
+            fftHolds.reset(globals.displayHz, currSpec->fftHoldTime,
+                           currSpec->fftHoldScalar, isFFTdB, globals.fftArrSize);
         }
         else {
             fftHolds.reset(globals.displayHz, 0.0f, 0.0f, false, 0);
         }
         //config fft smooth array
         float fftMin = isFFTdB ? MIN_DB : 0.0f;
-        if (newSpec.useFFTSmoothing) {
-            gpuFFT.reset(globals.displayHz, 1.0, newSpec.fftAtk, newSpec.fftRls,
+        if (currSpec->useFFTSmoothing) {
+            gpuFFT.reset(globals.displayHz, 1.0, currSpec->fftAtk, currSpec->fftRls,
                          globals.fftArrSize, fftMin);
         }
         else {
@@ -194,9 +196,9 @@ private:
     void customSizeFFTPlacement() {
         const float* fftOut = audio.getFFTPtr();
         float* buffPtr = middlemanBuffer.data();
-        switchOnInterps(0, swapIndex, fftOut, buffPtr, currSpec.lowMode);
-        switchOnCollates(swapIndex, globals.fftArrSize, fftOut, buffPtr, currSpec.highMode);
-        switchOnMeasurement(globals.fftArrSize, buffPtr, currSpec.fftOutputMeasurement);
+        switchOnInterps(0, swapIndex, fftOut, buffPtr, currSpec->lowMode);
+        switchOnCollates(swapIndex, globals.fftArrSize, fftOut, buffPtr, currSpec->highMode);
+        switchOnMeasurement(globals.fftArrSize, buffPtr, currSpec->fftOutputMeasurement);
         gpuFFT.setAllTargetsWithPtr(buffPtr);
     }
 
@@ -480,7 +482,7 @@ private:
     }
 
     Audio& audio;
-    Spec& currSpec;
+    Spec* currSpec = nullptr;
     Globals& globals;
 
     SmoothArraySoA gpuPeakRMS;

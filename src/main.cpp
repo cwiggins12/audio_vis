@@ -73,7 +73,7 @@ int main() {
     }
     //get initial width and height from framebuffer then log gl info
     glfw.initFramebuffer();
-    int initW = globals.W, initH = globals.H;
+    globals.initWidth = globals.W; globals.initHeight = globals.H;
     size_t maxFBBufferFloats = glfw.logGLInfo() / sizeof(float);
     //set max feedback buffer size to the lower of a 4k framebuffer or hardware limit
     maxFBBufferFloats = std::min(maxFBBufferFloats, (size_t)33177600);

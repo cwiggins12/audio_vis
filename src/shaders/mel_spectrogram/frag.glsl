@@ -69,7 +69,7 @@ float powToDB(float pow) {
 
 void main() {
     vec2 uv = uvBottomLeft();
-    int columnAmt = int(float(sampleRate) * 4.0 / float(fftSize) * float(SECONDS_SHOWN));
+    int columnAmt = int(48000.0 * 4.0 / 8192.0 * float(SECONDS_SHOWN));
     float columnWidth = 1.0 / float(columnAmt);
     int m = int(uv.y * float(TOTAL_MEL_BINS));
     m = clamp(m, 0, TOTAL_MEL_BINS - 1);

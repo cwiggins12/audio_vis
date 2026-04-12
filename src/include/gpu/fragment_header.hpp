@@ -9,9 +9,9 @@ out vec4 FragColor;
 layout(std140, binding = 0) uniform FrameUniforms {
     float mouseX;
     float mouseY;
-    int time;
-    int W;
-    int H;
+    float time;
+    float W;
+    float H;
     int mouseDown;
     int fftSize;
     int hopSize;
@@ -42,6 +42,9 @@ layout(std430, binding = 4) readonly buffer FeedbackRead {
 };
 layout(std430, binding = 5) writeonly buffer FeedbackWrite {
     float feedbackOut[];
+};
+layout(std430, binding = 6) writeonly buffer RawSamples {
+    float rawSamples[];
 };
 
 // cp437 font
@@ -169,6 +172,20 @@ float renderText(int[128] chars, int len, vec2 origin, float size,
     return result;
 }
 
+int getPackedChar(ivec4 arr[32], int i) {
+    return arr[i / 4][i % 4];
+}
+
+float renderTextPacked(ivec4 chars[32], int len, vec2 origin, float size,
+                       vec2 fragPx, int offset) {
+    float result = 0.0;
+    for (int i = 0; i < len; i++) {
+        result = max(result, renderChar(getPackedChar(chars, offset + i),
+                     origin + vec2(float(i) * size, 0.0),
+                     size, fragPx));
+    }
+    return result;
+}
 //spacing covention helpers
 // UV (0,0) = bottom-left, (1,1) = top-right — GL/math convention
 vec2 uvBottomLeft() {

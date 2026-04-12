@@ -259,16 +259,19 @@ inline std::string parseSpec(const std::string& path, Spec& out) {
         else if (key == "useFFTSmoothing") {
             if (!parseBool(out.useFFTSmoothing)) return ret;
         }
-        else if (key == "getsFFTHolds") {
+        else if (key == "getFFTHolds") {
             if (!parseBool(out.getFFTHolds)) return ret;
         }
         else if (key == "isFFTHannWindowed") {
             if (!parseBool(out.isFFTHannWindowed)) return ret;
         }
+        else if (key == "getRawSamples") {
+            if (!parseBool(out.getRawSamples)) return ret;
+        }
         else if (key == "usePeakRMSSmoothing") {
             if (!parseBool(out.usePeakRMSSmoothing)) return ret;
         }
-        else if (key == "getsPeakRMSHolds") {
+        else if (key == "getPeakRMSHolds") {
             if (!parseBool(out.getPeakRMSHolds)) return ret;
         }
         else if (key == "isPeakRMSdB") {

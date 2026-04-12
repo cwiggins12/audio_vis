@@ -6,8 +6,6 @@
 struct AudioSystem {
     Audio    audio;
     AVBridge bridge;
-    int      sampleRate = 0;
-    int      channels = 0;
 
     AudioSystem(Globals& g, Spec& spec) :
                 globals(g), audio(g), bridge(audio, spec, g) {
@@ -22,7 +20,7 @@ struct AudioSystem {
     }
 
     bool isValid() {
-        return (channels != 0 && sampleRate != 0);
+        return (globals.numChannels != 0 && globals.sampleRate != 0);
     }
 
     bool analyzeAndFormat() {

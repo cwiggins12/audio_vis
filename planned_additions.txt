@@ -2,7 +2,7 @@
  - pure sample data ssbo DONE
  - ubo for all uniforms DONE
  - mouseX, mouseY, and mouseDown uniforms DONE
- - fft and hop size are now customizable by the user (but very limited) DONE
+ - fft and hop size are now customizable by the user (but limited) DONE
  - stb_truetype integration for user defined fonts
  - dropdown menu to choose audio and video device
  - raspberry pi support for all features
@@ -14,7 +14,7 @@
  - timed shuffle mode (pressing a button opens a dialog box, user enters a time?)
  - More possible smoothing modes: Research for high end smoothing: precollation smoothing(super spency), weighted collation(wont do much without log bin grouping), log bin grouping with overlap(somewhat spency), or second smoothing pass on high end with the interp again
  - better sample rate/channel amount changes(disallow resampling at any level and detect changes and adapt to them)(this would only be necessary or relevant for a user that needs the highest quality/speed, but is changing their hardware sample rate or channel amount mid session. The analysis still works currently, but it analyzes resampled audio by either the OS internal audio processes(pipewire, pulse, winapi) or miniaudio in certain scenarios(alsa, certain windows configs)), may require new plumbing in miniaudio to just give me a callback when those config values change
- - Have 2 separate builds: one ES for pi and embedded devices, one not ES for Win and Lin?
  - Allow for user defined uniforms that could be adjusted by midi, key input, or ui
+ - Have 2 separate builds: one ES for pi and embedded devices, one not ES for Win and Lin?
  - VST3 port?
  - interpolation between presets on swap?

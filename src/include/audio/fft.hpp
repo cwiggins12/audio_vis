@@ -124,6 +124,9 @@ struct FFT{
             in = (float *)fftwf_malloc(sizeof(float) * n);
             out = (fftwf_complex *)fftwf_malloc(sizeof(fftwf_complex) * binAmt);
             p = fftwf_plan_dft_r2c_1d(n, in, out, FFTW_MEASURE);
+            placement = (float *)out;
+            scalarTable.resize(binAmt);
+            if (isWindowed) windowingTable.resize(n);
         }
         //any change other than isWin will cause
         //a recompute of the scalar table,

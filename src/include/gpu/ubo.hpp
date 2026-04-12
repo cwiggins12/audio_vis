@@ -26,7 +26,7 @@ public:
 
     void update(const Globals& data) {
         glBindBuffer(GL_UNIFORM_BUFFER, id);
-        glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(Globals), &data);
+        glBufferSubData(GL_UNIFORM_BUFFER, 0, globalsGPUSize, &data);
     }
 };
 

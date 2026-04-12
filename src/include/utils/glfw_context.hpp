@@ -48,9 +48,11 @@ public:
     }
 
     void initFramebuffer() {
-        glfwGetFramebufferSize(window, &globals.W, &globals.H);
-        windowedW = globals.W; windowedH = globals.H;
-        pendingW  = globals.W; pendingH  = globals.H;
+        int w = 0, h = 0;
+        glfwGetFramebufferSize(window, &w, &h);
+        globals.W = w;          globals.H = h;
+        windowedW = globals.W;  windowedH = globals.H;
+        pendingW  = globals.W;  pendingH  = globals.H;
         glViewport(0, 0, globals.W, globals.H);
         glfwSwapInterval(1);
         glfwSetWindowUserPointer(window, this);

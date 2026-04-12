@@ -60,7 +60,7 @@ struct Spec {
     FFTOutputMode fftOutputMode = CUSTOM_SIZE;
     //for custom sized pixel aligned fftOutputs.
     //If you don't want to deal with freq space, this entirely abstracts it away :)
-    uint32_t customFFTSize = 0;
+    uint32_t customFFTSize = 1080;
     //this is not used by a user, this check for usage of ExprVariable's in the input
     //string, then the system can check this to see if the size needs an update
     //on change of this var, which is what the bitset signals

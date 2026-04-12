@@ -68,6 +68,11 @@ inline std::vector<ShaderPreset> loadPresets(const std::string& shadersDir) {
         if (std::filesystem::exists(specPath)) {
             ret = parseSpec(specPath.string(), p.spec);
             if (ret != "") {
+                p.shaderDir = entry.path().string();
+                p.lastFragWrite = std::filesystem::last_write_time(fragPath);
+                p.lastSpecWrite = std::filesystem::exists(specPath)
+                                ? std::filesystem::last_write_time(specPath)
+                                : std::filesystem::file_time_type{};
                 std::cerr << "loadPresets: Error in " + p.name +
                              " spec.cfg - " + ret;
                 const std::string err = "loadPresets: Error in " + p.name +

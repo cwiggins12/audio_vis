@@ -119,7 +119,7 @@ void main() {
     for (int i = 0; i < loops; i++) {
         int offset = i * charAmt;
         int count = min(charAmt, errorLen - offset);
-        text = max(text, renderText(errorChars, count,
+        text = max(text, renderTextPacked(errorChars, count,
                                     vec2(spacing, H - (lineH * float(i + 1))),
                                     fontSize, fragPx, charAmt * i));
     }
