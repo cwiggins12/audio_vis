@@ -6,26 +6,28 @@
 
 
 struct Globals {
-    float mouseX = 0;  //input handler DONE
-    float mouseY = 0;  //input handler DONE
-    float time = 0;    //in main DONE
-    float W = 0;       //glfw context DONE
-    float H = 0;       //glfw context DONE
-    int mouseDown = 0; //input handler DONE
+    float mouseX = 0;
+    float mouseY = 0;
+    float time = 0;
+    float W = 0;
+    float H = 0;
+    int mouseDown = 0;
 
-    int fftSize = 0;    //set in AudioSystem DONE
-    int hopSize = 0;    //set in AudioSystem DONE
-    int fftBinAmt = 0;  //set in AudioSystem DONE
+    int fftOrder = 0;
+    int fftSize = 0;
+    int hopAmt = 0;
+    int hopSize = 0;
+    int fftBinAmt = 0;
 
-    int fftArrSize = 0; //handle within avbridge (could move some of the resize functions to this struct) DONE
+    int fftArrSize = 0;
 
-    int newAudioWindow = 0; //in main DONE
-    int numChannels = 0; //get from capture DONE
-    int displayHz = 0; //glfw context DONE
-    int sampleRate = 0; //get from capture DONE
+    int newAudioWindow = 0;
+    int numChannels = 0;
+    int displayHz = 0;
+    int sampleRate = 0;
 
-    int showError = 0; //set these 3 in shader system swap
-    int errorLen = 0;  //DONE
+    int showError = 0;
+    int errorLen = 0;
     std::array<int,128> errorChars = {0};
 
     int initWidth = 0;
@@ -43,9 +45,9 @@ struct Globals {
     }
 };
 
-inline constexpr float MIN_FREQ = 20.0f;
-inline constexpr float MAX_FREQ = 20000.0f;
-inline constexpr float MIN_DB = -96.0f;
-inline constexpr int   MAX_FFT_SIZE = 8192;
-inline constexpr size_t globalsGPUSize = offsetof(Globals, initWidth);
+inline constexpr float  MIN_FREQ        = 20.0f;
+inline constexpr float  MAX_FREQ        = 20000.0f;
+inline constexpr float  MIN_DB          = -96.0f;
+inline constexpr int    MAX_FFT_SIZE    = 8192;
+inline constexpr size_t globalsGPUSize  = offsetof(Globals, initWidth);
 

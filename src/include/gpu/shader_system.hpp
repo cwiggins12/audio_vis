@@ -84,22 +84,17 @@ public:
         if (presets.size() <= 1) {
             active->hasError = true;
             const std::string err = removedName +
-                                    " - shader directory was deleted. No other presets available.";
+                        " - shader directory was deleted. No other presets available.";
             active->errorMessage = formatErrorMessageForPreset(err, active->errorLen);
             std::cerr << err << "\n";
             return;
         }
         active->destroyTextures();
         presets.erase(presets.begin() + index);
-        // Clamp index into the now-smaller vector
-        if (index >= (int)presets.size()) {
-            index = (int)presets.size() - 1;
-        }
+        if (index >= (int)presets.size()) { index = (int)presets.size() - 1; }
         active = &presets[index];
-        active->hasError = true;
-        const std::string err = removedName +
-            " was removed. Moving to: " + active->name;
-        active->errorMessage = formatErrorMessageForPreset(err, active->errorLen);
+        const std::string err = removedName + " was removed. Moving to: "
+                                + active->name;
         std::cerr << err << "\n";
     }
 

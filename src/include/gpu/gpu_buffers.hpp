@@ -38,7 +38,6 @@ public:
     }
 
     void writeToBuffers(AVBridge& bridge, Spec& spec, Globals& globals) {
-        //write to gpu buffers
         size_t prSize  = bridge.getPeakRMSGPUSizeInBytes();
         size_t fftSize = globals.fftArrSize * sizeof(float);
         size_t hopSize = globals.hopSize * sizeof(float);
@@ -56,10 +55,26 @@ public:
         ubo.update(globals);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
         glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
+        /*
+        std::cout << "mouseX = " << globals.mouseX << ", mouseY = " << globals.mouseY
+                  << ", time = " << globals.time << ", W = " << globals.W << ", H = "
+                  << globals.H << ", mouseDown = " << globals.mouseDown
+                  << ", fftOrder = " << globals.fftOrder << ", fftSize = "
+                  << globals.fftSize << ", hopAmount = " << globals.hopAmt
+                  << ", hopSize = " << globals.hopSize << ", fftBinAmt = "
+                  << globals.fftBinAmt << ", fftArrSize = " << globals.fftArrSize
+                  << ", newAudioWindow = " << globals.newAudioWindow 
+                  << ", numChannels = " << globals.numChannels << ", displayHz = "
+                  << globals.displayHz << ", sampleRate = " << globals.sampleRate
+                  << "\n";
+*/
+
     }
 
     void swap(ResizeValues& r) {
         glFinish();
+        feedbackFlip = false;
         ssbos[0].resize(r.prSize);      ssbos[0].bind(0);
         ssbos[1].resize(r.fftSize);     ssbos[1].bind(1);
         ssbos[2].resize(r.prHSize);     ssbos[2].bind(2);
@@ -71,8 +86,8 @@ public:
 
     void flipFeedback() {
         feedbackFlip = !feedbackFlip;
-        ssbos[4].bind(feedbackFlip ? 4 : 5);
-        ssbos[5].bind(feedbackFlip ? 5 : 4);
+        ssbos[4].bind(feedbackFlip ? 5 : 4);
+        ssbos[5].bind(feedbackFlip ? 4 : 5);
     }
 
 private:

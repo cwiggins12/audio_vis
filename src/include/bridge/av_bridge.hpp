@@ -8,7 +8,9 @@
 
 class AVBridge {
 public:
-    AVBridge(Audio& a, Spec& spec, Globals& g) : audio(a), globals(g) { currSpec = &spec; }
+    AVBridge(Audio& a, Spec& spec, Globals& g) : audio(a), globals(g) {
+        currSpec = &spec;
+    }
     ~AVBridge() {}
     AVBridge(const AVBridge&) = delete;
     AVBridge& operator=(const AVBridge&) = delete;
@@ -134,7 +136,7 @@ private:
             case 2: {
                 size_t s = currSpec->customFFTSize;
                 globals.fftArrSize = globals.getSizeFromModeSwitch(s,
-                                                 currSpec->customFFTSizeScalesWithWindow);
+                                            currSpec->customFFTSizeScalesWithWindow);
                 middlemanBuffer.resize(globals.fftArrSize);
                 setIndexFreqs(globals.fftArrSize);
                 break;
@@ -158,7 +160,8 @@ private:
                          globals.fftArrSize, fftMin);
         }
         else {
-            gpuFFT.reset(globals.displayHz, 0.0f, 0.0f, 0.0f, globals.fftArrSize, fftMin);
+            gpuFFT.reset(globals.displayHz, 0.0f, 0.0f, 0.0f,
+                         globals.fftArrSize, fftMin);
         }
     }
 
@@ -176,7 +179,6 @@ private:
             if (!swapIndexFound && freq > swapFreq) {
                 swapIndex = i;
                 swapIndexFound = true;
-                //std::cout << "Swap Index: " << swapIndex << std::endl;
             }
             float binIndexFloat = freq * scale;
             indexFreqs[i] = std::min(std::max(binIndexFloat, 0.0f),
@@ -190,15 +192,16 @@ private:
         const float logRatio = std::log(MAX_FREQ / MIN_FREQ);
         swapFreq = binWidth * (float)(indexFreqs.size() - 1) / logRatio;
         swapFreq = std::min(std::max(swapFreq, MIN_FREQ), MAX_FREQ);
-        //std::cout << "Swap Freq: " << swapFreq << std::endl;
     }
 
     void customSizeFFTPlacement() {
         const float* fftOut = audio.getFFTPtr();
         float* buffPtr = middlemanBuffer.data();
         switchOnInterps(0, swapIndex, fftOut, buffPtr, currSpec->lowMode);
-        switchOnCollates(swapIndex, globals.fftArrSize, fftOut, buffPtr, currSpec->highMode);
-        switchOnMeasurement(globals.fftArrSize, buffPtr, currSpec->fftOutputMeasurement);
+        switchOnCollates(swapIndex, globals.fftArrSize, fftOut,
+                         buffPtr, currSpec->highMode);
+        switchOnMeasurement(globals.fftArrSize,
+                            buffPtr, currSpec->fftOutputMeasurement);
         gpuFFT.setAllTargetsWithPtr(buffPtr);
     }
 
@@ -367,7 +370,6 @@ private:
             float cf = indexFreqs[i];
             int bin2 = cf;   // left bracket
             float t = cf - bin2;
-            // Clamp extended neighbourhood
             auto clampBin = [&](int b) -> int {
                 return std::max(0, std::min(globals.fftBinAmt - 1, b));
             };
@@ -381,7 +383,7 @@ private:
             // Finite differences (uniform spacing h=1)
             float m[4];
             for (int k = 0; k < 4; ++k) m[k] = y[k+1] - y[k];
-            // Akima weights: |difference of successive slopes|
+            // Akima weights: difference of successive slopes
             auto akimaSlope = [](float m0, float m1, float m2, float m3) -> float {
                 float w1 = std::abs(m3 - m2);
                 float w2 = std::abs(m1 - m0);
@@ -389,9 +391,8 @@ private:
                 if (denom < 1e-10f) return 0.5f * (m1 + m2);  // near-flat: average
                 return (w1 * m1 + w2 * m2) / denom;
             };
-            float s1 = akimaSlope(m[0], m[1], m[2], m[3]);   // slope at bin2
-            float s2 = akimaSlope(m[1], m[2], m[3],          // slope at bin2+1
-                                  m[3] + (m[3] - m[2]));     // need m[4]; mirror last delta
+            float s1 = akimaSlope(m[0], m[1], m[2], m[3]);
+            float s2 = akimaSlope(m[1], m[2], m[3], m[3] + (m[3] - m[2]));
             float t2 = t*t, t3 = t2*t;
             float val = ( 2*t3 - 3*t2 + 1) * y[2]
                         + (   t3 - 2*t2 + t) * s1
@@ -484,18 +485,14 @@ private:
     Audio& audio;
     Spec* currSpec = nullptr;
     Globals& globals;
-
     SmoothArraySoA gpuPeakRMS;
     HoldArray peakRMSHolds;
-
     SmoothArraySoA gpuFFT;
     HoldArray fftHolds;
     std::vector<float> indexFreqs;
     std::vector<float> middlemanBuffer;
-
     int audibleStart = 0;
     int audibleSize = 0;
-
     int swapIndex = 0;
     float swapFreq = 0.0f;
 };

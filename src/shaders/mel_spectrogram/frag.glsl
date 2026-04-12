@@ -1,6 +1,6 @@
 const float DB_FLOOR        = -90.0;
 const float DB_CEIL         = 0.0;
-const int   TOTAL_MEL_BINS  = 256;
+const int   TOTAL_MEL_BINS  = 64;
 const int   SECONDS_SHOWN   = 5;
 
 float hzToMel(float hz) {
@@ -69,7 +69,9 @@ float powToDB(float pow) {
 
 void main() {
     vec2 uv = uvBottomLeft();
-    int columnAmt = int(48000.0 * 4.0 / 8192.0 * float(SECONDS_SHOWN));
+    float sr = float(sampleRate);
+    float hSize = float(hopSize);
+    int columnAmt = int(sr / hSize * float(SECONDS_SHOWN));
     float columnWidth = 1.0 / float(columnAmt);
     int m = int(uv.y * float(TOTAL_MEL_BINS));
     m = clamp(m, 0, TOTAL_MEL_BINS - 1);
@@ -89,7 +91,7 @@ void main() {
             FragColor = vec4(inferno(feedbackIn[index]), 1.0);
         }
         else {
-            //read, write to index - TOTAL_MEL_BINS, print color
+            //read index + TOTAL_MEL_BINS, write, print color
             float val = feedbackIn[index + TOTAL_MEL_BINS];
             feedbackOut[index] = val;
             FragColor = vec4(inferno(val), 1.0);

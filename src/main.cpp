@@ -36,7 +36,8 @@ ResizeValues getResizeValues(Globals& gl, AudioSystem& a, ShaderSystem& s) {
     ResizeValues r;
     r.prSize = a.bridge.getPeakRMSGPUSizeInBytes();
     r.fftSize = gl.fftArrSize * sizeof(float);
-    r.fbSize = gl.getSizeFromModeSwitch(s.active->spec.feedbackBufferSize * sizeof(float),
+    r.fbSize = gl.getSizeFromModeSwitch(s.active->spec.feedbackBufferSize
+                                        * sizeof(float),
                                         s.active->spec.feedbackBufferScalesWithWindow);
     r.fbInit = s.active->spec.feedbackBufferInitValue;
     r.prHSize = (s.active->spec.getPeakRMSHolds) ? r.prSize : 0;
@@ -48,6 +49,7 @@ ResizeValues getResizeValues(Globals& gl, AudioSystem& a, ShaderSystem& s) {
 void doSwap(ShaderSystem& s, AudioSystem& a, GPUBuffers& g,
             Globals& gl, size_t fbMax) {
     std::cout << "Swapping to: " << s.active->name << "\n";
+    a.updateAudioGlobals(s.active->spec);
     evalPresetExprs(gl, s.active);
     assertUserDefinedBufferSizes(s.active, fbMax);
     validateFFTRates(gl, s.active);

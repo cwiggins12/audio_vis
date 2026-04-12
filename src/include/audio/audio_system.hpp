@@ -34,10 +34,15 @@ struct AudioSystem {
         return newAudioWindow;
     }
 
-    void swap(Spec& spec) {
-        globals.fftSize = 1 << spec.fftOrder;
-        globals.hopSize = globals.fftSize / spec.hopAmount;
+    void updateAudioGlobals(Spec& spec) {
+        globals.fftOrder = spec.fftOrder;
+        globals.fftSize = 1 << globals.fftOrder;
+        globals.hopAmt = spec.hopAmount;
+        globals.hopSize = globals.fftSize / globals.hopAmt;
         globals.fftBinAmt = globals.fftSize / 2 + 1;
+    }
+
+    void swap(Spec& spec) {
         audio.swapSpec(spec);
         bridge.swapSpec(spec);
     }

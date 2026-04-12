@@ -13,7 +13,9 @@ layout(std140, binding = 0) uniform FrameUniforms {
     float W;
     float H;
     int mouseDown;
+    int fftOrder;
     int fftSize;
+    int hopAmt;
     int hopSize;
     int fftBinAmt;
     int fftArrSize;
@@ -43,7 +45,7 @@ layout(std430, binding = 4) readonly buffer FeedbackRead {
 layout(std430, binding = 5) writeonly buffer FeedbackWrite {
     float feedbackOut[];
 };
-layout(std430, binding = 6) writeonly buffer RawSamples {
+layout(std430, binding = 6) readonly buffer RawSamples {
     float rawSamples[];
 };
 
