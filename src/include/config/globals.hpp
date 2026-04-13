@@ -28,6 +28,8 @@ struct Globals {
 
     int showError = 0;
     int errorLen = 0;
+    int _pad1 = 0;
+    int _pad2 = 0;
     std::array<int,128> errorChars = {0};
 
     int initWidth = 0;

@@ -56,7 +56,7 @@ void doSwap(ShaderSystem& s, AudioSystem& a, GPUBuffers& g,
     a.swap(s.active->spec);
     ResizeValues r = getResizeValues(gl, a, s);
     g.swap(r);
-    s.swap();
+    s.errorSwap();
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 }
 

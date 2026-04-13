@@ -7,6 +7,8 @@
 #include <vector>
 #include <array>
 
+inline int texAllocCount = 0;
+
 using FileTime = std::filesystem::file_time_type;
 
 struct TextureSlot {
@@ -32,6 +34,9 @@ struct ShaderPreset {
         for (auto& t : textures) {
             if (t.texId) {
                 glDeleteTextures(1, &t.texId);
+                texAllocCount--;
+                std::cout << "TEX free: " << t.texId << " (alive: "
+                          << texAllocCount << ")\n";
             }
         }
         textures.clear();

@@ -62,7 +62,8 @@ public:
         float* temp = fft->getInputBuffer();
         capture.getMonoSummedWindow(temp, globals.fftSize, start);
         if (getRawSamples) {
-            std::memcpy(rawSampleData.data(), temp + globals.fftSize - globals.hopSize, globals.hopSize);
+            std::memcpy(rawSampleData.data(), temp + globals.fftSize - globals.hopSize,
+                        globals.hopSize * sizeof(float));
         }
         if (isPeakRMSMono) {
             pr.getMeasurementsFromMonoSummedBlock(temp, globals.fftSize);

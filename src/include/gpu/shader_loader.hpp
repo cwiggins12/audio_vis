@@ -187,7 +187,7 @@ inline void reloadPreset(ShaderPreset* p) {
         const std::string err = "Hot Reload - " + p->name + " shader error. " +
                                 "Check Log.txt for more details\n";
         p->errorMessage = formatErrorMessageForPreset(err, p->errorLen);
-        std::cerr << "Hot Reload - " + p->name + " - " + errLog + "\n";
+        std::cerr << "Hot Reload - " + p->name + " - " + errLog ;
         std::cout << "Hot Reload: using ErrorShader in " << p->name << "\n";
         p->destroyTextures();
         p->spec = newSpec;

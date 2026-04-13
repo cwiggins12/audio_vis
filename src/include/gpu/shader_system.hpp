@@ -63,14 +63,18 @@ public:
                 if (!active->hasError) {
                     needsSwap = true;
                 }
+                else {
+                    errorSwap();
+                }
             }
         }
         else {
             if (std::filesystem::exists(active->shaderDir)) {
                 active->hasError = true;
                 const std::string err = active->name + " error - Hot Reload. " +
-                                        "frag.glsl could not be found on hot reload check.";
-                active->errorMessage = formatErrorMessageForPreset(err, active->errorLen);
+                                    "frag.glsl could not be found on hot reload check.";
+                active->errorMessage = formatErrorMessageForPreset(err,
+                                                                   active->errorLen);
             }
             else {
                 removeActiveFromPresets();
@@ -87,6 +91,7 @@ public:
                         " - shader directory was deleted. No other presets available.";
             active->errorMessage = formatErrorMessageForPreset(err, active->errorLen);
             std::cerr << err << "\n";
+            errorSwap();
             return;
         }
         active->destroyTextures();
@@ -98,7 +103,7 @@ public:
         std::cerr << err << "\n";
     }
 
-    void swap() {
+    void errorSwap() {
         globals.showError  = active->hasError;
         globals.errorLen   = active->errorLen;
         globals.errorChars = active->errorMessage;

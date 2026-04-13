@@ -17,23 +17,24 @@ vec4 helper(float waveY, vec2 px) {
 void main() {
     vec2 px = toPx();
     int x = int(px.x);
+    int iW = int(W);
+    float fH = H;
+    int iHop = int(float(hopSize));
 
     float waveY;
     if (newAudioWindow == 1) {
-        int cutoff = int(W) - hopSize;
+        int cutoff = iW - iHop;
         if (x >= cutoff) {
             float s = rawSamples[x - cutoff];
-            waveY = (s * 0.5 + 0.5) * H;
+            waveY = (s * 0.5 + 0.5) * fH;
         }
         else {
-            waveY = feedbackIn[x + hopSize];
+            waveY = feedbackIn[x + iHop];
         }
     }
     else {
         waveY = feedbackIn[x];
     }
-
     feedbackOut[x] = waveY;
-
     FragColor = helper(waveY, px);
 }
