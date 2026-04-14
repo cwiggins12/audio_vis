@@ -21,6 +21,7 @@ struct ShaderPreset {
     std::string shaderDir = "";
     Spec spec;
     Shader shader;
+    //vector of these. Size will be 2 + texAmt + fontAmt
     FileTime lastFragWrite;
     FileTime lastSpecWrite;
     std::array<int, 512> errorMessage = {0};

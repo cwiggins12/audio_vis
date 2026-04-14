@@ -117,7 +117,7 @@ struct ExprParser {
                 ctx.uses[FFT_BIN_AMT] = true;
                 return ctx.fftBinAmt;
             }
-            if (name == "CUSTOM_FFT_SIZE") {
+            if (name == "FFT_ARR_SIZE") {
                 if (ctx.isFeedbackExpr) {
                     ctx.uses[FFT_ARR_SIZE] = true;
                     return ctx.fftArrSize;
@@ -208,7 +208,7 @@ struct ExprParser {
 
 // returns false and logs on failure, writes result to out on success
 inline std::string evalExpr(const std::string& expr, ExprContext& ctx,
-                     uint32_t& out, std::bitset<EXPR_VAR_AMT>& uses, bool isFeedback) {
+                     uint32_t& out, std::bitset<EXPR_VAR_AMT>& uses) {
     if (expr.empty()) {
         uses.reset();
         return "";

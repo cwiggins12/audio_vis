@@ -222,11 +222,11 @@ inline void assertUserDefinedBufferSizes(ShaderPreset* p, size_t maxFBSize) {
 
 inline std::string evalSpecExprs(Spec& spec, ExprContext& ctx) {
     std::string ret = evalExpr(spec.customFFTSizeExpr, ctx,
-                               spec.customFFTSize, spec.fftUsesExprVar, false);
+                               spec.customFFTSize, spec.fftUsesExprVar);
     if (!ret.empty()) return ret;
     ctx.isFeedbackExpr = true;
     ret = evalExpr(spec.feedbackBufferSizeExpr, ctx,
-                   spec.feedbackBufferSize, spec.feedbackUsesExprVar, true);
+                   spec.feedbackBufferSize, spec.feedbackUsesExprVar);
     return ret;
 }
 

@@ -25,7 +25,7 @@ void evalPresetExprs(Globals& g, ShaderPreset* pre) {
     ctx.sampleRate    = g.sampleRate;
     ctx.fftSize       = g.fftSize;
     ctx.fftBinAmt     = g.fftBinAmt;
-    ctx.customFFTSize = g.fftArrSize;
+    ctx.fftArrSize    = g.fftArrSize;
     ctx.hopSize       = g.hopSize;
     ctx.hopAmount     = g.hopAmt;
     ctx.isFeedbackExpr = false;

@@ -102,9 +102,10 @@ static std::string parseExpr(const std::string& expr, std::bitset<EXPR_VAR_AMT>&
     ctx.sampleRate    = 1;
     ctx.fftSize       = 1;
     ctx.fftBinAmt     = 1;
-    ctx.customFFTSize = 1;
+    ctx.fftArrSize    = 1;
     ctx.hopSize       = 1;
     ctx.hopAmount     = 1;
+    ctx.isFeedbackExpr = isFeedback;
 
     ExprParser p(expr, ctx);
     p.evaluate();
