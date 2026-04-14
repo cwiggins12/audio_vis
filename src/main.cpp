@@ -18,13 +18,17 @@ std::string getAssetPath(const std::string& relative) {
 
 void evalPresetExprs(Globals& g, ShaderPreset* pre) {
     ExprContext ctx;
-    ctx.windowWidth  = g.W;
-    ctx.windowHeight = g.H;
-    ctx.numChannels  = g.numChannels;
-    ctx.displayHz    = g.displayHz;
-    ctx.sampleRate   = g.sampleRate;
-    ctx.fftSize      = g.fftSize;
-    ctx.fftBinAmt    = g.fftBinAmt;
+    ctx.windowWidth   = g.W;
+    ctx.windowHeight  = g.H;
+    ctx.numChannels   = g.numChannels;
+    ctx.displayHz     = g.displayHz;
+    ctx.sampleRate    = g.sampleRate;
+    ctx.fftSize       = g.fftSize;
+    ctx.fftBinAmt     = g.fftBinAmt;
+    ctx.customFFTSize = g.fftArrSize;
+    ctx.hopSize       = g.hopSize;
+    ctx.hopAmount     = g.hopAmt;
+    ctx.isFeedbackExpr = false;
     std::string ret  = evalSpecExprs(pre->spec, ctx);
     if (!ret.empty()) {
         pre->errorMessage = formatErrorMessageForPreset(ret, pre->errorLen);
@@ -91,13 +95,13 @@ int main() {
     doSwap(shaders, audioSys, gpuBuffs, globals, maxFBBufferFloats);
     glfw.setTitleBarForPreset(shaders.getIndex(), shaders.active->name);
     //catches button presses and handles them
-    InputHandler input(globals);
+    InputHandler input(globals, shaders, audioSys);
     //per frame loop
     while (!glfwWindowShouldClose(glfw.window)) {
         //flag for swap
         bool needsSwap = false;
         //poll for input and handle it
-        input.handleInput(glfw, shaders, needsSwap);
+        input.handleInput(glfw, needsSwap);
         //check for resize
         glfw.checkForResize(audioSys, shaders.active, needsSwap);
         //check for frame rate change
@@ -118,7 +122,8 @@ int main() {
         //write to gpu buffers
         gpuBuffs.writeToBuffers(audioSys.bridge, shaders.active->spec, globals);
         //use shader based on error state
-        if (shaders.active->hasError) { shaders.useErrorShader(); }
+        if (globals.showDeviceMenu) { shaders.useDeviceMenuShader(); }
+        else if (shaders.active->hasError) { shaders.useErrorShader(); }
         else { shaders.useActiveShader(); }
         glDrawArrays(GL_TRIANGLES, 0, 3);
         glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);

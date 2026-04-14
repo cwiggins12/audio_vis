@@ -17,10 +17,10 @@ inline std::string loadFile(const std::string& path) {
     return ss.str();
 }
 
-inline std::array<int, 128> formatErrorMessageForPreset(const std::string& msg,
+inline std::array<int, 512> formatErrorMessageForPreset(const std::string& msg,
                                                         int& errorLen) {
-    errorLen = std::min((int)msg.size(), 128);
-    std::array<int, 128> errorChars;
+    errorLen = std::min((int)msg.size(), 512);
+    std::array<int, 512> errorChars;
     for (int i = 0; i < errorLen; i++) {
         errorChars[i] = (int)msg[i];
     }
@@ -75,10 +75,9 @@ inline std::vector<ShaderPreset> loadPresets(const std::string& shadersDir) {
                 p.lastSpecWrite = std::filesystem::exists(specPath)
                                 ? std::filesystem::last_write_time(specPath)
                                 : std::filesystem::file_time_type{};
-                std::cerr << "loadPresets: Error in " + loadedName +
-                             " spec.cfg - " + ret;
                 const std::string err = "loadPresets: Error in " + loadedName +
-                      " spec.cfg. Check log.txt for more details.";
+                                        " spec.cfg - " + ret;
+                std::cerr << err;
                 p.errorMessage = formatErrorMessageForPreset(err, p.errorLen);
                 p.hasError = true;
                 presets.push_back(std::move(p));
@@ -130,12 +129,10 @@ inline std::vector<ShaderPreset> loadPresets(const std::string& shadersDir) {
                         ? std::filesystem::last_write_time(specPath)
                         : std::filesystem::file_time_type{};
         if (!ret.empty()) {
-            std::cerr << "loadPresets: " << loadedName <<
-                         " - shader compile failed - " << ret;
             const std::string err = "loadPresets: " + loadedName +
-                                    " - shader compilation failed. " +
-                                    "Check log.txt for more details.\n";
-            p.errorMessage = formatErrorMessageForPreset(err, p.errorLen);
+                                    " - shader compile failed - " + ret;
+                        p.errorMessage = formatErrorMessageForPreset(err, p.errorLen);
+            std::cerr << err;
             p.hasError = true;
             presets.push_back(std::move(p));
             std::cout << "loadPresets: using ErrorShader in " << loadedName << "\n";
@@ -169,10 +166,9 @@ inline void reloadPreset(ShaderPreset* p) {
         if (errLog != "") {
             p->hasError     = true;
             const std::string err = "Hot Reload - " + p->name +
-                                  " spec parse failed. Check log.txt for more details.";
+                                    " spec parse failed - " + errLog;
+            std::cerr << err;
             p->errorMessage = formatErrorMessageForPreset(err, p->errorLen);
-            std::cerr << "Hot Reload - " + p->name +
-                         " spec parse failed - " + errLog;
             std::cout << "Hot Reload: using ErrorShader in " << p->name << "\n";
             p->destroyTextures();
             p->spec = newSpec;
@@ -184,10 +180,9 @@ inline void reloadPreset(ShaderPreset* p) {
     errLog = newShader.init(vertexSrc, fragSrc.c_str());
     if (!errLog.empty()) {
         p->hasError     = true;
-        const std::string err = "Hot Reload - " + p->name + " shader error. " +
-                                "Check Log.txt for more details\n";
+        const std::string err = "Hot Reload - " + p->name + " - " + errLog;
+        std::cerr << err;
         p->errorMessage = formatErrorMessageForPreset(err, p->errorLen);
-        std::cerr << "Hot Reload - " + p->name + " - " + errLog ;
         std::cout << "Hot Reload: using ErrorShader in " << p->name << "\n";
         p->destroyTextures();
         p->spec = newSpec;
@@ -227,10 +222,11 @@ inline void assertUserDefinedBufferSizes(ShaderPreset* p, size_t maxFBSize) {
 
 inline std::string evalSpecExprs(Spec& spec, ExprContext& ctx) {
     std::string ret = evalExpr(spec.customFFTSizeExpr, ctx,
-                               spec.customFFTSize, spec.fftUsesExprVar);
+                               spec.customFFTSize, spec.fftUsesExprVar, false);
     if (!ret.empty()) return ret;
+    ctx.isFeedbackExpr = true;
     ret = evalExpr(spec.feedbackBufferSizeExpr, ctx,
-                   spec.feedbackBufferSize, spec.feedbackUsesExprVar);
+                   spec.feedbackBufferSize, spec.feedbackUsesExprVar, true);
     return ret;
 }
 

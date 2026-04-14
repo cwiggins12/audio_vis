@@ -110,7 +110,7 @@ void main() {
         return;
     }
     float spacing = 20.0;
-    float fontSize = 24.0;
+    float fontSize = 32.0;
     int charAmt = int((W - spacing * 2.0) / fontSize);
     float lineH = spacing + fontSize;
     int loops = (errorLen + charAmt - 1) / charAmt;
@@ -124,6 +124,43 @@ void main() {
                                     fontSize, fragPx, charAmt * i));
     }
     FragColor = mix(bg, vec4(1.0, 1.0, 1.0, 1.0), text);
+}
+)";
+
+inline const char* deviceFragSrc = R"(
+void main() {
+    vec2 fragPx = toPx();
+    vec4 bg = vec4(0.05, 0.05, 0.1, 1.0);
+
+    if (showDeviceMenu == 0) {
+        FragColor = bg;
+        return;
+    }
+
+    float spacing = 20.0;
+    float fontSize = 16.0;
+    int charAmt = 72;
+    float lineH = spacing + fontSize;
+
+    // which line is this pixel on?
+    float fromTop = H - fragPx.y;
+    int line = int((fromTop - spacing) / lineH);
+    int totalLines = (deviceMenuLen + charAmt - 1) / charAmt;
+
+    if (line < 0 || line >= totalLines) {
+        FragColor = bg;
+        return;
+    }
+
+    int offset = line * charAmt;
+    int count = min(charAmt, deviceMenuLen - offset);
+    vec2 origin = vec2(spacing, H - (lineH * float(line + 1)));
+
+    float text = renderTextPacked(deviceChars, count, origin,
+                                  fontSize, fragPx, offset);
+
+    vec3 textCol = vec3(0.8, 0.9, 1.0);
+    FragColor = mix(bg, vec4(textCol, 1.0), text);
 }
 )";
 

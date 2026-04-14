@@ -84,7 +84,8 @@ public:
         pr.resize(isPeakRMSMono, globals.numChannels);
         getRawSamples = spec.getRawSamples;
         rawSampleData.resize(spec.getRawSamples ? globals.hopSize : 0);
-        fft->swapSpec(spec, globals.sampleRate);
+        fft->swapSpec(spec, globals.sampleRate, newDeviceOnSwap);
+        newDeviceOnSwap = false;
     }
 
     void resetAccumulator() {
@@ -112,18 +113,67 @@ public:
         pr.clear();
     }
 
+    void updateDeviceGlobals() {
+        capture.enumerateDevices();
+        std::string list = capture.formatDeviceList();
+        globals.deviceChars = formatDeviceMenuMessage(list, globals.deviceMenuLen);
+    }
+ 
+    bool reconfigureToDeviceAtIndex(int i) {
+        if (i >= capture.getDeviceCount()) {
+            std::cerr << "Device index " << i << " out of range\n";
+            return false;
+        }
+        if (!capture.playbackDevices[i].hasMonitor) {
+            std::cerr << "Device " << i << " has no monitor\n";
+            return false;
+        }
+        if (i == capture.getCurrentDeviceIndex()) {
+            std::cout << "Already on device " << i << "\n";
+            return false;
+        }
+        if (!capture.switchToDevice(i)) {
+            std::cerr << "Failed to switch to device " << i << "\n";
+            return false;
+        }
+        // update globals with new device's properties
+        globals.numChannels = capture.getNumChannels();
+        globals.sampleRate = capture.getSampleRate();
+        newDeviceOnSwap = true;
+        return true;
+    }
+
+    //void updateDeviceGlobals() {
+        //need to call a device enumeration and get it returned here, then format it in the below helper function
+        //need to update the deviceChars and deviceTextLen vars here with that function based on what audioCapture returns
+
+    //}
+
+    //void reconfigureToDeviceAtIndex(int i) {
+        //this will return a device at the enumerated position. This logic may need to be more complex if reenumerating the devices
+        //may result in different ordering. If this is being called, it is guaranteed that swap will be called soon after
+        //So, no swap functions are necessary here, this just sets up the capture with the new device and shutsdown the prior device.
+        //newDeviceOnSwap = true;
+    //}
+
+    std::array<int, 512> formatDeviceMenuMessage(const std::string& msg, int& len) {
+        len = std::min((int)msg.size(), 512);
+        std::array<int, 512> ret;
+        for (int i = 0; i < len; ++i) {
+            ret[i] = (int)msg[i];
+        }
+        return ret;
+    }
+
 private:
     AudioCapture capture;
-
     PeakRMSMeter pr;
     std::unique_ptr<FFT> fft;
-
     Globals& globals;
-
     std::vector<float> rawSampleData;
-
     bool firstWindowAccumulated = false;
     bool isPeakRMSMono = false;
     bool getRawSamples = true;
+    bool newDeviceOnSwap = false;
 };
 

@@ -28,9 +28,10 @@ struct Globals {
 
     int showError = 0;
     int errorLen = 0;
-    int _pad1 = 0;
-    int _pad2 = 0;
-    std::array<int,128> errorChars = {0};
+    int showDeviceMenu = 0;
+    int deviceMenuLen = 0;
+    alignas(16) std::array<int,512> errorChars = {0};
+    alignas(16) std::array<int,512> deviceChars = {0};
 
     int initWidth = 0;
     int initHeight = 0;

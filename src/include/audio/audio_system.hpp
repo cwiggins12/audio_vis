@@ -46,6 +46,7 @@ struct AudioSystem {
         audio.swapSpec(spec);
         bridge.swapSpec(spec);
     }
+
 private:
     Globals& globals;
 };

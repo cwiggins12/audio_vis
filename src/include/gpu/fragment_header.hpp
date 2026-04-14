@@ -25,7 +25,10 @@ layout(std140, binding = 0) uniform FrameUniforms {
     int sampleRate;
     int showError;
     int errorLen;
-    ivec4 errorChars[32];
+    int showDeviceMenu;
+    int deviceMenuLen;
+    ivec4 errorChars[128];
+    ivec4 deviceChars[128];
 };
 layout(std430, binding = 0) readonly buffer PeakRMS {
     float peakRmsData[];
@@ -165,29 +168,32 @@ float renderChar(int charCode, vec2 origin, float size, vec2 fragPx) {
 
 float renderText(int[128] chars, int len, vec2 origin, float size,
                  vec2 fragPx, int offset) {
-    float result = 0.0;
-    for (int i = 0; i < len; i++) {
-        result = max(result, renderChar(chars[offset + i],
-                     origin + vec2(float(i) * size, 0.0),
-                     size, fragPx));
-    }
-    return result;
+    float localX = fragPx.x - origin.x;
+    float localY = fragPx.y - origin.y;
+    if (localX < 0.0 || localY < 0.0 || localY >= size) return 0.0;
+    int i = int(localX / size);
+    if (i >= len) return 0.0;
+    return renderChar(chars[offset + i],
+                      origin + vec2(float(i) * size, 0.0),
+                      size, fragPx);
 }
 
-int getPackedChar(ivec4 arr[32], int i) {
+int getPackedChar(ivec4 arr[128], int i) {
     return arr[i / 4][i % 4];
 }
 
-float renderTextPacked(ivec4 chars[32], int len, vec2 origin, float size,
-                       vec2 fragPx, int offset) {
-    float result = 0.0;
-    for (int i = 0; i < len; i++) {
-        result = max(result, renderChar(getPackedChar(chars, offset + i),
-                     origin + vec2(float(i) * size, 0.0),
-                     size, fragPx));
-    }
-    return result;
+float renderTextPacked(ivec4 chars[128], int len, vec2 origin, float size,
+                          vec2 fragPx, int offset) {
+    float localX = fragPx.x - origin.x;
+    float localY = fragPx.y - origin.y;
+    if (localX < 0.0 || localY < 0.0 || localY >= size) return 0.0;
+    int i = int(localX / size);
+    if (i >= len) return 0.0;
+    return renderChar(getPackedChar(chars, offset + i),
+                      origin + vec2(float(i) * size, 0.0),
+                      size, fragPx);
 }
+
 //spacing covention helpers
 // UV (0,0) = bottom-left, (1,1) = top-right — GL/math convention
 vec2 uvBottomLeft() {

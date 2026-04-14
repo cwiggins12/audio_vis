@@ -88,20 +88,23 @@ static std::string parseFloat(const std::string& val, int lineNum,
 }
 
 static std::string parseExpr(const std::string& expr, std::bitset<EXPR_VAR_AMT>& uses,
-                             int lineNum = -1) {
+                             bool isFeedback, int lineNum = -1) {
     if (expr.empty()) {
         uses.reset();
         return "";
     }
     //dummy context for syntax check
     ExprContext ctx{};
-    ctx.windowWidth  = 1;
-    ctx.windowHeight = 1;
-    ctx.displayHz    = 1;
-    ctx.numChannels  = 1;
-    ctx.sampleRate   = 1;
-    ctx.fftSize      = 1;
-    ctx.fftBinAmt    = 1;
+    ctx.windowWidth   = 1;
+    ctx.windowHeight  = 1;
+    ctx.displayHz     = 1;
+    ctx.numChannels   = 1;
+    ctx.sampleRate    = 1;
+    ctx.fftSize       = 1;
+    ctx.fftBinAmt     = 1;
+    ctx.customFFTSize = 1;
+    ctx.hopSize       = 1;
+    ctx.hopAmount     = 1;
 
     ExprParser p(expr, ctx);
     p.evaluate();
@@ -207,7 +210,7 @@ inline std::string parseSpec(const std::string& path, Spec& out) {
         }
         else if (key == "customFFTSize") {
             out.customFFTSizeExpr = val;
-            if ((ret = parseExpr(val, out.fftUsesExprVar, lineNum)) != "") {
+            if ((ret = parseExpr(val, out.fftUsesExprVar, false, lineNum)) != "") {
                 return ret;
             }
         }
@@ -302,7 +305,7 @@ inline std::string parseSpec(const std::string& path, Spec& out) {
         }
         else if (key == "feedbackBufferSize") {
             out.feedbackBufferSizeExpr = val;
-            if ((ret = parseExpr(val, out.feedbackUsesExprVar, lineNum)) != "") {
+            if ((ret = parseExpr(val, out.feedbackUsesExprVar, true, lineNum)) != "") {
                 return ret;
             }
         }

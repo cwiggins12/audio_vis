@@ -100,7 +100,6 @@ struct Spec {
     //or 4.5 for a more music focused analyser popularized by FabFilter's Pro-Q
     //if value is 0, no slope is applied
     float perceptualSlopeDegrees = 3.0f;
-
     //want atk and rls over time smoothing for fft ouput? Highly recommended
     bool useFFTSmoothing = true;
     //want fft holds?
@@ -112,7 +111,6 @@ struct Spec {
     //if you want the samples from each hop for a waveform or something.
     //Currently, mono sum of channels only. Same data fft gets, but just the new hop
     bool getRawSamples = true;
-
     //these do the same as the fft options, but for peak and RMS values.
     bool usePeakRMSSmoothing = true;
     bool getPeakRMSHolds = true;

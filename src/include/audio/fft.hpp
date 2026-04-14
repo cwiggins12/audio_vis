@@ -113,7 +113,7 @@ struct FFT{
         }
     }
 
-    void swapSpec(Spec& spec, uint32_t sr) {
+    void swapSpec(Spec& spec, uint32_t sr, bool deviceChanged) {
         bool sizeChanged = (n != 1 << spec.fftOrder);
         if (sizeChanged) {
             if (p)      fftwf_destroy_plan(p);
@@ -139,13 +139,13 @@ struct FFT{
                                                               spec.fftOutputMeasurement;
         bool isWin = spec.isFFTHannWindowed;
         if ((slope != 0.0f) != isPerceptual || slope != perceptualSlope
-            || outputMeasurement != outputMeas || sizeChanged) {
+            || outputMeasurement != outputMeas || sizeChanged || deviceChanged) {
             isPerceptual = (slope != 0.0f);
             perceptualSlope = slope;
             outputMeasurement = outputMeas;
             fillScalarTable(sr);
         }
-        if ((isWin && !windowTableFilled) || sizeChanged) {
+        if ((isWin && !windowTableFilled) || sizeChanged || deviceChanged) {
             fillWindowingTable();
         }
     }

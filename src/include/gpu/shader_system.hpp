@@ -16,6 +16,10 @@ public:
             std::cout << "Failed compilation of error shader. "
                          "Hot reloads will be UB until errorFragSrc is fixed\n";
         }
+        if (!deviceMenu.init(vertexSrc, deviceFragSrc).empty()) {
+            std::cout << "Failed compilation of display menu shader. "
+                         "Opening the device menu will be UB until deviceFragSrc is fixed\n";
+        }
         active = &presets[0];
     }
 
@@ -38,6 +42,10 @@ public:
 
     void useErrorShader() {
         error.use();
+    }
+
+    void useDeviceMenuShader() {
+        deviceMenu.use();
     }
 
     void useActiveShader() {
@@ -75,6 +83,7 @@ public:
                                     "frag.glsl could not be found on hot reload check.";
                 active->errorMessage = formatErrorMessageForPreset(err,
                                                                    active->errorLen);
+                std::cerr << err << "\n";
             }
             else {
                 removeActiveFromPresets();
@@ -112,6 +121,7 @@ public:
 private:
     std::vector<ShaderPreset> presets;
     Shader                    error;
+    Shader                    deviceMenu;
     int                       index = 0;
     Globals&                  globals;
 };

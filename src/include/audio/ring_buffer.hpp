@@ -23,6 +23,14 @@ public:
     float& operator[](size_t i) { return buffer[i]; }
     const float& operator[](size_t i) const { return buffer[i]; }
 
+	void reset(ma_uint32 size, ma_uint32 channelAmt) {
+		bufferSize = size;
+		channels = channelAmt;
+		buffer.assign(size, 0.0f);
+		writeIndex.store(0);
+		readIndex.store(0);
+	}
+
     void init(ma_uint32 size, ma_uint32 channelAmt) {
 		bufferSize = size;
 		channels = channelAmt;

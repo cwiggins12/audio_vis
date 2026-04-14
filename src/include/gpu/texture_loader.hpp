@@ -36,8 +36,6 @@ inline GLuint uploadTexture(const std::string& path) {
                  GL_RGBA, GL_UNSIGNED_BYTE, data);
     glGenerateMipmap(GL_TEXTURE_2D);
     glBindTexture(GL_TEXTURE_2D, 0);
-    texAllocCount++;
-    std::cout << "TEX alloc: " << id << " (alive: " << texAllocCount << ")\n";
     stbi_image_free(data);
     std::cout << "uploadTexture: loaded " << path
               << " (" << w << "x" << h << ")\n";
