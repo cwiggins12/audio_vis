@@ -51,6 +51,7 @@ public:
     void useActiveShader() {
         active->shader.use();
         bindTextures(active);
+        bindFonts(active);
     }
 
     void hotReloadCheck(bool& needsSwap) {
@@ -104,6 +105,7 @@ public:
             return;
         }
         active->destroyTextures();
+        active->destroyFonts();
         presets.erase(presets.begin() + index);
         if (index >= (int)presets.size()) { index = (int)presets.size() - 1; }
         active = &presets[index];

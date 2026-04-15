@@ -7,7 +7,7 @@
 #include <cstring>
 #include "gpu/fragment_header.hpp"
 
-static const int headerLines = 205;
+//static const int headerLines = 302;
 
 //be sure to call init immediately upon construction!!!
 class Shader {
@@ -64,6 +64,13 @@ public:
             samplerLocations[name] = glGetUniformLocation(id, name.c_str());
         }
     }
+
+    void addSamplerLocations(const std::vector<std::string>& names) {
+        for (auto& name : names) {
+            samplerLocations[name] = glGetUniformLocation(id, name.c_str());
+        }
+    }
+
     void use() { glUseProgram(id); }
 
     GLuint id = 0;

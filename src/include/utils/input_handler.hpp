@@ -34,6 +34,7 @@ public:
         int fsKey = glfwGetKey(glfw.window, GLFW_KEY_UP);
         if (fsKey == GLFW_PRESS && prevFSKey == GLFW_RELEASE) {
             glfw.toggleFullscreen();
+            needsSwap = true;
         }
         prevFSKey = fsKey;
         //check for shuffle button

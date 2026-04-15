@@ -138,5 +138,13 @@ struct Spec {
     float feedbackBufferInitValue = 0.0f;
 
     std::map<std::string, std::string> textures;
+
+    //fonts follow the same pattern as textures.
+    //spec.cfg: font.myFont = coolFont.ttf
+    //this creates two sampler2D uniforms in the shader:
+    //  uniform sampler2D myFont;          (SDF atlas, GL_R8)
+    //  uniform sampler2D myFontMetrics;   (glyph metrics, RGBA32F)
+    //the font file must be a flat filename in the shader directory
+    std::map<std::string, std::string> fonts;
 };
 

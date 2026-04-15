@@ -329,6 +329,15 @@ inline std::string parseSpec(const std::string& path, Spec& out) {
             }
             out.textures[uniformName] = val;
         }
+        else if (key.rfind("font.", 0) == 0) {
+            std::string uniformName = trimStr(key.substr(5));
+            if (uniformName.empty()) {
+                ret = "parseSpec: line " + std::to_string(lineNum) +
+                      ": empty font uniform name\n";
+                return ret;
+            }
+            out.fonts[uniformName] = val;
+        }
         else {
             ret = "parseSpec: line " + std::to_string(lineNum) +
                   ": unknown key \"" + key + "\"\n";

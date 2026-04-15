@@ -1,8 +1,9 @@
 #pragma once
 
 #include "gpu/shader_preset.hpp"
-#include "config/spec_parser.hpp"
 #include "gpu/texture_loader.hpp"
+#include "gpu/font_loader.hpp"
+#include "config/spec_parser.hpp"
 #include "config/globals.hpp"
 #include <algorithm>
 
@@ -140,6 +141,7 @@ inline std::vector<ShaderPreset> loadPresets(const std::string& shadersDir) {
         }
 
         buildTextures(p);
+        buildFonts(p);
         presets.push_back(std::move(p));
         std::cout << "loadPresets: loaded " << loadedName << "\n";
     }
@@ -171,6 +173,7 @@ inline void reloadPreset(ShaderPreset* p) {
             p->errorMessage = formatErrorMessageForPreset(err, p->errorLen);
             std::cout << "Hot Reload: using ErrorShader in " << p->name << "\n";
             p->destroyTextures();
+            p->destroyFonts();
             p->spec = newSpec;
             return;
         }
@@ -185,6 +188,7 @@ inline void reloadPreset(ShaderPreset* p) {
         p->errorMessage = formatErrorMessageForPreset(err, p->errorLen);
         std::cout << "Hot Reload: using ErrorShader in " << p->name << "\n";
         p->destroyTextures();
+        p->destroyFonts();
         p->spec = newSpec;
         return;
     }
@@ -194,6 +198,7 @@ inline void reloadPreset(ShaderPreset* p) {
     p->hasError     = false;
     p->errorMessage = {0};
     buildTextures(p);
+    buildFonts(p);
 }
 
 inline void assertUserDefinedBufferSizes(ShaderPreset* p, size_t maxFBSize) {
@@ -224,6 +229,7 @@ inline std::string evalSpecExprs(Spec& spec, ExprContext& ctx) {
     std::string ret = evalExpr(spec.customFFTSizeExpr, ctx,
                                spec.customFFTSize, spec.fftUsesExprVar);
     if (!ret.empty()) return ret;
+    ctx.fftArrSize = spec.customFFTSize;
     ctx.isFeedbackExpr = true;
     ret = evalExpr(spec.feedbackBufferSizeExpr, ctx,
                    spec.feedbackBufferSize, spec.feedbackUsesExprVar);

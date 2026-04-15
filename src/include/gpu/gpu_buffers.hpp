@@ -55,21 +55,6 @@ public:
         ubo.update(globals);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
         glBindBuffer(GL_UNIFORM_BUFFER, 0);
-
-        /*
-        std::cout << "mouseX = " << globals.mouseX << ", mouseY = " << globals.mouseY
-                  << ", time = " << globals.time << ", W = " << globals.W << ", H = "
-                  << globals.H << ", mouseDown = " << globals.mouseDown
-                  << ", fftOrder = " << globals.fftOrder << ", fftSize = "
-                  << globals.fftSize << ", hopAmount = " << globals.hopAmt
-                  << ", hopSize = " << globals.hopSize << ", fftBinAmt = "
-                  << globals.fftBinAmt << ", fftArrSize = " << globals.fftArrSize
-                  << ", newAudioWindow = " << globals.newAudioWindow 
-                  << ", numChannels = " << globals.numChannels << ", displayHz = "
-                  << globals.displayHz << ", sampleRate = " << globals.sampleRate
-                  << "\n";
-*/
-
     }
 
     void swap(ResizeValues& r) {
