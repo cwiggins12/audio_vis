@@ -48,8 +48,8 @@ vec3 addPeakMeters(vec3 color, vec2 uv) {
     vec2 rLo = vec2(W - margin - rW, H - margin - rH - drop);
     vec2 rHi = vec2(W - margin, H - margin - drop);
 
-    float lT = dbToT(peakRmsData[0]);
-    float rT = dbToT(peakRmsData[2]);
+    float lT = dbToT(peakRMSData[0]);
+    float rT = dbToT(peakRMSData[2]);
 
     vec3 green = vec3(0.0, 1.0, 0.3);
 

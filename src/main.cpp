@@ -46,7 +46,9 @@ ResizeValues getResizeValues(Globals& gl, AudioSystem& a, ShaderSystem& s) {
     r.fbInit = s.active->spec.feedbackBufferInitValue;
     r.prHSize = (s.active->spec.getPeakRMSHolds) ? r.prSize : 0;
     r.fftHSize = (s.active->spec.getFFTHolds) ? r.fftSize : 0;
-    r.hopSize = (s.active->spec.getRawSamples) ? gl.hopSize * sizeof(float) : 0;
+    size_t samp = (s.active->spec.isRawSamplesMono) ? gl.hopSize :
+                                                      gl.hopSize * gl.numChannels;
+    r.rawSize = (s.active->spec.getRawSamples) ? samp * sizeof(float) : 0;
     return r;
 }
 

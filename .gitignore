@@ -9,3 +9,5 @@ stb_truetype.h
 stb_rect_pack.h
 compile_commands.json
 current
+perf.data
+perf_output.txt

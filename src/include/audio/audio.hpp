@@ -39,7 +39,7 @@ public:
         return true;
     }
 
-    //expects an analyze call after first true return;
+    //expects an analyze call after first true return
     bool canAnalyze() {
         uint32_t accumulated = capture.getAccumulatedFrames();
         if (!firstWindowAccumulated) {
@@ -60,18 +60,35 @@ public:
     void analyze() {
         uint32_t start = capture.getReadIndex();
         float* temp = fft->getInputBuffer();
+        float* buf = capture.getRawBufferPointer();
         capture.getMonoSummedWindow(temp, globals.fftSize, start);
-        if (getRawSamples) {
+        if (getRawSamples && isRawSamplesMono) {
             std::memcpy(rawSampleData.data(), temp + globals.fftSize - globals.hopSize,
                         globals.hopSize * sizeof(float));
+        }
+        else if (getRawSamples && !isRawSamplesMono) {
+            int hopStart = start + (globals.fftSize - globals.hopSize)
+                           * globals.numChannels;
+            int trueHopSamps = globals.hopSize * globals.numChannels;
+            if (hopStart + trueHopSamps > capture.getBufferSize()) {
+                int firstSize = capture.getBufferSize() - hopStart;
+                int secondSize = trueHopSamps - firstSize;
+                std::memcpy(rawSampleData.data(),
+                            buf + hopStart, firstSize * sizeof(float));
+                std::memcpy(rawSampleData.data() + firstSize,
+                            buf, secondSize * sizeof(float));
+            }
+            else {
+                std::memcpy(rawSampleData.data(), buf + hopStart,
+                            globals.hopSize * globals.numChannels * sizeof(float));
+            }
         }
         if (isPeakRMSMono) {
             pr.getMeasurementsFromMonoSummedBlock(temp, globals.fftSize);
         }
         else {
-            float* buf = capture.getRawBufferPointer();
             pr.getMeasurementsFromRingBuffer(buf, globals.fftSize, start,
-                                             globals.numChannels, capture.getBufferSize());
+                                          globals.numChannels, capture.getBufferSize());
         }
         fft->runFFT();
         capture.setReadIndexForwardByFrames(globals.hopSize);
@@ -83,7 +100,10 @@ public:
         pr.clear();
         pr.resize(isPeakRMSMono, globals.numChannels);
         getRawSamples = spec.getRawSamples;
-        rawSampleData.resize(spec.getRawSamples ? globals.hopSize : 0);
+        isRawSamplesMono = spec.isRawSamplesMono;
+        size_t rawSampSize = isRawSamplesMono ? globals.hopSize :
+                                                globals.hopSize * globals.numChannels;
+        rawSampleData.resize(spec.getRawSamples ? rawSampSize : 0);
         fft->swapSpec(spec, globals.sampleRate, newDeviceOnSwap);
         newDeviceOnSwap = false;
     }
@@ -105,7 +125,7 @@ public:
         return pr.getPtr();
     }
 
-    const float* getSamplePtr() {
+    float* getSamplePtr() {
         return rawSampleData.data();
     }
 
@@ -143,19 +163,6 @@ public:
         return true;
     }
 
-    //void updateDeviceGlobals() {
-        //need to call a device enumeration and get it returned here, then format it in the below helper function
-        //need to update the deviceChars and deviceTextLen vars here with that function based on what audioCapture returns
-
-    //}
-
-    //void reconfigureToDeviceAtIndex(int i) {
-        //this will return a device at the enumerated position. This logic may need to be more complex if reenumerating the devices
-        //may result in different ordering. If this is being called, it is guaranteed that swap will be called soon after
-        //So, no swap functions are necessary here, this just sets up the capture with the new device and shutsdown the prior device.
-        //newDeviceOnSwap = true;
-    //}
-
     std::array<int, 512> formatDeviceMenuMessage(const std::string& msg, int& len) {
         len = std::min((int)msg.size(), 512);
         std::array<int, 512> ret;
@@ -174,6 +181,7 @@ private:
     bool firstWindowAccumulated = false;
     bool isPeakRMSMono = false;
     bool getRawSamples = true;
+    bool isRawSamplesMono = true;
     bool newDeviceOnSwap = false;
 };
 

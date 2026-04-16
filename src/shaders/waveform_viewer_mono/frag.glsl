@@ -18,18 +18,16 @@ void main() {
     vec2 px = toPx();
     int x = int(px.x);
     int iW = int(W);
-    float fH = H;
-    int iHop = int(float(hopSize));
 
     float waveY;
     if (newAudioWindow == 1) {
-        int cutoff = iW - iHop;
+        int cutoff = iW - hopSize;
         if (x >= cutoff) {
             float s = rawSamples[x - cutoff];
-            waveY = (s * 0.5 + 0.5) * fH;
+            waveY = (s * 0.5 + 0.5) * H;
         }
         else {
-            waveY = feedbackIn[x + iHop];
+            waveY = feedbackIn[x + hopSize];
         }
     }
     else {

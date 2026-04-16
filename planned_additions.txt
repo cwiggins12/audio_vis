@@ -9,7 +9,7 @@
  - more shaders!!! DONE
 
 1.2 goals:
- - put hot reload notifictations on a bg thread with inotify/ReadDirectoryChangesW wrapper. Also, get it to recognize a new directory being created and add it to presets array. Also, get it to update on a used font or texture file changing
+ - put hot reload notifictations on a bg thread with inotify/ReadDirectoryChangesW wrapper. Also, get it to recognize a new directory being created and add it to presets array. Also, get it to update on a used font or texture file changing. Also, don't rebuild textures or fonts, when those don't change.
  - windows build(AudioCapture and CMake will require the largest changes, but should be mostly painless. Famous last words. Also, make all the libs static during this process). REMINDER: during final profiling pass, look into speed diffs between clang and gcc (OTHER reminder: stb_image might only use SIMD on GCC when using the -msse2 flag)
  - timed shuffle mode (pressing a button opens a dialog box, user enters a time?)
  - interpolation between presets on swap

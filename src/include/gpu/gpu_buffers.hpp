@@ -11,7 +11,7 @@ struct ResizeValues {
     size_t prHSize = 0;
     size_t fftHSize = 0;
     size_t fbSize = 0;
-    size_t hopSize = 0;
+    size_t rawSize = 0;
     float fbInit = 0.0f;
     bool getsPRHolds = false;
     bool getsFFTHolds = false;
@@ -40,7 +40,7 @@ public:
     void writeToBuffers(AVBridge& bridge, Spec& spec, Globals& globals) {
         size_t prSize  = bridge.getPeakRMSGPUSizeInBytes();
         size_t fftSize = globals.fftArrSize * sizeof(float);
-        size_t hopSize = globals.hopSize * sizeof(float);
+        size_t rawSize = bridge.getRawSampleSizeInBytes();
         ssbos[0].write(bridge.getPeakRMSPtr(), prSize);
         ssbos[1].write(bridge.getFFTPtr(), fftSize);
         if (spec.getPeakRMSHolds) {
@@ -50,7 +50,7 @@ public:
             ssbos[3].write(bridge.getFFTHoldPtr(), fftSize);
         }
         if (spec.getRawSamples) {
-            ssbos[6].write(bridge.getRawSamplePtr(), hopSize);
+            ssbos[6].write(bridge.getRawSamplePtr(), rawSize);
         }
         ubo.update(globals);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
@@ -66,7 +66,7 @@ public:
         ssbos[3].resize(r.fftHSize);    ssbos[3].bind(3);
         ssbos[4].resize(r.fbSize);      ssbos[4].fill(r.fbInit);  ssbos[4].bind(4);
         ssbos[5].resize(r.fbSize);      ssbos[5].fill(r.fbInit);  ssbos[5].bind(5);
-        ssbos[6].resize(r.hopSize);     ssbos[6].bind(6);
+        ssbos[6].resize(r.rawSize);     ssbos[6].bind(6);
     }
 
     void flipFeedback() {

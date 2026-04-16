@@ -45,7 +45,7 @@ void main() {
     if (fragY == 0 && fragX < fftArrSize) {
         feedbackOut[fragX] = fftData[fragX];
     }
-	float rmsDB = dbToT(peakRmsData[0]);
+	float rmsDB = dbToT(peakRMSData[0]);
     vec3 textCol = vec3(rmsDB, 0.0, abs(sin(time)));
     vec3 bgCol   = vec3(0.0);
     float t      = px.x / W;

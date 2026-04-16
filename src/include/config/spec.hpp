@@ -109,8 +109,9 @@ struct Spec {
     bool isFFTHannWindowed = true;
 
     //if you want the samples from each hop for a waveform or something.
-    //Currently, mono sum of channels only. Same data fft gets, but just the new hop
     bool getRawSamples = true;
+    bool isRawSamplesMono = true;
+    bool isRawSamplesdB = false;
     //these do the same as the fft options, but for peak and RMS values.
     bool usePeakRMSSmoothing = true;
     bool getPeakRMSHolds = true;

@@ -31,7 +31,7 @@ void main() {
                         binVal);
 
     // center pulse driven by mono RMS (index 1 = RMS in mono layout)
-    float rms      = dbToT(peakRmsData[1]);
+    float rms      = dbToT(peakRMSData[1]);
     float pulse    = step(dist, 0.08 + rms * 0.06);
     vec3  pulseCol = mix(vec3(0.0), vec3(1.0, 0.4, 0.1), rms);
 

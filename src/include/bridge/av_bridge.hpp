@@ -65,8 +65,9 @@ public:
         return getPeakRMSGPUSize() * sizeof(float);
     }
 
-    size_t getHopSizeInBytes() {
-        return globals.hopSize * sizeof(float);
+    size_t getRawSampleSizeInBytes() {
+        return (currSpec->isRawSamplesMono) ? globals.hopSize * sizeof(float) :
+                                  globals.hopSize * globals.numChannels * sizeof(float);
     }
 
     void formatData() {
@@ -80,6 +81,14 @@ public:
         }
         if (currSpec->getPeakRMSHolds) {
             peakRMSHolds.compareValsToArray(prPtr);
+        }
+        if (currSpec->isRawSamplesdB) {
+            float* rawSampPtr = audio.getSamplePtr();
+            int rawSampSize = (currSpec->isRawSamplesMono) ? globals.hopSize :
+                                                  globals.hopSize * globals.numChannels;
+            for (int i = 0; i < rawSampSize; ++i) {
+                rawSampPtr[i] = gainToDB(rawSampPtr[i]);
+            }
         }
         gpuPeakRMS.setAllTargetsWithPtr(prPtr);
         audio.prClear();

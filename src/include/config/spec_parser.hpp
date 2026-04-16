@@ -272,6 +272,12 @@ inline std::string parseSpec(const std::string& path, Spec& out) {
         else if (key == "getRawSamples") {
             if (!parseBool(out.getRawSamples)) return ret;
         }
+        else if (key == "isRawSamplesMono") {
+            if (!parseBool(out.isRawSamplesMono)) return ret;
+        }
+        else if (key == "isRawSamplesdB") {
+            if (!parseBool(out.isRawSamplesdB)) return ret;
+        }
         else if (key == "usePeakRMSSmoothing") {
             if (!parseBool(out.usePeakRMSSmoothing)) return ret;
         }

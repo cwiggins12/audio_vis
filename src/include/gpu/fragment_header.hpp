@@ -31,7 +31,7 @@ layout(std140, binding = 0) uniform FrameUniforms {
     ivec4 deviceChars[128];
 };
 layout(std430, binding = 0) readonly buffer PeakRMS {
-    float peakRmsData[];
+    float peakRMSData[];
 };
 layout(std430, binding = 1) readonly buffer FFTBins {
     float fftData[];
