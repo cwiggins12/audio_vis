@@ -16,7 +16,7 @@ struct FFT{
         //initialize fft and precompute table
         in = (float *)fftwf_malloc(sizeof(float) * n);
         out = (fftwf_complex *)fftwf_malloc(sizeof(fftwf_complex) * binAmt);
-        p = fftwf_plan_dft_r2c_1d(n, in, out, FFTW_MEASURE);
+        p = fftwf_plan_dft_r2c_1d(n, in, out, FFTW_ESTIMATE);
         placement = (float *)out;
         if (isWindowed) {
             windowingTable.resize(n);
@@ -123,7 +123,7 @@ struct FFT{
             binAmt = n / 2 + 1;
             in = (float *)fftwf_malloc(sizeof(float) * n);
             out = (fftwf_complex *)fftwf_malloc(sizeof(fftwf_complex) * binAmt);
-            p = fftwf_plan_dft_r2c_1d(n, in, out, FFTW_MEASURE);
+            p = fftwf_plan_dft_r2c_1d(n, in, out, FFTW_ESTIMATE);
             placement = (float *)out;
             scalarTable.resize(binAmt);
             if (isWindowed) windowingTable.resize(n);

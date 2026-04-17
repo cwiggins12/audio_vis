@@ -1,0 +1,57 @@
+=== audio_vis started: Thu Apr 16 18:04:04 2026
+GL Version: OpenGL ES 3.1 Mesa 25.0.7-2+rpt4
+GLSL Version: OpenGL ES GLSL ES 3.10
+Found device frame rate: 60
+Max SSBO bindings: 16
+Max SSBO block size: 134217728 bytes
+loadPresets: loaded abstract_00
+loadPresets: loaded basic_spectrum_analyser
+buildTextures: loaded noise_tex -> noise.png (unit 0, 0x0)
+loadPresets: loaded crt_lofi_analyser
+bakeSdfAtlas: baked 95 glyphs into 512×512 atlas
+buildFonts: loaded font -> digital-7.ttf (atlas unit 0, metrics unit 1)
+loadPresets: loaded font_test
+loadPresets: loaded mel_spectrogram
+buildTextures: loaded tex -> tex.jpg (unit 0, 0x0)
+loadPresets: loaded texture_test
+loadPresets: loaded waveform_viewer_mono
+loadPresets: loaded waveform_viewer_per_channel
+Audio backend: PulseAudio
+Capturing: Built-in Audio Stereo
+  Sample Rate: 48000
+  Channels:    2
+Swapping to: abstract_00
+Capturing: Built-in Audio Digital Stereo (HDMI)
+  Sample Rate: 48000
+  Channels:    2
+Swapping to: abstract_00
+Swapping to: basic_spectrum_analyser
+evalExpr: warning: result truncated from 1062.5 in "WINDOW_WIDTH * 1000 / 1280"
+Swapping to: crt_lofi_analyser
+Swapping to: font_test
+Swapping to: crt_lofi_analyser
+Swapping to: crt_lofi_analyser
+Swapping to: crt_lofi_analyser
+Swapping to: basic_spectrum_analyser
+evalExpr: warning: result truncated from 1062.5 in "WINDOW_WIDTH * 1000 / 1280"
+Swapping to: abstract_00
+Swapping to: waveform_viewer_per_channel
+Swapping to: waveform_viewer_mono
+Swapping to: texture_test
+Swapping to: mel_spectrogram
+Swapping to: font_test
+Swapping to: crt_lofi_analyser
+Swapping to: basic_spectrum_analyser
+evalExpr: warning: result truncated from 1062.5 in "WINDOW_WIDTH * 1000 / 1280"
+Capturing: Built-in Audio Stereo
+  Sample Rate: 48000
+  Channels:    2
+Swapping to: basic_spectrum_analyser
+evalExpr: warning: result truncated from 1062.5 in "WINDOW_WIDTH * 1000 / 1280"
+Capturing: Built-in Audio Digital Stereo (HDMI)
+  Sample Rate: 48000
+  Channels:    2
+Swapping to: basic_spectrum_analyser
+evalExpr: warning: result truncated from 1062.5 in "WINDOW_WIDTH * 1000 / 1280"
+Swapping to: abstract_00
+Program ended successfully :)

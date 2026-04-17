@@ -88,6 +88,8 @@ int main() {
     //init shaders
     ShaderSystem shaders(getAssetPath("shaders/"), globals);
     if (!shaders.isValid()) return -1;
+    //pi only
+    fftwf_import_wisdom_from_filename(getAssetPath("fftw_wisdom.dat").c_str());
     //init audio
     AudioSystem audioSys(globals, shaders.active->spec);
     if (!audioSys.isValid()) return -1;
@@ -128,7 +130,7 @@ int main() {
         else if (shaders.active->hasError) { shaders.useErrorShader(); }
         else { shaders.useActiveShader(); }
         glDrawArrays(GL_TRIANGLES, 0, 3);
-        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+        //glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
         //flip for user defined feedback ssbo
         gpuBuffs.flipFeedback();
         //not sure if necessary
@@ -136,6 +138,7 @@ int main() {
         //set swap and count frame counter
         glfwSwapBuffers(glfw.window);
     }
+    fftwf_export_wisdom_to_filename(getAssetPath("fftw_wisdom.dat").c_str());
     std::cout << "Program ended successfully :)";
     return 0;
 }

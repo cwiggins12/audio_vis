@@ -7,31 +7,28 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# ---------------------------------------------------------------------------
-# Platform detection
-# ---------------------------------------------------------------------------
-# Default to GLES on ARM (Raspberry Pi, embedded), desktop GL elsewhere.
-# Override at configure time with -DUSE_GLES=ON or -DUSE_GLES=OFF.
-if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm|aarch64)")
-    set(_default_gles ON)
-else()
-    set(_default_gles OFF)
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD-TYPE Release CACHE STRING "" FORCE)
 endif()
 
-option(USE_GLES "Use OpenGL ES 3.1 instead of desktop OpenGL" ${_default_gles})
-
-message(STATUS "System:    ${CMAKE_SYSTEM_NAME} (${CMAKE_SYSTEM_PROCESSOR})")
-if(USE_GLES)
-    message(STATUS "Graphics:  OpenGL ES 3.1 (no GLAD)")
-else()
-    message(STATUS "Graphics:  Desktop OpenGL (via GLAD loader)")
+# ---------------------------------------------------------------------------
+# Architecture-specific optimization flags
+# ---------------------------------------------------------------------------
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
+	message(STATUS "Building for ARM64 (aarch64)")
+	add_compile_options(-O3 -mcpu=native)
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "armv7|arm")
+	message(STATUS "Building for ARM32")
+	add_compile_options(-O3 -mfpu=neon -mcpu=native)
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
+	message(STATUS "Building for x86_64")
+	add_compile_options(-O3 -march=native)
 endif()
 
 # ---------------------------------------------------------------------------
 # Dependencies
 # ---------------------------------------------------------------------------
 
-# GLFW: prefer the system package; fall back to building from source.
 find_package(glfw3 3.3 QUIET)
 if(NOT glfw3_FOUND)
     message(STATUS "System GLFW not found -- fetching v3.4 from source")
@@ -47,53 +44,33 @@ if(NOT glfw3_FOUND)
     FetchContent_MakeAvailable(glfw)
 endif()
 
-# Desktop GL only needed when not using GLES.
-if(NOT USE_GLES)
-    find_package(OpenGL REQUIRED)
-endif()
-
-# EGL is required either way (GLFW uses it on the Pi; harmless on desktop).
 find_library(EGL_LIB EGL REQUIRED)
 
-# GLES library (named GLESv2 even though it exposes 3.x entry points).
-if(USE_GLES)
-    find_library(GLES_LIB GLESv2 REQUIRED)
-endif()
+find_library(GLES_LIB GLESv2 REQUIRED)
+
 
 # ---------------------------------------------------------------------------
 # Target
 # ---------------------------------------------------------------------------
-set(AUDIO_VIS_SOURCES src/main.cpp)
 
-# GLAD is only compiled in for the desktop GL path.
-if(NOT USE_GLES)
-    list(APPEND AUDIO_VIS_SOURCES src/external/glad/src/glad.c)
-endif()
-
-add_executable(audio_vis ${AUDIO_VIS_SOURCES})
+add_executable(audio_vis
+    src/main.cpp
+    src/external/glad/src/glad.c
+)
 
 target_include_directories(audio_vis PRIVATE
     src/include
     src/external
+    src/external/glad/include
 )
-
-if(NOT USE_GLES)
-    target_include_directories(audio_vis PRIVATE src/external/glad/include)
-endif()
 
 target_link_libraries(audio_vis PRIVATE
     glfw
     fftw3f
+    ${GLES_LIB}
     ${EGL_LIB}
     dl
 )
-
-if(USE_GLES)
-    target_link_libraries(audio_vis PRIVATE ${GLES_LIB})
-    target_compile_definitions(audio_vis PRIVATE USE_GLES)
-else()
-    target_link_libraries(audio_vis PRIVATE OpenGL::GL)
-endif()
 
 # ---------------------------------------------------------------------------
 # Shaders
