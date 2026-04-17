@@ -116,9 +116,9 @@ GLAD (OpenGL ES 3.1 loader) is included in the repo under `src/external/glad/`.
 ```
 git clone https://github.com/cwiggins12/audio_vis.git
 cd audio_vis
-mkdir build && cd build
-cmake ..
-make -j$(nproc)
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build
+cd build
 ```
 
 The executable and shader directory will be in `build/`. Run from there:
