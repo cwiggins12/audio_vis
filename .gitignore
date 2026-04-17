@@ -3,9 +3,5 @@
 /unused
 /Releases
 notes.txt
-miniaudio.h
-stb_image.h
-stb_truetype.h
-stb_rect_pack.h
 compile_commands.json
-current
+

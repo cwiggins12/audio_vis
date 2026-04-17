@@ -170,7 +170,8 @@ float renderText(int[128] chars, int len, vec2 origin, float size,
                  vec2 fragPx, int offset) {
     float localX = fragPx.x - origin.x;
     float localY = fragPx.y - origin.y;
-    if (localX < 0.0 || localY < 0.0 || localY >= size) return 0.0;
+    if (localX < 0.0 || localY < 0.0 ||
+        localY >= size || localX >= size * float(len)) return 0.0;
     int i = int(localX / size);
     if (i >= len) return 0.0;
     return renderChar(chars[offset + i],
@@ -186,9 +187,9 @@ float renderTextPacked(ivec4 chars[128], int len, vec2 origin, float size,
                           vec2 fragPx, int offset) {
     float localX = fragPx.x - origin.x;
     float localY = fragPx.y - origin.y;
-    if (localX < 0.0 || localY < 0.0 || localY >= size) return 0.0;
+    if (localX < 0.0 || localY < 0.0 ||
+        localY >= size || localX >= size * float(len)) return 0.0;
     int i = int(localX / size);
-    if (i >= len) return 0.0;
     return renderChar(getPackedChar(chars, offset + i),
                       origin + vec2(float(i) * size, 0.0),
                       size, fragPx);
@@ -236,13 +237,7 @@ vec2 toCenter() {
     return vec2((uv.x - 0.5) * W, (uv.y - 0.5) * H);
 }
 
-//──────────────────────────────────────────────────────────────────────────────
 // SDF font rendering utilities
-//
-// Each font declared in spec.cfg as  font.myFont = file.ttf  produces two
-// sampler2D uniforms the shader must declare:
-//   uniform sampler2D myFont;          — SDF atlas (GL_R8)
-//   uniform sampler2D myFontMetrics;   — glyph metrics (RGBA32F, numGlyphs × 3)
 //
 // Metrics texture layout (per column = one glyph):
 //   row 0 : u0  v0  u1  v1           atlas UV rect
@@ -251,7 +246,6 @@ vec2 toCenter() {
 //
 // All metric values are normalised so that multiplying by 'size' gives pixels.
 // firstChar / numGlyphs must match the range baked into the atlas (default 32–126).
-//──────────────────────────────────────────────────────────────────────────────
  
 // Core SDF sample with screen-space anti-aliasing
 float sdfSample(sampler2D atlas, vec2 uv) {
@@ -305,16 +299,13 @@ float sdfAdvance(sampler2D metrics, int charCode, float size,
 
 // Render an int array text string using SDF font.
 // origin.y is the text baseline.
-// Note: variable-width glyphs require iteration; for long strings the early-out
-// on x helps, but keep string lengths reasonable per fragment-shader call.
 float renderSdfText(sampler2D atlas, sampler2D metrics,
                     int chars[128], int len, vec2 origin, float size,
                     vec2 fragPx, int offset,
                     int firstChar, int numGlyphs) {
-    if (fragPx.y < origin.y - size * 1.5 ||
-        fragPx.y > origin.y + size * 1.5)
+    if (fragPx.y < origin.y || fragPx.y > origin.y + size ||
+        fragPx.x < origin.x || fragPx.x > origin.x + size * float(len))
         return 0.0;
-    if (fragPx.x < origin.x) return 0.0;
  
     float result = 0.0;
     float penX   = origin.x;

@@ -29,7 +29,7 @@ inline GLuint uploadTexture(const std::string& path, int& outW, int& outH) {
     glGenTextures(1, &id);
     glBindTexture(GL_TEXTURE_2D, id);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,     GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0,
@@ -39,6 +39,7 @@ inline GLuint uploadTexture(const std::string& path, int& outW, int& outH) {
     stbi_image_free(data);
     //std::cout << "uploadTexture: loaded " << path
     //          << " (" << w << "x" << h << ")\n";
+    outW = w; outH = h;
     return id;
 }
 
@@ -167,3 +168,4 @@ inline void unbindTextures(const ShaderPreset& p) {
         glBindTexture(GL_TEXTURE_2D, 0);
     }
 }
+

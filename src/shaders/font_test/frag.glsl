@@ -4,6 +4,15 @@ uniform sampler2D fontMetrics;
 const float DB_MIN = -80.0;
 const float DB_MAX = 0.0;
 
+const int textChars[128] = int[128](
+	70,111,110,116,32,69,120,97,109,112,108,101,32,58,41,0,0,0,0,0,
+	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+);
+
 float dbToT(float db) {
     return clamp((db - DB_MIN) / (DB_MAX - DB_MIN), 0.0, 1.0);
 }
@@ -37,12 +46,19 @@ vec3 topColor(float t) {
     return mix(left, right, t);
 }
 
+float drawText(vec2 px) {
+    vec2 origin = vec2(W / 2.0 - 6.5 * 64.0, H / 2.0 - 64.0);
+    return renderSdfText(font, fontMetrics,
+                         textChars, 15, origin, 128.0,
+                         px, 0, 32, 95);
+}
+
 void main() {
     vec2 px = toPx();
     int fragX = int(px.x);
     int fragY = int(px.y);
 
-    if (fragY == 0 && fragX < fftArrSize) {
+    if (fragY == 0) {
         feedbackOut[fragX] = fftData[fragX];
     }
 	float rmsDB = dbToT(peakRMSData[0]);
@@ -51,15 +67,7 @@ void main() {
     float t      = px.x / W;
 
     // text
-    int chars[128];
-    chars[0] = 70;  chars[1] = 111; chars[2] = 110; chars[3] = 116;
-    chars[4] = 32;  chars[5] = 69;  chars[6] = 120; chars[7] = 97;
-    chars[8] = 109; chars[9] = 112; chars[10] = 108; chars[11] = 101;
-    chars[12] = 32; chars[13] = 58; chars[14] = 41;
-    vec2 origin = vec2(W / 2.0 - 6.5 * 64.0, H / 2.0 - 64.0);
-    float text = renderSdfText(font, fontMetrics,
-                               chars, 15, origin, 128.0,
-                               px, 0, 32, 95);
+    float text = drawText(px);
 
     // bottom analyser
     float halfH = H / 2.0;

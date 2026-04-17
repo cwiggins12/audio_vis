@@ -89,7 +89,7 @@ int main() {
     ShaderSystem shaders(getAssetPath("shaders/"), globals);
     if (!shaders.isValid()) return -1;
     //pi only
-    fftwf_import_wisdom_from_filename(getAssetPath("fftw_wisdom.dat").c_str());
+    //fftwf_import_wisdom_from_filename(getAssetPath("fftw_wisdom.dat").c_str());
     //init audio
     AudioSystem audioSys(globals, shaders.active->spec);
     if (!audioSys.isValid()) return -1;
@@ -138,7 +138,7 @@ int main() {
         //set swap and count frame counter
         glfwSwapBuffers(glfw.window);
     }
-    fftwf_export_wisdom_to_filename(getAssetPath("fftw_wisdom.dat").c_str());
+    //fftwf_export_wisdom_to_filename(getAssetPath("fftw_wisdom.dat").c_str());
     std::cout << "Program ended successfully :)";
     return 0;
 }

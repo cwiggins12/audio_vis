@@ -7,8 +7,6 @@
 #include <cstring>
 #include "gpu/fragment_header.hpp"
 
-//static const int headerLines = 302;
-
 //be sure to call init immediately upon construction!!!
 class Shader {
 public:
