@@ -1,22 +1,15 @@
-1.1 goals:
- - move all uniforms to an ssbo Uniforms struct to pass in. Should be faster
- - raw audio sample ssbo (would need to be hop size and can be stored as an array in bridge to pass to the ssbo easily)
- - mouseX, mouseY, and mouseDown uniforms
- - beat detection with a simple onset detector
- - more shaders!!!
- - allow for user defined fftSize and overlap percentage? allow for 0, 25, 50, 75 % overlaps, and allow for 10 - 13 fftOrder idk about allowing past 13. that'll 2x the ring buffer size gonna have to worry about pulling the windows fast enough based on device frame rate, so more error handling will be needed but nothing worse than the expression parser.
- - stb_truetype integration for user defined fonts
- - put hot reload notifictations on a bg thread with inotify/ReadDirectoryChangesW wrapper (profile this and make sure the context switches don't outweigh the savings). Also, try and get it to recognize a new directory being created and add it to presets array
- - windows build(AudioCapture and CMake will require the largest changes, but should be mostly painless. Famous last words. Also, make all the libs static during this process). REMINDER: during final profiling pass, look into speed diffs between clang and gcc (OTHER reminder: stb_image might only use SIMD on GCC when using the -msse2 flag)
-
 1.2 goals:
- - Have 2 separate builds to allow for Linux and Windows users to not have to use GL ES. Def a lot of speed to gain from that on my end as well.
- - utility exes and a config.ini for device(audio & video) listing/choosing. maybe done through a dropdown menu of the audio_vis.exe?
- - timed shuffle mode (pressing a button opens a dialog box, user enters a time? or may want to wait to add until I have an application wide config in task 7)
- - look into a wayland fullscreen and window pos workaround, or if its necessary at all
- - More possible smoothing modes: Research for high end smoothing: precollation smoothing(super spency), weighted collation(wont do much without log bin grouping), log bin grouping with overlap(spency), or second smoothing pass on high end with the interp again
- - better sample rate changes(disallow resampling at any level and detect changes)(this would only be necessary or relevant for a user that needs the highest quality/speed, but is changing their hardware sample rate mid session. The analysis still works currently, but it analyzes resampled audio by either the OS internal audio processes(pipewire, pulse, winapi) or miniaudio in certain scenarios(alsa, certain windows configs))
- - trim all but what is used from miniaudio.h to chill out the binary size
- - Allow for user defined uniforms that could be adjusted by midi, key input, or ui
- - pre-built widgets/api for the graphically challenged (meters, mel-bin, etc.)
- - Allow export of current setup in standalone to VST3 with midi driven shader swaps. no JUCE, straight up steinbergSDK use.
+ - hot reload rework for optimization
+ - windows build
+ - timed shuffle mode
+ - interpolation between presets on swap
+ - More smoothing modes for the high end on customFFTSize output
+ - more shaders!
+
+1.3 Goals:
+ - Allow for user defined resolutions and larger glyph ranges for fonts
+ - Allow for user defined uniforms that can be adjusted by midi, key input, or ui
+ - Have 2 separate builds: one ES for pi and embedded devices, one not ES for desktop
+ - VST3 port
+ - more shaders!
+

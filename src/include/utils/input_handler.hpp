@@ -5,11 +5,11 @@
 
 struct InputHandler {
 public:
-    InputHandler() {
+    InputHandler(Globals& g, ShaderSystem& sh, AudioSystem& au) : globals(g), s(sh), a(au) {
         srand(time(nullptr));
     }
 
-    void handleInput(GLFWContext& glfw, ShaderSystem& s, bool& needsSwap) {
+    void handleInput(GLFWContext& glfw, bool& needsSwap) {
         glfwPollEvents();
         int presetsSize = s.getSize();
         //check for escape press
@@ -34,6 +34,7 @@ public:
         int fsKey = glfwGetKey(glfw.window, GLFW_KEY_UP);
         if (fsKey == GLFW_PRESS && prevFSKey == GLFW_RELEASE) {
             glfw.toggleFullscreen();
+            needsSwap = true;
         }
         prevFSKey = fsKey;
         //check for shuffle button
@@ -43,12 +44,49 @@ public:
             needsSwap = true;
         }
         prevShuffleKey = shuffleKey;
+        //if in device menu, check for num press
+        if (globals.showDeviceMenu) {
+            for (int i = 0; i < 10; ++i) {
+                int key = glfwGetKey(glfw.window, GLFW_KEY_0 + i);
+                if (key == GLFW_PRESS && prevNumKeys[i] == GLFW_RELEASE) {
+                    if (a.audio.reconfigureToDeviceAtIndex(i)) {
+                        needsSwap = true;
+                        globals.showDeviceMenu = 0;
+                    }
+                }
+                prevNumKeys[i] = key;
+            }
+        }
+        //check for device menu button
+        int menuKey = glfwGetKey(glfw.window, GLFW_KEY_BACKSPACE);
+        if (menuKey == GLFW_PRESS && prevMenuKey == GLFW_RELEASE) {
+            if (!globals.showDeviceMenu) {
+                a.audio.updateDeviceGlobals();
+            }
+            globals.showDeviceMenu = 1 - globals.showDeviceMenu;
+        }
+        prevMenuKey = menuKey;
+        //get mouse coords relative to top left of window. Clamped to window edges
+        double xPos, yPos;
+        glfwGetCursorPos(glfw.window, &xPos, &yPos);
+        globals.mouseX = std::clamp((float)xPos, 0.0f, (float)globals.W);
+        globals.mouseY = std::clamp((float)yPos, 0.0f, (float)globals.H);
+        //get mouse down state
+        globals.mouseDown = (glfwGetMouseButton(glfw.window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) ? 1 : 0;
     }
+
 private:
+    Globals& globals;
+    ShaderSystem& s;
+    AudioSystem& a;
     int prevRightKey    = GLFW_RELEASE;
     int prevLeftKey     = GLFW_RELEASE;
     int prevFSKey       = GLFW_RELEASE;
     int prevShuffleKey  = GLFW_RELEASE;
+    int prevMenuKey     = GLFW_RELEASE;
+    int prevNumKeys[10] = {GLFW_RELEASE, GLFW_RELEASE, GLFW_RELEASE, GLFW_RELEASE,
+                           GLFW_RELEASE, GLFW_RELEASE, GLFW_RELEASE,
+                           GLFW_RELEASE, GLFW_RELEASE, GLFW_RELEASE};
     int presetsSize     = 0;
 };
 

@@ -5,36 +5,21 @@
 #include <unordered_map>
 #include <vector>
 #include <cstring>
-#include <iostream>
 #include "gpu/fragment_header.hpp"
-
-inline constexpr int UNIFORM_AMT = 13;
-inline const std::string uniformNames[] = {"time", "W", "H", "fftSize", "fftBinAmt",
-                                           "fftArrSize", "newAudioWindow",
-                                           "numChannels", "displayHz", "sampleRate",
-                                           "errorLen", "showError", "errorChars"};
-enum UNIFORM_E { U_TIME = 0, U_W, U_H, U_FFT_SIZE, U_FFT_BIN_AMT, U_FFT_ARR_SIZE,
-                 U_NEW_AUDIO_WINDOW, U_NUM_CHANNELS, U_DISPLAY_HZ, U_SAMPLE_RATE,
-                 U_ERROR_LEN, U_SHOW_ERROR, U_ERROR_CHARS };
-
-static const int headerLines = 205;
 
 //be sure to call init immediately upon construction!!!
 class Shader {
 public:
     Shader() = default;
     ~Shader() { if (id) glDeleteProgram(id); }
-    Shader(Shader&& o) noexcept : id(o.id), uniforms{},
-                                  samplerLocations(std::move(o.samplerLocations)) {
+    Shader(Shader&& o) noexcept : id(o.id), samplerLocations(std::move(o.samplerLocations)) {
         o.id = 0;
-        std::memcpy(uniforms, o.uniforms, UNIFORM_AMT * sizeof(GLint));
     }
 
     Shader& operator=(Shader&& o) noexcept {
         if (this != &o) {
             if (id) glDeleteProgram(id);
             id = o.id; o.id = 0;
-            std::memcpy(uniforms, o.uniforms, UNIFORM_AMT * sizeof(GLint));
             samplerLocations = std::move(o.samplerLocations);
         }
         return *this;
@@ -50,17 +35,7 @@ public:
         GLuint frag = compile(GL_FRAGMENT_SHADER, fragFinal.c_str(), fragErr);
 
         if (!vertErr.empty()) errorLog += "VERT: " + vertErr;
-        if (!fragErr.empty()) {
-            //skips shader index of error printout, subtracts header lines from line num
-            //to make the errors easier for users to find
-            try {
-                int line = std::stoi(fragErr.substr(2, 3)) - headerLines;
-                fragErr = std::to_string(line) + fragErr.substr(5);
-            } catch (...) {
-                //driver returned an unexpected error format. just use it as is
-            }
-            errorLog += "FRAG: " + fragErr;
-        }
+        if (!fragErr.empty()) errorLog += "FRAG: " + fragErr;
 
         id = glCreateProgram();
         glAttachShader(id, vert);
@@ -74,13 +49,7 @@ public:
             glGetProgramInfoLog(id, 512, nullptr, log);
             errorLog += std::string(log) + "\n";
         }
-        for (int i = 0; i < UNIFORM_AMT; ++i) {
-            uniforms[i] = glGetUniformLocation(id, uniformNames[i].c_str());
-        }
-        for (int i = 0; i < UNIFORM_AMT; ++i) {
-            std::cout << "uniform[" << i << "] \"" << uniformNames[i]
-                  << "\" = " << uniforms[i] << "\n";
-        }
+
         glDeleteShader(vert);
         glDeleteShader(frag);
 
@@ -94,10 +63,15 @@ public:
         }
     }
 
+    void addSamplerLocations(const std::vector<std::string>& names) {
+        for (auto& name : names) {
+            samplerLocations[name] = glGetUniformLocation(id, name.c_str());
+        }
+    }
+
     void use() { glUseProgram(id); }
 
     GLuint id = 0;
-    GLint uniforms[UNIFORM_AMT] = {-1};
     std::unordered_map<std::string, GLint> samplerLocations;
 
 private:
@@ -113,7 +87,6 @@ private:
             glGetShaderInfoLog(shader, 512, nullptr, log);
             errOut = std::string(log);
         }
-
         return shader;
     }
 };
@@ -142,7 +115,7 @@ void main() {
         return;
     }
     float spacing = 20.0;
-    float fontSize = 24.0;
+    float fontSize = 32.0;
     int charAmt = int((W - spacing * 2.0) / fontSize);
     float lineH = spacing + fontSize;
     int loops = (errorLen + charAmt - 1) / charAmt;
@@ -151,11 +124,48 @@ void main() {
     for (int i = 0; i < loops; i++) {
         int offset = i * charAmt;
         int count = min(charAmt, errorLen - offset);
-        text = max(text, renderText(errorChars, count,
+        text = max(text, renderTextPacked(errorChars, count,
                                     vec2(spacing, H - (lineH * float(i + 1))),
                                     fontSize, fragPx, charAmt * i));
     }
     FragColor = mix(bg, vec4(1.0, 1.0, 1.0, 1.0), text);
+}
+)";
+
+inline const char* deviceFragSrc = R"(
+void main() {
+    vec2 fragPx = toPx();
+    vec4 bg = vec4(0.05, 0.05, 0.1, 1.0);
+
+    if (showDeviceMenu == 0) {
+        FragColor = bg;
+        return;
+    }
+
+    float spacing = 20.0;
+    float fontSize = 16.0;
+    int charAmt = 72;
+    float lineH = spacing + fontSize;
+
+    // which line is this pixel on?
+    float fromTop = H - fragPx.y;
+    int line = int((fromTop - spacing) / lineH);
+    int totalLines = (deviceMenuLen + charAmt - 1) / charAmt;
+
+    if (line < 0 || line >= totalLines) {
+        FragColor = bg;
+        return;
+    }
+
+    int offset = line * charAmt;
+    int count = min(charAmt, deviceMenuLen - offset);
+    vec2 origin = vec2(spacing, H - (lineH * float(line + 1)));
+
+    float text = renderTextPacked(deviceChars, count, origin,
+                                  fontSize, fragPx, offset);
+
+    vec3 textCol = vec3(0.8, 0.9, 1.0);
+    FragColor = mix(bg, vec4(textCol, 1.0), text);
 }
 )";
 

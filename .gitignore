@@ -1,8 +1,7 @@
 /build
 /.cache
 /unused
+/Releases
 notes.txt
-miniaudio.h
-stb_image.h
-stb_truetype.h
 compile_commands.json
+

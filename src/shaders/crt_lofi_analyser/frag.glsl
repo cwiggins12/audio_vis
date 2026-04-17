@@ -3,6 +3,16 @@ uniform sampler2D noise_tex;
 #define DB_MIN -80.0
 #define DB_MAX   0.0
 
+const int scanChars[128] = int[128](
+	83,67,65,78,78,73,78,71,46,46,46,
+	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+);
+
 float dbToT(float db) {
     return clamp((db - DB_MIN) / (DB_MAX - DB_MIN), 0.0, 1.0);
 }
@@ -33,14 +43,15 @@ float peakLine(vec2 px, vec2 lo, vec2 hi, float t, float fromRight, float thickn
     return (abs(px.x - lineX) < 2.0) ? 1.0 : 0.0;
 }
 
-vec3 addPeakMeters(vec3 color, vec2 uv) {
-    vec2 px = toPx();
-
+vec3 addPeakMeters(vec3 color, vec2 px) {
     float thick  = 8.0;
     float rW     = W * 0.20;
     float rH     = H * 0.15;
     float margin = 40.0;
     float drop   = H * 0.125;
+
+	if (px.y < H - margin - rH - drop || px.y > H - margin - drop) return color;
+	if (px.x > margin + rW && px.x < W - margin - rW) return color;
 
     vec2 lLo = vec2(margin, H - margin - rH - drop);
     vec2 lHi = vec2(margin + rW, H - margin - drop);
@@ -48,8 +59,8 @@ vec3 addPeakMeters(vec3 color, vec2 uv) {
     vec2 rLo = vec2(W - margin - rW, H - margin - rH - drop);
     vec2 rHi = vec2(W - margin, H - margin - drop);
 
-    float lT = dbToT(peakRmsData[0]);
-    float rT = dbToT(peakRmsData[2]);
+    float lT = dbToT(peakRMSData[0]);
+    float rT = dbToT(peakRMSData[2]);
 
     vec3 green = vec3(0.0, 1.0, 0.3);
 
@@ -62,10 +73,10 @@ vec3 addPeakMeters(vec3 color, vec2 uv) {
     return mix(color, green, clamp(mask, 0.0, 1.0));
 }
 
-vec3 addChannelNum(vec3 color, vec2 uv) {
-    vec2 px = toPx();
+vec3 addChannelNum(vec3 color, vec2 px) {
     float fontSize = 64.0;
     vec2  labelOrigin = vec2(100.0, H - 60.0 - fontSize);
+	//if (px.y < labelOrigin.y || px.y > labelOrigin.y + fontSize) return color;
     int   ch0 = 48; // '0'
     int   ch1 = 51; // '3'
     float label = renderChar(ch0, labelOrigin, fontSize, px) +
@@ -74,9 +85,7 @@ vec3 addChannelNum(vec3 color, vec2 uv) {
     return mix(color, green, clamp(label, 0.0, 1.0));
 }
 
-vec3 addFFTBars(vec3 color, vec2 uv) {
-    vec2 px = toPx();
-
+vec3 addFFTBars(vec3 color, vec2 px) {
     int   bars    = fftArrSize;
     float totalW  = W * 0.75;
     float startX  = (W - totalW) * 0.5;
@@ -86,50 +95,33 @@ vec3 addFFTBars(vec3 color, vec2 uv) {
     float maxH    = H * 0.60;
 
     vec3  green   = vec3(0.0, 1.0, 0.3);
-    float mask    = 0.0;
 
-    for (int i = 0; i < bars; i++) {
-        float barH = dbToT(fftData[i]) * maxH;
+	if (px.x < startX || px.x > (startX + totalW) ||
+		px.y < bottomY || px.y > (bottomY + maxH)) return color;
 
-        float x0 = startX + gapX + float(i) * (barW + gapX);
-        float x1 = x0 + barW;
-        float y0 = bottomY;
-        float y1 = bottomY + barH;
-
-        bool inX = px.x >= x0 && px.x < x1;
-        bool inY = px.y >= y0 && px.y < y1;
-        if (inX && inY) mask = 1.0;
-    }
-
-    return mix(color, green, mask);
+	//find which bar, if any, px.x is in, get its db, check against px.y,
+	float bar = (px.x - startX - gapX) / (barW + gapX);
+	int ibar = int(bar);
+	float snappedBar = float(ibar);
+	float frac = bar - snappedBar;
+	if (frac * (barW + gapX) >= barW) return color;
+	float barH = dbToT(fftData[ibar]) * maxH;
+	if (px.y > (barH + bottomY)) return color;
+	return green;
 }
 
-vec3 addScanning(vec3 color, vec2 uv) {
-    vec2 px = toPx();
-
+vec3 addScanning(vec3 color, vec2 px) {
     float cycle = mod(time, 2.0);
     if (cycle > 1.2) return color;
 
     float fontSize = 32.0;
     int totalChars = 11;
 
-   int chars[128];
-    chars[0]  = 83;  // S
-    chars[1]  = 67;  // C
-    chars[2]  = 65;  // A
-    chars[3]  = 78;  // N
-    chars[4]  = 78;  // N
-    chars[5]  = 73;  // I
-    chars[6]  = 78;  // N
-    chars[7]  = 71;  // G
-    chars[8]  = 46;  // .
-    chars[9]  = 46;  // .
-    chars[10] = 46;  // .
-
     float totalW = float(totalChars) * fontSize;
     vec2  origin = vec2((W - totalW) * 0.5, H - 30.0 - fontSize);
+	//if (px.y > origin.y + fontSize || px.y < origin.y) return color;
 
-    float mask = renderText(chars, totalChars, origin, fontSize, px, 0);
+    float mask = renderText(scanChars, totalChars, origin, fontSize, px, 0);
 
     vec3 green = vec3(0.0, 1.0, 0.3);
     return mix(color, green, clamp(mask, 0.0, 1.0));
@@ -156,28 +148,22 @@ float stripes(vec2 uv) {
     return ramp(mod(uv.y * 4.0 + time / 2.0 + sin(time + sin(time * 0.63)), 1.0), 0.5, 0.6) * noi;
 }
 
-vec4 readFeedback(vec2 uv) {
+vec3 readFeedback(vec2 uv) {
     ivec2 px = ivec2(uv * vec2(W, H));
-    px = clamp(px, ivec2(0), ivec2(int(W) - 1, int(H) - 1));
-    int idx = (px.y * int(W) + px.x) * 4;
-    return vec4(
-      feedbackIn[idx + 0],
-      feedbackIn[idx + 1],
-      feedbackIn[idx + 2],
-      feedbackIn[idx + 3]
-    );
+    int idx = (px.y * int(W) + px.x) * 3;
+    return vec3(feedbackIn[idx + 0], feedbackIn[idx + 1], feedbackIn[idx + 2]);
 }
 
 vec3 getVideo(vec2 uv) {
     vec2 look = uv;
-    float window = 1.0 / (1.0 + 20.0 * (look.y - mod(time / 4.0, 1.0))
-                                     * (look.y - mod(time / 4.0, 1.0)));
+    float window = 1.0 / (1.0 + 20.0 * (look.y - mod(time / 3.0, 1.0))
+                                     * (look.y - mod(time / 3.0, 1.0)));
     look.x = look.x + sin(look.y * 10.0 + time) / 50.0 * onOff(4.0, 4.0, 0.3) *
     	     (1.0 + cos(time * 80.0)) * window;
     float vShift = 0.4 * onOff(2.0, 3.0, 0.9) * (sin(time) * sin(time * 20.0) + 
     		   (0.5 + 0.1 * sin(time * 200.0) * cos(time)));
     look.y = mod(look.y + vShift, 1.0);
-    return readFeedback(look).rgb;
+    return readFeedback(look);
 }
 
 vec2 screenDistort(vec2 uv) {
@@ -187,19 +173,18 @@ vec2 screenDistort(vec2 uv) {
     return uv;
 }
 
-void writeFeedback(vec3 video) {
-    ivec2 px = ivec2(toPx());
-    px = clamp(px, ivec2(0), ivec2(int(W) - 1, int(H) - 1));
-    int idx = (px.y * int(W) + px.x) * 4;
+void writeFeedback(vec3 video, vec2 px) {
+    ivec2 ipx = ivec2(px);
+    int idx = (ipx.y * int(W) + ipx.x) * 3;
     feedbackOut[idx + 0] = video.r;
     feedbackOut[idx + 1] = video.g * 0.4;
     feedbackOut[idx + 2] = video.b * 0.4;
-    feedbackOut[idx + 3] = 0.9;
 }
 
 void main() {
-    vec2 rawUV = toPx() / vec2(W, H);
-    vec2 uv = screenDistort(rawUV);
+    vec2 px = toPx();
+	vec2 uv = uvBottomLeft();
+    uv = screenDistort(uv);
 
     vec3 video = getVideo(uv);
 
@@ -208,15 +193,15 @@ void main() {
                  * (1.0 - vigAmt * (uv.x - 0.5) * (uv.x - 0.5));
 
     video += noise(uv * 2.0) / 2.0;
-    video = addPeakMeters(video, rawUV);
-    video = addFFTBars(video, rawUV);
-    video = addScanning(video, rawUV);
-    video = addChannelNum(video, rawUV);
+    video = addPeakMeters(video, px);
+    video = addFFTBars(video, px);
+    video = addScanning(video, px);
+    video = addChannelNum(video, px);
     video += stripes(uv);
     video *= vignette;
     video *= (12.0 + mod(uv.y * 30.0 + time, 1.0)) / 13.0;
     video *= vec3(0.5, 1.0, 0.9);
-    writeFeedback(video);
+    writeFeedback(video, px);
 
     FragColor = vec4(video, 0.9);
 }

@@ -6,7 +6,7 @@
 #include <bitset>
 #include <cmath>
 
-static constexpr int EXPR_VAR_AMT = 7;
+static constexpr int EXPR_VAR_AMT = 10;
 
 enum ExprVariable {
     WINDOW_WIDTH,
@@ -15,7 +15,11 @@ enum ExprVariable {
     NUM_CHANNELS,
     SAMPLE_RATE,
     FFT_SIZE,
-    FFT_BIN_AMT,    //NOT SIZE OF RECEIVED ARRAY!!! JUST AMOUNT OF BINS FROM BASIC FFT
+    FFT_BIN_AMT,
+    //AFTER THIS POINT, THESE ARE FEEDBACK BUFFER ONLY
+    FFT_ARR_SIZE,
+    HOP_SIZE,
+    HOP_AMOUNT,
 };
 
 struct ExprContext {
@@ -26,6 +30,10 @@ struct ExprContext {
     uint32_t sampleRate     = 0;
     uint32_t fftSize        = 0;
     uint32_t fftBinAmt      = 0;
+    uint32_t fftArrSize     = 0;
+    uint32_t hopSize        = 0;
+    uint32_t hopAmount      = 0;
+    bool     isFeedbackExpr = 0;
     //added usage bools to determine usage to set in spec
     //basically free, since these are only ever stack allocated
     //wish just checking vars for non zero could work,
@@ -109,6 +117,36 @@ struct ExprParser {
                 ctx.uses[FFT_BIN_AMT] = true;
                 return ctx.fftBinAmt;
             }
+            if (name == "FFT_ARR_SIZE") {
+                if (ctx.isFeedbackExpr) {
+                    ctx.uses[FFT_ARR_SIZE] = true;
+                    return ctx.fftArrSize;
+                }
+                else {
+                    errorMsg = "usage of feedback only variable in customFFTSize "
+                                + name;
+                }
+            }
+            if (name == "HOP_SIZE") {
+                if (ctx.isFeedbackExpr) {
+                    ctx.uses[HOP_SIZE] = true;
+                    return ctx.hopSize;
+                }
+                else {
+                    errorMsg = "usage of feedback only variable in customFFTSize "
+                                + name;
+                }
+            }
+            if (name == "HOP_AMOUNT") {
+                if (ctx.isFeedbackExpr) {
+                    ctx.uses[HOP_AMOUNT] = true;
+                    return ctx.hopAmount;
+                }
+                else {
+                    errorMsg = "usage of feedback only variable in customFFTSize "
+                                + name;
+                }
+            }
             errorMsg = "unknown variable: " + name;
             return 0;
         }
@@ -170,7 +208,7 @@ struct ExprParser {
 
 // returns false and logs on failure, writes result to out on success
 inline std::string evalExpr(const std::string& expr, ExprContext& ctx,
-                     uint32_t& out, std::bitset<EXPR_VAR_AMT>& uses, int lineNum = -1) {
+                     uint32_t& out, std::bitset<EXPR_VAR_AMT>& uses) {
     if (expr.empty()) {
         uses.reset();
         return "";
@@ -181,17 +219,9 @@ inline std::string evalExpr(const std::string& expr, ExprContext& ctx,
     uses = ctx.uses;
     std::string ret = p.errorMsg;
     if (!ret.empty()) {
-        if (lineNum >= 0) {
-            ret = "parseSpec: line " + std::to_string(lineNum) +
-                  ": expression error: " + ret +
-                  " in \"" + expr + "\"\n";
-        }
-        else {
-            ret = "evalExpr: " + ret + " in \"" + expr + "\"\n";
-        }
+        ret = "evalExpr: " + ret + " in \"" + expr + "\"\n";
         std::cerr << ret;
         return ret;
-
     }
     if (result < 0.0 || result > (double)UINT32_MAX) {
         ret = "parseSpec: evalExpr: result out of uint32_t range in \"" + expr + "\"\n";

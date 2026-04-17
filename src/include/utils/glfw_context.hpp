@@ -4,20 +4,20 @@
 #include <iostream>
 #include "gpu/shader_preset.hpp"
 #include "audio/audio_system.hpp"
+#include "config/globals.hpp"
 
 struct GLFWContext {
 public:
     GLFWwindow*        window    = nullptr;
-    int                displayHz = 60;
 
-    GLFWContext() {
+    GLFWContext(Globals& g) : globals(g) {
         monitor = glfwGetPrimaryMonitor();
         mode = glfwGetVideoMode(monitor);
         if (!mode) {
             std::cerr << "Unable to get glfw vidmode\n";
             return;
         }
-        displayHz = mode->refreshRate;
+        g.displayHz = mode->refreshRate;
         glfwWindowHint(GLFW_CLIENT_API,              GLFW_OPENGL_ES_API);
         glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR,   3);
         glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR,   1);
@@ -26,7 +26,7 @@ public:
         glfwWindowHint(GLFW_RED_BITS,                mode->redBits);
         glfwWindowHint(GLFW_GREEN_BITS,              mode->greenBits);
         glfwWindowHint(GLFW_BLUE_BITS,               mode->blueBits);
-        glfwWindowHint(GLFW_REFRESH_RATE,            displayHz);
+        glfwWindowHint(GLFW_REFRESH_RATE,            g.displayHz);
         glfwWindowHint(GLFW_MAXIMIZED,               GLFW_TRUE);
         window = glfwCreateWindow(mode->width, mode->height,
                  "audio_vis", nullptr, nullptr);
@@ -47,11 +47,13 @@ public:
         return (window && mode);
     }
 
-    void initFramebuffer(int& w, int& h) {
+    void initFramebuffer() {
+        int w = 0, h = 0;
         glfwGetFramebufferSize(window, &w, &h);
-        windowedW = w; windowedH = h;
-        pendingW  = w; pendingH  = h;
-        glViewport(0, 0, w, h);
+        globals.W = w;          globals.H = h;
+        windowedW = globals.W;  windowedH = globals.H;
+        pendingW  = globals.W;  pendingH  = globals.H;
+        glViewport(0, 0, globals.W, globals.H);
         glfwSwapInterval(1);
         glfwSetWindowUserPointer(window, this);
         glfwSetFramebufferSizeCallback(window, [](GLFWwindow* win, int w, int h) {
@@ -67,7 +69,7 @@ public:
         std::cout << "GL Version: " << glGetString(GL_VERSION) << "\n";
         std::cout << "GLSL Version: " <<
                      glGetString(GL_SHADING_LANGUAGE_VERSION) << "\n";
-        std::cout << "Found device frame rate: " << displayHz << std::endl;
+        std::cout << "Found device frame rate: " << globals.displayHz << std::endl;
 
         GLint maxBinds = 0;
         glGetIntegerv(GL_MAX_SHADER_STORAGE_BUFFER_BINDINGS, &maxBinds);
@@ -99,16 +101,15 @@ public:
                                  windowedW, windowedH, 0);
         }
         isFullscreen = !isFullscreen;
+        glfwSwapInterval(1);
     }
 
-    void checkForResize(AudioSystem& a, ShaderPreset* p,
-                        int& w, int& h, bool& needsSwap) {
+    void checkForResize(AudioSystem& a, ShaderPreset* p, bool& needsSwap) {
         if (!resizePending) return;
         resizePending = false;
-        w = pendingW;
-        h = pendingH;
-        glViewport(0, 0, w, h);
-        a.bridge.resize(w, h);
+        globals.W = pendingW;
+        globals.H = pendingH;
+        glViewport(0, 0, globals.W, globals.H);
         if (p->spec.fftUsesExprVar[WINDOW_WIDTH] ||
             p->spec.fftUsesExprVar[WINDOW_HEIGHT] ||
             p->spec.customFFTSizeScalesWithWindow ||
@@ -123,10 +124,10 @@ public:
         monitor = glfwGetWindowMonitor(window);
         if (monitor) {
             mode = glfwGetVideoMode(monitor);
-            if (mode && displayHz != mode->refreshRate &&
+            if (mode && globals.displayHz != mode->refreshRate &&
                 (p->spec.fftUsesExprVar[DISPLAY_HZ] ||
                 p->spec.feedbackUsesExprVar[DISPLAY_HZ])) {
-                displayHz = mode->refreshRate;
+                globals.displayHz = mode->refreshRate;
                 needsSwap = true;
             }
         }
@@ -145,6 +146,7 @@ private:
     int pendingW  = 0, pendingH  = 0;
     bool resizePending = false;
     bool isFullscreen  = false;
+    Globals& globals;
 
     GLFWmonitor* getCurrentMonitor() {
         int wx, wy, ww, wh;

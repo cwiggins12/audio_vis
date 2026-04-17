@@ -16,7 +16,7 @@ struct FFT{
         //initialize fft and precompute table
         in = (float *)fftwf_malloc(sizeof(float) * n);
         out = (fftwf_complex *)fftwf_malloc(sizeof(fftwf_complex) * binAmt);
-        p = fftwf_plan_dft_r2c_1d(n, in, out, FFTW_MEASURE);
+        p = fftwf_plan_dft_r2c_1d(n, in, out, FFTW_ESTIMATE);
         placement = (float *)out;
         if (isWindowed) {
             windowingTable.resize(n);
@@ -96,7 +96,7 @@ struct FFT{
     }
 
     //return first index then amount of bins used in spectral analysis
-    void getAudibleRange(uint32_t sr, uint32_t* start, uint32_t* size) {
+    void getAudibleRange(int sr, int* start, int* size) {
         const float binMult = (float)sr / (float) n;
         bool firstAudibleSet = false;
 
@@ -113,19 +113,39 @@ struct FFT{
         }
     }
 
-    void swapSpec(bool isWin, FFTMeasurement outputMeas, float slope, uint32_t sr) {
+    void swapSpec(Spec& spec, uint32_t sr, bool deviceChanged) {
+        bool sizeChanged = (n != 1 << spec.fftOrder);
+        if (sizeChanged) {
+            if (p)      fftwf_destroy_plan(p);
+            if (in)     fftwf_free(in);
+            if (out)    fftwf_free(out);
+            n = 1 << spec.fftOrder;
+            binAmt = n / 2 + 1;
+            in = (float *)fftwf_malloc(sizeof(float) * n);
+            out = (fftwf_complex *)fftwf_malloc(sizeof(fftwf_complex) * binAmt);
+            p = fftwf_plan_dft_r2c_1d(n, in, out, FFTW_ESTIMATE);
+            placement = (float *)out;
+            scalarTable.resize(binAmt);
+            if (isWindowed) windowingTable.resize(n);
+        }
         //any change other than isWin will cause
         //a recompute of the scalar table,
         //isWin only changes future processing cost,
         //unless windowing table hasn't been filled yet
+        float slope = spec.perceptualSlopeDegrees;
+        //set this way to account for custom sized array being more efficient to
+        //just get db then convert after all the ops it does
+        FFTMeasurement outputMeas = (spec.fftOutputMode == CUSTOM_SIZE) ? DECIBELS :
+                                                              spec.fftOutputMeasurement;
+        bool isWin = spec.isFFTHannWindowed;
         if ((slope != 0.0f) != isPerceptual || slope != perceptualSlope
-            || outputMeasurement != outputMeas) {
+            || outputMeasurement != outputMeas || sizeChanged || deviceChanged) {
             isPerceptual = (slope != 0.0f);
             perceptualSlope = slope;
             outputMeasurement = outputMeas;
             fillScalarTable(sr);
         }
-        if (isWin && !windowTableFilled) {
+        if ((isWin && !windowTableFilled) || sizeChanged || deviceChanged) {
             fillWindowingTable();
         }
     }

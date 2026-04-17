@@ -6,22 +6,32 @@ precision highp float;
 in vec2 v_pos;
 out vec4 FragColor;
 
-uniform float time;
-uniform float W;
-uniform float H;
-uniform int fftSize;
-uniform int fftBinAmt;
-uniform int fftArrSize;
-uniform int newAudioWindow;
-uniform int numChannels;
-uniform int displayHz;
-uniform int sampleRate;
-uniform int errorChars[128];
-uniform int errorLen;
-uniform int showError;
-
+layout(std140, binding = 0) uniform FrameUniforms {
+    float mouseX;
+    float mouseY;
+    float time;
+    float W;
+    float H;
+    int mouseDown;
+    int fftOrder;
+    int fftSize;
+    int hopAmt;
+    int hopSize;
+    int fftBinAmt;
+    int fftArrSize;
+    int newAudioWindow;
+    int numChannels;
+    int displayHz;
+    int sampleRate;
+    int showError;
+    int errorLen;
+    int showDeviceMenu;
+    int deviceMenuLen;
+    ivec4 errorChars[128];
+    ivec4 deviceChars[128];
+};
 layout(std430, binding = 0) readonly buffer PeakRMS {
-    float peakRmsData[];
+    float peakRMSData[];
 };
 layout(std430, binding = 1) readonly buffer FFTBins {
     float fftData[];
@@ -38,9 +48,12 @@ layout(std430, binding = 4) readonly buffer FeedbackRead {
 layout(std430, binding = 5) writeonly buffer FeedbackWrite {
     float feedbackOut[];
 };
+layout(std430, binding = 6) readonly buffer RawSamples {
+    float rawSamples[];
+};
 
 // cp437 font
-const uint font[760] = uint[760](
+const uint cp437[760] = uint[760](
   0u,   0u,   0u,   0u,   0u,   0u,   0u,   0u, //' '
   0u,   6u,  95u,  95u,   6u,   0u,   0u,   0u, //'!'
   0u,   7u,   7u,   0u,   7u,   7u,   0u,   0u, //'"'
@@ -149,19 +162,37 @@ float renderChar(int charCode, vec2 origin, float size, vec2 fragPx) {
     int idx = (charCode - 32) * 8;
     int row = int(charUV.y * 8.0);
     int col = int(charUV.x * 8.0);
-    uint rowBits = font[idx + row];
+    uint rowBits = cp437[idx + row];
     return float((rowBits >> col) & 1u);
 }
 
 float renderText(int[128] chars, int len, vec2 origin, float size,
                  vec2 fragPx, int offset) {
-    float result = 0.0;
-    for (int i = 0; i < len; i++) {
-        result = max(result, renderChar(chars[offset + i],
-                     origin + vec2(float(i) * size, 0.0),
-                     size, fragPx));
-    }
-    return result;
+    float localX = fragPx.x - origin.x;
+    float localY = fragPx.y - origin.y;
+    if (localX < 0.0 || localY < 0.0 ||
+        localY >= size || localX >= size * float(len)) return 0.0;
+    int i = int(localX / size);
+    if (i >= len) return 0.0;
+    return renderChar(chars[offset + i],
+                      origin + vec2(float(i) * size, 0.0),
+                      size, fragPx);
+}
+
+int getPackedChar(ivec4 arr[128], int i) {
+    return arr[i / 4][i % 4];
+}
+
+float renderTextPacked(ivec4 chars[128], int len, vec2 origin, float size,
+                          vec2 fragPx, int offset) {
+    float localX = fragPx.x - origin.x;
+    float localY = fragPx.y - origin.y;
+    if (localX < 0.0 || localY < 0.0 ||
+        localY >= size || localX >= size * float(len)) return 0.0;
+    int i = int(localX / size);
+    return renderChar(getPackedChar(chars, offset + i),
+                      origin + vec2(float(i) * size, 0.0),
+                      size, fragPx);
 }
 
 //spacing covention helpers
@@ -205,5 +236,92 @@ vec2 toCenter() {
     vec2 uv = uvBottomLeft();
     return vec2((uv.x - 0.5) * W, (uv.y - 0.5) * H);
 }
+
+// SDF font rendering utilities
+//
+// Metrics texture layout (per column = one glyph):
+//   row 0 : u0  v0  u1  v1           atlas UV rect
+//   row 1 : advance  bearingX  bearingY  glyphW    (normalised to fontSize)
+//   row 2 : glyphH   0         0         0
+//
+// All metric values are normalised so that multiplying by 'size' gives pixels.
+// firstChar / numGlyphs must match the range baked into the atlas (default 32–126).
+ 
+// Core SDF sample with screen-space anti-aliasing
+float sdfSample(sampler2D atlas, vec2 uv) {
+    float d = texture(atlas, uv).r;
+    float w = fwidth(d);
+    return smoothstep(0.5 - w, 0.5 + w, d);
+}
+ 
+// Render one SDF glyph.  penPos is baseline-left in pixel space.
+// Returns coverage (0..1) for the current fragment.
+float renderSdfChar(sampler2D atlas, sampler2D metrics,
+                    int charCode, vec2 penPos, float size,
+                    vec2 fragPx, int firstChar, int numGlyphs) {
+    int idx = charCode - firstChar;
+    if (idx < 0 || idx >= numGlyphs) return 0.0;
+ 
+    vec4 uvRect = texelFetch(metrics, ivec2(idx, 0), 0);
+    vec4 met1   = texelFetch(metrics, ivec2(idx, 1), 0);
+    vec4 met2   = texelFetch(metrics, ivec2(idx, 2), 0);
+ 
+    float bearingX = met1.y;
+    float bearingY = met1.z;
+    float glyphW   = met1.w;
+    float glyphH   = met2.x;
+ 
+    // glyph quad in pixel space (origin = bottom-left of quad)
+    float x0 = penPos.x + bearingX * size;
+    float y0 = penPos.y + (bearingY - glyphH) * size;
+    float w  = glyphW * size;
+    float h  = glyphH * size;
+ 
+    vec2 local = fragPx - vec2(x0, y0);
+    if (local.x < 0.0 || local.x >= w ||
+        local.y < 0.0 || local.y >= h)
+        return 0.0;
+ 
+    vec2 t  = local / vec2(w, h);
+    vec2 uv = vec2(mix(uvRect.x, uvRect.z, t.x),
+                   mix(uvRect.y, uvRect.w, t.y));
+ 
+    return sdfSample(atlas, uv);
+}
+ 
+// Horizontal advance for a character in pixels at the given size
+float sdfAdvance(sampler2D metrics, int charCode, float size,
+                 int firstChar, int numGlyphs) {
+    int idx = charCode - firstChar;
+    if (idx < 0 || idx >= numGlyphs) return 0.0;
+    return texelFetch(metrics, ivec2(idx, 1), 0).x * size;
+}
+
+// Render an int array text string using SDF font.
+// origin.y is the text baseline.
+float renderSdfText(sampler2D atlas, sampler2D metrics,
+                    int chars[128], int len, vec2 origin, float size,
+                    vec2 fragPx, int offset,
+                    int firstChar, int numGlyphs) {
+    if (fragPx.y < origin.y || fragPx.y > origin.y + size ||
+        fragPx.x < origin.x || fragPx.x > origin.x + size * float(len))
+        return 0.0;
+ 
+    float result = 0.0;
+    float penX   = origin.x;
+ 
+    for (int i = 0; i < len; i++) {
+        if (penX - size > fragPx.x) break;
+        int cc = chars[offset + i];
+        result = max(result,
+                     renderSdfChar(atlas, metrics, cc,
+                                   vec2(penX, origin.y), size,
+                                   fragPx, firstChar, numGlyphs));
+        penX += sdfAdvance(metrics, cc, size, firstChar, numGlyphs);
+    }
+    return result;
+}
+
+#line 1
 )";
 

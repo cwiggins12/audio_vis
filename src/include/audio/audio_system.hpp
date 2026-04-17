@@ -4,29 +4,23 @@
 #include "bridge/av_bridge.hpp"
 
 struct AudioSystem {
-    int fftOrder = 13;
-    int fftSize = 1 << 13;
-    int fftBinAmt = fftSize / 2 + 1;
-    int hopAmt = 4;
-
     Audio    audio;
     AVBridge bridge;
-    int      sampleRate = 0;
-    int      channels = 0;
 
-    AudioSystem(Spec& initSpec, int displayHz, int w, int h) :
-                audio(fftOrder, hopAmt), bridge(audio, initSpec) {
-        if (!audio.init(initSpec)) {
+    AudioSystem(Globals& g, Spec& spec) :
+                globals(g), audio(g), bridge(audio, spec, g) {
+        globals.fftSize = 1 << spec.fftOrder;
+        globals.hopSize = globals.fftSize / spec.hopAmount;
+        globals.fftBinAmt = globals.fftSize / 2 + 1;
+        if (!audio.init(spec)) {
             std::cerr << "Audio initialization failed\n";
             return;
         }
-        bridge.init(displayHz, w, h);
-        sampleRate = audio.getSampleRate();
-        channels = audio.getNumChannels();
+        bridge.init();
     }
 
     bool isValid() {
-        return (channels != 0 && sampleRate != 0);
+        return (globals.numChannels != 0 && globals.sampleRate != 0);
     }
 
     bool analyzeAndFormat() {
@@ -40,9 +34,20 @@ struct AudioSystem {
         return newAudioWindow;
     }
 
+    void updateAudioGlobals(Spec& spec) {
+        globals.fftOrder = spec.fftOrder;
+        globals.fftSize = 1 << globals.fftOrder;
+        globals.hopAmt = spec.hopAmount;
+        globals.hopSize = globals.fftSize / globals.hopAmt;
+        globals.fftBinAmt = globals.fftSize / 2 + 1;
+    }
+
     void swap(Spec& spec) {
         audio.swapSpec(spec);
         bridge.swapSpec(spec);
     }
+
+private:
+    Globals& globals;
 };
 

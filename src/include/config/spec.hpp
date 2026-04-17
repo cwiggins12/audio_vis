@@ -38,15 +38,29 @@ enum FFTMeasurement {
     DECIBELS,
 };
 
+enum FFTOrder {
+    TEN = 10,
+    ELEVEN = 11,
+    TWELVE = 12,
+    THIRTEEN = 13,
+};
+
+enum HopAmount {
+    ONE = 1,
+    TWO = 2,
+    FOUR = 4,
+};
 
 struct Spec {
+    FFTOrder fftOrder = THIRTEEN;
+    HopAmount hopAmount = FOUR;
     //0 = full direct bin amt(no high/low mode processing), 1 = audbileBins only,
     //2 = customFFTSize related output
     //Amount sent each frame will always be passed to the fftArrSize uniform
     FFTOutputMode fftOutputMode = CUSTOM_SIZE;
     //for custom sized pixel aligned fftOutputs.
     //If you don't want to deal with freq space, this entirely abstracts it away :)
-    uint32_t customFFTSize = 0;
+    uint32_t customFFTSize = 1080;
     //this is not used by a user, this check for usage of ExprVariable's in the input
     //string, then the system can check this to see if the size needs an update
     //on change of this var, which is what the bitset signals
@@ -86,18 +100,21 @@ struct Spec {
     //or 4.5 for a more music focused analyser popularized by FabFilter's Pro-Q
     //if value is 0, no slope is applied
     float perceptualSlopeDegrees = 3.0f;
-
     //want atk and rls over time smoothing for fft ouput? Highly recommended
     bool useFFTSmoothing = true;
     //want fft holds?
     //will give an array the same size as the fft ouput array(given in numBins)
-    bool getsFFTHolds = true;
+    bool getFFTHolds = true;
     //adds a windowing function with normalization to the fft output
     bool isFFTHannWindowed = true;
 
+    //if you want the samples from each hop for a waveform or something.
+    bool getRawSamples = true;
+    bool isRawSamplesMono = true;
+    bool isRawSamplesdB = false;
     //these do the same as the fft options, but for peak and RMS values.
     bool usePeakRMSSmoothing = true;
-    bool getsPeakRMSHolds = true;
+    bool getPeakRMSHolds = true;
     //only able to do magnitude or db for these outputs, affects values and holds
     bool isPeakRMSdB = true;
     bool isPeakRMSMono = false;
@@ -122,5 +139,13 @@ struct Spec {
     float feedbackBufferInitValue = 0.0f;
 
     std::map<std::string, std::string> textures;
+
+    //fonts follow the same pattern as textures.
+    //spec.cfg: font.myFont = coolFont.ttf
+    //this creates two sampler2D uniforms in the shader:
+    //  uniform sampler2D myFont;          (SDF atlas, GL_R8)
+    //  uniform sampler2D myFontMetrics;   (glyph metrics, RGBA32F)
+    //the font file must be a flat filename in the shader directory
+    std::map<std::string, std::string> fonts;
 };
 

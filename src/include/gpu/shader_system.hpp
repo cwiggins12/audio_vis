@@ -1,13 +1,12 @@
 #pragma once
 
 #include "gpu/shader_loader.hpp"
-#include "audio/audio_system.hpp"
 
 struct ShaderSystem {
 public:
     ShaderPreset* active = nullptr;
 
-    ShaderSystem(const std::string& shaderPath) {
+    ShaderSystem(const std::string& shaderPath, Globals& g) : globals(g) {
         presets = loadPresets(shaderPath);
         if (presets.empty()) {
             std::cerr << "No valid presets found\n";
@@ -16,6 +15,10 @@ public:
         if (!error.init(vertexSrc, errorFragSrc).empty()) {
             std::cout << "Failed compilation of error shader. "
                          "Hot reloads will be UB until errorFragSrc is fixed\n";
+        }
+        if (!deviceMenu.init(vertexSrc, deviceFragSrc).empty()) {
+            std::cout << "Failed compilation of display menu shader. "
+                         "Opening the device menu will be UB until deviceFragSrc is fixed\n";
         }
         active = &presets[0];
     }
@@ -37,45 +40,18 @@ public:
         return presets.size();
     }
 
-    void useErrorShader(int w, int h) {
+    void useErrorShader() {
         error.use();
-        //only rebuild the char array when the error message changes
-        if (active->errorMessage != cachedErrorMsg) {
-            cachedErrorMsg = active->errorMessage;
-            std::memset(cachedErrorChars, 0, sizeof(cachedErrorChars));
-            cachedErrorLen = std::min((int)cachedErrorMsg.size(), 128);
-            for (int i = 0; i < cachedErrorLen; i++) {
-                cachedErrorChars[i] = (int)cachedErrorMsg[i];
-            }
-            glUniform1i(error.uniforms[U_ERROR_LEN], cachedErrorLen);
-            glUniform1iv(error.uniforms[U_ERROR_CHARS], 128, cachedErrorChars);
-        }
-        glUniform1f(error.uniforms[U_W], (float)w);
-        glUniform1f(error.uniforms[U_H], (float)h);
-        glUniform1i(error.uniforms[U_SHOW_ERROR], 1);
     }
 
-    void useActiveShader(float t, AudioSystem& a, int h, int w,
-                         bool newAudioWindow, int hz) {
-        if (active->shader.uniforms[U_FFT_SIZE] != -1) {
-            std::cout << "setting fftSize loc=" << active->shader.uniforms[U_FFT_SIZE]
-                      << " val=" << a.fftSize
-                      << " sampleRate loc=" << active->shader.uniforms[U_SAMPLE_RATE]
-                      << " val=" << a.sampleRate << "\n";
-        }
+    void useDeviceMenuShader() {
+        deviceMenu.use();
+    }
+
+    void useActiveShader() {
         active->shader.use();
-        glUniform1f(active->shader.uniforms[U_TIME], t);
-        glUniform1i(active->shader.uniforms[U_FFT_SIZE], a.fftSize);
-        glUniform1i(active->shader.uniforms[U_FFT_BIN_AMT], a.fftBinAmt);
-        glUniform1i(active->shader.uniforms[U_FFT_ARR_SIZE], a.bridge.getFFTGPUSize());
-        glUniform1i(active->shader.uniforms[U_NEW_AUDIO_WINDOW], newAudioWindow);
-        glUniform1i(active->shader.uniforms[U_NUM_CHANNELS], a.channels);
-        glUniform1f(active->shader.uniforms[U_H], (float)h);
-        glUniform1f(active->shader.uniforms[U_W], (float)w);
-        glUniform1i(active->shader.uniforms[U_SAMPLE_RATE], a.sampleRate);
-        glUniform1i(active->shader.uniforms[U_DISPLAY_HZ], hz);
-        glUniform1i(active->shader.uniforms[U_SHOW_ERROR], 0);
         bindTextures(active);
+        bindFonts(active);
     }
 
     void hotReloadCheck(bool& needsSwap) {
@@ -96,13 +72,19 @@ public:
                 if (!active->hasError) {
                     needsSwap = true;
                 }
+                else {
+                    errorSwap();
+                }
             }
         }
         else {
             if (std::filesystem::exists(active->shaderDir)) {
                 active->hasError = true;
-                active->errorMessage = active->name + " error - Hot Reload. " +
+                const std::string err = active->name + " error - Hot Reload. " +
                                     "frag.glsl could not be found on hot reload check.";
+                active->errorMessage = formatErrorMessageForPreset(err,
+                                                                   active->errorLen);
+                std::cerr << err << "\n";
             }
             else {
                 removeActiveFromPresets();
@@ -112,34 +94,37 @@ public:
 
     void removeActiveFromPresets() {
         std::string removedName = active->name;
-        // Don't remove the last preset — fall back to error state instead
+        // Don't remove the last preset: fall back to error state instead
         if (presets.size() <= 1) {
             active->hasError = true;
-            active->errorMessage = removedName +
-                " - shader directory was deleted. No other presets available.";
-            std::cerr << active->errorMessage << "\n";
+            const std::string err = removedName +
+                        " - shader directory was deleted. No other presets available.";
+            active->errorMessage = formatErrorMessageForPreset(err, active->errorLen);
+            std::cerr << err << "\n";
+            errorSwap();
             return;
         }
         active->destroyTextures();
+        active->destroyFonts();
         presets.erase(presets.begin() + index);
-        // Clamp index into the now-smaller vector
-        if (index >= (int)presets.size()) {
-            index = (int)presets.size() - 1;
-        }
+        if (index >= (int)presets.size()) { index = (int)presets.size() - 1; }
         active = &presets[index];
-        active->hasError = true;
-        active->errorMessage = removedName +
-            " was removed. Moved to: " + active->name;
-        std::cout << active->errorMessage << "\n";
+        const std::string err = removedName + " was removed. Moving to: "
+                                + active->name;
+        std::cerr << err << "\n";
+    }
+
+    void errorSwap() {
+        globals.showError  = active->hasError;
+        globals.errorLen   = active->errorLen;
+        globals.errorChars = active->errorMessage;
     }
 
 private:
     std::vector<ShaderPreset> presets;
     Shader                    error;
+    Shader                    deviceMenu;
     int                       index = 0;
-
-    std::string cachedErrorMsg;
-    int         cachedErrorChars[128] = {};
-    int         cachedErrorLen = 0;
+    Globals&                  globals;
 };
 

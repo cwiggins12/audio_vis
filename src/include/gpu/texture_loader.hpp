@@ -16,7 +16,7 @@ inline bool isTextureFilenameSafe(const std::string& filename) {
     return true;
 }
 
-inline GLuint uploadTexture(const std::string& path) {
+inline GLuint uploadTexture(const std::string& path, int& outW, int& outH) {
     stbi_set_flip_vertically_on_load(true);
     int w, h, channels;
     unsigned char* data = stbi_load(path.c_str(), &w, &h, &channels, 4);
@@ -29,17 +29,17 @@ inline GLuint uploadTexture(const std::string& path) {
     glGenTextures(1, &id);
     glBindTexture(GL_TEXTURE_2D, id);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,     GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0,
                  GL_RGBA, GL_UNSIGNED_BYTE, data);
     glGenerateMipmap(GL_TEXTURE_2D);
     glBindTexture(GL_TEXTURE_2D, 0);
-
     stbi_image_free(data);
-    std::cout << "uploadTexture: loaded " << path
-              << " (" << w << "x" << h << ")\n";
+    //std::cout << "uploadTexture: loaded " << path
+    //          << " (" << w << "x" << h << ")\n";
+    outW = w; outH = h;
     return id;
 }
 
@@ -55,8 +55,9 @@ inline void buildTextures(ShaderPreset* p) {
                       << filename << "\" for " << uniformName << "\n";
             continue;
         }
+        int texW = 0, texH = 0;
         auto fullPath = std::filesystem::path(p->shaderDir) / filename;
-        GLuint texId = uploadTexture(fullPath.string());
+        GLuint texId = uploadTexture(fullPath.string(), texW, texH);
         if (!texId) {
             std::cerr << "buildTextures: skipping " << uniformName
                       << " -> " << filename << "\n";
@@ -67,7 +68,13 @@ inline void buildTextures(ShaderPreset* p) {
         slot.filename    = filename;
         slot.texId       = texId;
         slot.unit        = unit++;
+        slot.w           = texW;
+        slot.h           = texH;
         p->textures.push_back(slot);
+        std::cout << "buildTextures: loaded " << uniformName
+                  << " -> " << filename
+                  << " (unit " << slot.unit
+                  << ", " << texW << "x" << texH << ")\n";
     }
 
     // Tell the shader which texture unit each sampler uses
@@ -112,8 +119,9 @@ inline void buildTextures(ShaderPreset& p) {
                       << filename << "\" for " << uniformName << "\n";
             continue;
         }
+        int texW = 0, texH = 0;
         auto fullPath = std::filesystem::path(p.shaderDir) / filename;
-        GLuint texId = uploadTexture(fullPath.string());
+        GLuint texId = uploadTexture(fullPath.string(), texW, texH);
         if (!texId) {
             std::cerr << "buildTextures: skipping " << uniformName
                       << " -> " << filename << "\n";
@@ -125,6 +133,10 @@ inline void buildTextures(ShaderPreset& p) {
         slot.texId       = texId;
         slot.unit        = unit++;
         p.textures.push_back(slot);
+        std::cout << "buildTextures: loaded " << uniformName
+                  << " -> " << filename
+                  << " (unit " << slot.unit
+                  << ", " << texW << "x" << texH << ")\n";
     }
 
     // Tell the shader which texture unit each sampler uses
@@ -156,3 +168,4 @@ inline void unbindTextures(const ShaderPreset& p) {
         glBindTexture(GL_TEXTURE_2D, 0);
     }
 }
+

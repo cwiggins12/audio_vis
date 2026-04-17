@@ -84,16 +84,16 @@ void main() {
 
     // L Peak
     if (inRange(px, lpeak_x0, lpeak_x1) && inRange(py, meas_y0, meas_y1))
-        drawMeter(px - lpeak_x0, py - meas_y0, peakRmsData[0], prHolds[0], half_mtr, meas_h, hold_h, COL_PEAK, color);
+        drawMeter(px - lpeak_x0, py - meas_y0, peakRMSData[0], prHolds[0], half_mtr, meas_h, hold_h, COL_PEAK, color);
     // L RMS
     if (inRange(px, lrms_x0, lrms_x1) && inRange(py, meas_y0, meas_y1))
-        drawMeter(px - lrms_x0, py - meas_y0, peakRmsData[1], prHolds[1], half_mtr, meas_h, hold_h, COL_RMS, color);
+        drawMeter(px - lrms_x0, py - meas_y0, peakRMSData[1], prHolds[1], half_mtr, meas_h, hold_h, COL_RMS, color);
     // R Peak
     if (inRange(px, rpeak_x0, rpeak_x1) && inRange(py, meas_y0, meas_y1))
-        drawMeter(px - rpeak_x0, py - meas_y0, peakRmsData[2], prHolds[2], half_mtr, meas_h, hold_h, COL_PEAK, color);
+        drawMeter(px - rpeak_x0, py - meas_y0, peakRMSData[2], prHolds[2], half_mtr, meas_h, hold_h, COL_PEAK, color);
     // R RMS
     if (inRange(px, rrms_x0, rrms_x1) && inRange(py, meas_y0, meas_y1))
-        drawMeter(px - rrms_x0, py - meas_y0, peakRmsData[3], prHolds[3], half_mtr, meas_h, hold_h, COL_RMS, color);
+        drawMeter(px - rrms_x0, py - meas_y0, peakRMSData[3], prHolds[3], half_mtr, meas_h, hold_h, COL_RMS, color);
 
     FragColor = color;
 }
