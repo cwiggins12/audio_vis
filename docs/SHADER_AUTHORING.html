@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>audio_vis — Shader Authoring Guide</title>
+<title>audio_vis - Shader Authoring Guide</title>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
   body { font-family:system-ui,sans-serif; font-size:17px; line-height:1.75; color:#ccc; background:#111; padding:40px; max-width:960px; margin:0 auto; }
@@ -40,7 +40,7 @@
 <p class="sub">Everything you need to write shaders for audio_vis.</p>
 
 <h2 id="getting-started">Getting Started</h2>
-<p>Each shader lives in its own subdirectory inside the <code>shaders/</code> directory. A shader needs at minimum one file named "frag.glsl" as your fragment shader. If any audio or feedback buffer configuration different than the defaults is needed, a file named "spec.cfg" will be used to insert configurations. The directory and frag.glsl must be made prior to the engine opening for it to be recognized (for now). The title window will display the name of the subdirectory containing the "frag.glsl" and optional "spec.cfg" when the shader is selected. </p>
+<p>Each shader lives in its own subdirectory inside shaders/. At minimum, it needs a file named frag.glsl (your fragment shader). If you want to override any audio or feedback defaults, add a spec.cfg alongside it. The directory and frag.glsl must exist before the engine starts for it to be recognized (for now). The window title shows the subdirectory name when the shader is selected.</p>
 
 <p>The engine automatically prepends a header to your <code>frag.glsl</code> that provides uniforms, SSBOs, helper functions, and a built-in bitmap font. You only need to write a <code>void main()</code> and set <code>FragColor</code>. A copy of the header can be found in the same directory as this document if you would like to look at it directly.</p>
 
@@ -53,7 +53,7 @@
     <span class="kw">float</span> val = fftData[<span class="fn">clamp</span>(bin, <span class="num">0</span>, fftArrSize - <span class="num">1</span>)];
     FragColor = <span class="kw">vec4</span>(<span class="kw">vec3</span>(val), <span class="num">1.0</span>);
 }</code></pre>
-<p>This draws the FFT output as a horizontal brightness gradient. No <code>spec.cfg</code> needed — defaults will be used.</p>
+<p>This draws the FFT output as a horizontal brightness gradient. No <code>spec.cfg</code> needed. Without it, the defaults will be used.</p>
 
 <h2 id="controls">Controls</h2>
 <div class="keys">
@@ -68,7 +68,7 @@
 <p>Shaders and specs hot-reload on save within your text editor. There is no need to restart or press any key.</p>
 
 <h2 id="menu">Audio Device Selection</h2>
-<p>On startup, audio_vis will default to the system default audio device. At any point, you can press <kbd>BACKSPACE</kbd> to enter the device selection menu. It will show a list of possible playback to use as a source in a numbered list (with a limit of 10 devices). Press the associated number key of the device you want to use. If you do not wish to choose a device, pressing <kbd>BACKSPACE</kbd> again will exit the menu.</p>
+<p>On startup, audio_vis will default to the system default audio device. At any point, you can press <kbd>BACKSPACE</kbd> to enter the device selection menu. It shows a numbered list of available playback devices you can use as a source (up to 10). Press the associated number key of the device you want to use. If you do not wish to choose a device, pressing <kbd>BACKSPACE</kbd> again will exit the menu.</p>
 
 <h2 id="uniforms">Uniforms</h2>
 <p>These are available in every shader automatically.</p>
@@ -97,7 +97,7 @@
 <h3><code>peakRMSData[]</code>: binding 0, readonly</h3>
 <p>Peak and RMS measurements. Layout depends on <code>isPeakRMSMono</code>:</p>
 <p><strong>Stereo</strong> (default): <code>[L_peak, L_rms, R_peak, R_rms, ...]</code>: 2 floats per channel</p>
-<p>This interleaving pattern continues for any number of channels to accomodate any audio device</p>
+<p>This interleaving pattern continues for any number of channels to accommodate any audio device</p>
 <p><strong>Mono</strong> (<code>isPeakRMSMono = true</code>): <code>[peak, rms]</code>: 2 floats total</p>
 <p>Values are in dB (default) or linear magnitude depending on <code>isPeakRMSdB</code>.</p>
 
@@ -111,7 +111,7 @@
 </table>
 
 <h3><code>prHolds[]</code>: binding 2, readonly</h3>
-<p>Peak hold values for peak/RMS data. Same layout, formatting, and value measurements as <code>peakRmsData[]</code>. Only populated when <code>getPeakRMSHolds = true</code>.</p>
+<p>Peak hold values for peak/RMS data. Same layout, formatting, and value measurements as <code>peakRMSData[]</code>. Only populated when <code>getPeakRMSHolds = true</code>.</p>
 
 <h3><code>fftHolds[]</code>: binding 3, readonly</h3>
 <p>Peak hold values for FFT data. Same length, formatting, and value measurements as <code>fftData[]</code>. Only populated when <code>getFFTHolds = true</code>.</p>
@@ -125,7 +125,7 @@
 <h3><code>rawSamples[]</code>: binding 6, readonly</h3>
 <p>Raw samples of each new audio window. Layout depends on <code>isRawSamplesMono</code>:</p>
 <p><strong>Stereo</strong> (default): <code>[L_0, R_0, L_1, R_1, ...]</code>: hopSize floats per channel</p>
-<p>This interleaving pattern continues for any number of channels to accomodate any audio device</p>
+<p>This interleaving pattern continues for any number of channels to accommodate any audio device</p>
 <p><strong>Mono</strong> (<code>isRawSamplesMono = true</code>): <code>[0, 1, 2, ...]</code>: hopSize floats total</p>
 <p>Values are in dB (default) or linear magnitude depending on <code>isRawSamplesdB</code>.</p>
 
@@ -169,7 +169,7 @@ chars[<span class="num">0</span>] = <span class="num">72</span>; <span class="cm
 chars[<span class="num">1</span>] = <span class="num">73</span>; <span class="cm">// 'I'</span>
 <span class="kw">float</span> text = <span class="fn">renderText</span>(chars, <span class="num">2</span>, <span class="kw">vec2</span>(<span class="num">10.0</span>, <span class="num">10.0</span>), <span class="num">32.0</span>, px, <span class="num">0</span>);
 FragColor = <span class="fn">mix</span>(backgroundColor, <span class="kw">vec4</span>(<span class="num">1.0</span>), text);</code></pre>
-<p>Character codes are standard ASCII (32–126).</p>
+<p>Character codes are standard ASCII (32-126).</p>
 
 <h2 id="textures-shader">Textures</h2>
 <p>Load image files as textures by declaring them in <code>spec.cfg</code> and your shader.</p>
@@ -178,18 +178,18 @@ FragColor = <span class="fn">mix</span>(backgroundColor, <span class="kw">vec4</
 <p>Declare one per line. The uniform name becomes a <code>sampler2D</code> in your shader. The file must be in the same directory as <code>frag.glsl</code>. Path traversal (e.g. <code>../../other.png</code>) is rejected for security. Do not place your textures in a subdirectory.</p>
 <p>In <code>frag.glsl</code>:</p>
 <pre><code><span class="kw">uniform</span> sampler2D &lt;uniformName&gt;</code></pre>
-<p>This pattern will ensure that your texture properly goes from a file in your shader's directory to the sampler2D in your fragment shader</p>
-<p>Supported formats: PNG, JPG, BMP, TGA, GIF.</p>
+<p>This pattern will ensure that your texture properly goes from a file in your shader's directory to the sampler2D in your shader</p>
+<p>Supported formats: PNG, JPG, BMP, TGA, GIF(first frame only).</p>
 
 <h2 id="fonts-shader">Fonts</h2>
 <p>Load image files as fonts by declaring them in <code>spec.cfg</code> and your shader.</p>
 <p>In <code>spec.cfg</code>:</p>
 <pre><code>font.&lt;uniformName&gt; = &lt;filename.ttf&gt;</code></pre>
-<p>Declare one per line. The uniform name becomes 2 <code>sampler2D</code> variables in your shader. The file must be in the same directory as <code>frag.glsl</code>. Path traversal (e.g. <code>../../other.png</code>) is rejected for security. Do not place your textures in a subdirectory.</p>
+<p>Declare one per line. The uniform name becomes two <code>sampler2D</code> variables in your shader. The file must be in the same directory as <code>frag.glsl</code>. Path traversal (e.g. <code>../../other.png</code>) is rejected for security. Do not place your fonts in a subdirectory.</p>
 <p>In <code>frag.glsl</code>:</p>
 <pre><code><span class="kw">uniform</span> sampler2D &lt;uniformName&gt;</code>
 <code><span class="kw">uniform</span> sampler2D &lt;uniformNameMetrics&gt;</code></pre>
-<p>This pattern will ensure that your font properly goes from a file in your shader's directory to the sampler2D's in your fragment shader</p>
+<p>This pattern will ensure that your font properly goes from a file in your shader's directory to the sampler2D's in your shader</p>
 <p>Supported format: TTF</p>
 <div class="warn"><strong>Warning:</strong> Be sure to only use font files that you trust.</div>
 
@@ -197,8 +197,8 @@ FragColor = <span class="fn">mix</span>(backgroundColor, <span class="kw">vec4</
 <p>The spec file uses a simple <code>key = value</code> format. Lines starting with <code>//</code> are comments. All fields are optional. Defaults are in the table below. Each key has its own section below to explain each of the available options.</p>
 <table>
   <tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr>
-  <tr><td><code>fftOrder</code></td><td><td>enum</td><td><code>THIRTEEN</code></td><td>The power of 2 size of the FFT window in samples</td></tr>
-  <tr><td><code>hopAmount</code></td><td><td>enum</td><td><code>FOUR</code></td><td>The amount of hops across each FFT window. 1 - the inverse is the overlap percentage</td></tr>
+  <tr><td><code>fftOrder</code></td><td>enum</td><td><code>THIRTEEN</code></td><td>The power of 2 size of the FFT window in samples</td></tr>
+  <tr><td><code>hopAmount</code></td><td>enum</td><td><code>FOUR</code></td><td>The amount of hops across each FFT window. 1 - the inverse is the overlap percentage</td></tr>
   <tr><td><code>fftOutputMode</code></td><td>enum</td><td><code>CUSTOM_SIZE</code></td><td>How FFT data is shaped before sending to the GPU</td></tr>
   <tr><td><code>customFFTSize</code></td><td>expr</td><td><code>1000</code></td><td>Number of output bins when mode is CUSTOM_SIZE. Supports expressions (explained below)</td></tr>
   <tr><td><code>customFFTSizeScalesWithWindow</code></td><td>enum</td><td><code>NO_SCALE</code></td><td>Auto-scale custom size on window resize</td></tr>
@@ -224,7 +224,7 @@ FragColor = <span class="fn">mix</span>(backgroundColor, <span class="kw">vec4</
 <table>
   <tr><th>Value</th><th>Description</th></tr>
   <tr><td><code>FOUR</code></td><td>75% overlap on each FFT window</td></tr>
-  <tr><td><code>TW0</code></td><td>50% overlap on each FFT window</td></tr>
+  <tr><td><code>TWO</code></td><td>50% overlap on each FFT window</td></tr>
   <tr><td><code>ONE</code></td><td>0% overlap on each FFT window</td></tr>
 </table>
 <div class="warn"><strong>Warning:</strong> If <code>fftSize / hopAmount * displayHz < sampleRate</code>, then <code>hopAmount</code> will be lowered a step until the disparity is resolved. If <code>hopAmount</code> is one and the expression is still not resolved, <code>fftOrder</code> will be raised until the expression is resolved to ensure that the amount of samples being pulled always keeps up with the sample rate.</div>
@@ -310,13 +310,10 @@ FragColor = <span class="fn">mix</span>(backgroundColor, <span class="kw">vec4</
   <tr><td><code>usePeakRMSSmoothing</code></td><td>bool</td><td><code>true</code></td><td>Enable temporal smoothing</td></tr>
   <tr><td><code>peakRMSAtk</code></td><td>float</td><td><code>0.05</code></td><td>Attack time in seconds</td></tr>
   <tr><td><code>peakRMSRls</code></td><td>float</td><td><code>0.3</code></td><td>Release time in seconds</td></tr>
-  <tr><td><code>getPeakRMSHolds</code></td><td>bool</td><td><code>true</code></td><td>Enable peak-hold tracking</td></tr>
-  <tr><td><code>peakRMSHoldTime</code></td><td>float</td><td><code>1.0</code></td><td>Hold time in seconds</td></tr>
-  <tr><td><code>peakRMSHoldScalar</code></td><td>float</td><td><code>0.975</code></td><td>Decay multiplier after hold expires</td></tr>
 </table>
 <p>Since the peak values follow the conventions of the FFT values, I'll spare you from having to scroll past more explanations. :)</p>
 
-<h4>peakRmsData layout</h4>
+<h4>peakRMSData layout</h4>
 <p><strong>Stereo</strong> (default, <code>isPeakRMSMono = false</code>):</p>
 <pre><code>Index <span class="num">0</span>: Left Peak
 Index <span class="num">1</span>: Left RMS
@@ -337,6 +334,7 @@ Index <span class="num">1</span>: RMS  (all channels summed)</code></pre>
 <p><code>prHolds[]</code> follows the same layout as <code>peakRMSData[]</code> and follows all the same conventions as <code>fftHolds[]</code>.</p>
 
 <h2 id="feedback">Feedback Buffer</h2>
+<p>This will allow for you to use data from a prior frame. Everything you write to feedbackOut[] will be the feedbackIn[] next frame</p>
 <table>
   <tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr>
   <tr><td><code>feedbackBufferSize</code></td><td>expr</td><td><code>0</code></td><td>Size in floats. 0 = disabled. Supports expressions.</td></tr>
@@ -367,12 +365,12 @@ feedbackBufferSize = <span class="num">4096</span></code></pre>
   <tr><td><code>SAMPLE_RATE</code></td><td>Audio sample rate</td></tr>
   <tr><td><code>FFT_SIZE</code></td><td>Raw FFT window size</td></tr>
   <tr><td><code>FFT_BIN_AMT</code></td><td>Raw bin count (FFT_SIZE / 2 + 1)</td></tr>
-  <tr><td>Feedback Buffer Only Variables</td></tr>
+  <tr><th colspan="2">Feedback Buffer Only Variables</th></tr>
   <tr><td><code>FFT_ARR_SIZE</code></td><td>The size of the FFT array that is calculated from the customFFTSize expression, the audible bin amount, or the <code>FFT_BIN_AMT</code> depending on <code>fftOutputMode</code></td></tr>
   <tr><td><code>HOP_SIZE</code></td><td>Hop window size of the FFT on each new audio window</td></tr>
   <tr><td><code>HOP_AMT</code></td><td>Amount of hops to make it to an entirely new audio window</td></tr>
 </table>
-<p>Supported operators: <code>+</code>, <code>-</code>, <code>*</code>, <code>/</code>, <code>()</code>. Result is truncated to an unsigned integer and errors can happen within the expression unless it at any point surpasses the size of type <code>Double</code>. Subtraction clamps to 0 if the right side is larger. Any errors in expressions will hard set the size to 0 before relaying back to you where the error occured on screen in the error shader or in more detail in the log.txt in the audio_vis root directory like any other error will.</p>
+<p>Supported operators: <code>+</code>, <code>-</code>, <code>*</code>, <code>/</code>, <code>()</code>. Result is truncated to an unsigned integer and errors can happen within the expression unless the expression at any point overflows type <code>Double</code>. Subtraction clamps to 0 if the right side is larger. Any errors in expressions will hard set the size to 0. Then, the error location is shown on the error shader onscreen, with more detail in log.txt.</p>
 <p>Examples:</p>
 <pre><code>customFFTSize = <span class="num">512</span>
 customFFTSize = WINDOW_WIDTH
@@ -406,9 +404,13 @@ Index <span class="num">3</span>: Right 1</code></pre>
 <h4>Watch out for a common driver bug in GL ES 3.1 on some drivers</h4>
 <p>On some drivers, shaders have incorrect logic when casts are done within some expressions. My way around it has been casting to a new variable and using that. There are plenty of examples of this in the fragment header and in many of the example shaders. Try doing this if you are getting incorrect results on lines that have casts in expressions.</p>
 
+<h4>Optimize hard when on the Pi</h4>
+<p>While this program does cost very little on the CPU, it can be very GPU heavy depending on the current shader. The Raspberry Pi 4, which is what this was tested on, has a substantially smaller GPU than even very low budget laptops. So, some shaders that are great on desktop may need more optimization to work well on the Pi</p>
+
 <h4>dB mapping helper</h4>
 <p>Most shaders working in dB mode will want a normalization function:</p>
-<pre><code><span class="kw">float</span> <span class="fn">dbToT</span>(<span class="kw">float</span> db) {
+<pre><code>
+    <span class="kw">float</span> <span class="fn">dbToT</span>(<span class="kw">float</span> db) {
     <span class="kw">return</span> <span class="fn">clamp</span>((db - DB_MIN) / (DB_MAX - DB_MIN), <span class="num">0.0</span>, <span class="num">1.0</span>);
 }</code></pre>
 <p>A range of -80.0 to 0.0 works well for most visualizations. Widen to -96.0 for quieter material, but there may be some artifacts from temporal smoothing around the noise floor.</p>
@@ -417,7 +419,7 @@ Index <span class="num">3</span>: Right 1</code></pre>
 <p>Use <code>ndcBottomLeftAR()</code> or <code>ndcTopLeftAR()</code> whenever you're drawing circles, regular polygons, or SDFs. The non-AR versions will stretch on non-square windows.</p>
 
 <h4>Smoothing tradeoffs</h4>
-<p>Temporal smoothing at some value is generally recommended for most visualizations to reduce the artifacts that come from dramatic changes between audio windows. Fast attack + slow release (e.g. <code>fftAtk = 0.05</code>, <code>fftRls = 0.3</code>) gives reactive-but-smooth visuals, is set in the default setting, and is generally the recommended approach for more musical/artistic visualizers. Setting both to 0 or below gives raw unsmoothed data — useful for spectrograms and analytical displays. Matching attack and release gives symmetrical decay.</p>
+<p>Temporal smoothing at some value is generally recommended for most visualizations to reduce the artifacts that come from dramatic changes between audio windows. Fast attack + slow release (e.g. <code>fftAtk = 0.05</code>, <code>fftRls = 0.3</code>) gives reactive-but-smooth visuals, is set in the default setting, and is generally the recommended approach for more musical/artistic visualizers. Setting both to 0 or below gives raw unsmoothed data: useful for spectrograms and analytical displays. Matching attack and release gives symmetrical decay.</p>
 
 <h4>Perceptual slope</h4>
 <p>If your visualizer looks like the bass is always dominant and the highs are invisible, increase <code>perceptualSlopeDegrees</code>. 3.0 is a good starting point, 4.5 gives extra high-end boost. Set to 0.0 for flat/analytical displays.</p>
@@ -427,7 +429,7 @@ Index <span class="num">3</span>: Right 1</code></pre>
 
 <h2 id="checklist">Shader Author Checklist</h2>
 <ul class="checklist">
-  <li>"shaders" directory and audio_vis executable is still within "audio_vis" directory</li>
+  <li>shaders/ directory sits next to the audio_vis executable.</li>
   <li>Create and name a new directory within the "shaders" directory</li>
   <li>New directory contains <code>frag.glsl</code> with the minimal working code</li>
   <li><code>frag.glsl</code> compiles without errors (full glsl error log prints to log.txt)</li>
