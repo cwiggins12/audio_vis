@@ -52,7 +52,7 @@ Linux only for now. Windows support is planned.
 
 ### Tested Hardware
 
-- Desktop Linux (x86_64, Ubuntu 24.12)
+- Desktop Linux (x86_64, Ubuntu 24.04.4 LTS)
 - Raspberry Pi 4 (aarch64, Raspberry Pi OS 64-bit)
 
 ### Running
