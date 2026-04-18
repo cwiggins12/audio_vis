@@ -16,34 +16,6 @@ public:
         if (glfwGetKey(glfw.window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
             glfwSetWindowShouldClose(glfw.window, GLFW_TRUE);
         }
-        //check forward key
-        int rightKey = glfwGetKey(glfw.window, GLFW_KEY_RIGHT);
-        if (rightKey == GLFW_PRESS && prevRightKey == GLFW_RELEASE) {
-            s.setIndex((s.getIndex() + 1) % presetsSize);
-            needsSwap = true;
-        }
-        prevRightKey = rightKey;
-        //check back key
-        int leftKey = glfwGetKey(glfw.window, GLFW_KEY_LEFT);
-        if (leftKey == GLFW_PRESS && prevLeftKey == GLFW_RELEASE) {
-            s.setIndex(((s.getIndex() - 1) + presetsSize) % presetsSize);
-            needsSwap = true;
-        }
-        prevLeftKey = leftKey;
-        //check up key for fullscreen
-        int fsKey = glfwGetKey(glfw.window, GLFW_KEY_UP);
-        if (fsKey == GLFW_PRESS && prevFSKey == GLFW_RELEASE) {
-            glfw.toggleFullscreen();
-            needsSwap = true;
-        }
-        prevFSKey = fsKey;
-        //check for shuffle button
-        int shuffleKey = glfwGetKey(glfw.window, GLFW_KEY_DOWN);
-        if (shuffleKey == GLFW_PRESS && prevShuffleKey == GLFW_RELEASE) {
-            s.setIndex(rand() % presetsSize);
-            needsSwap = true;
-        }
-        prevShuffleKey = shuffleKey;
         //if in device menu, check for num press
         if (globals.showDeviceMenu) {
             for (int i = 0; i < 10; ++i) {
@@ -57,6 +29,36 @@ public:
                 prevNumKeys[i] = key;
             }
         }
+        else {
+            //check forward key
+            int rightKey = glfwGetKey(glfw.window, GLFW_KEY_RIGHT);
+            if (rightKey == GLFW_PRESS && prevRightKey == GLFW_RELEASE) {
+                s.setIndex((s.getIndex() + 1) % presetsSize);
+                needsSwap = true;
+            }
+            prevRightKey = rightKey;
+            //check back key
+            int leftKey = glfwGetKey(glfw.window, GLFW_KEY_LEFT);
+            if (leftKey == GLFW_PRESS && prevLeftKey == GLFW_RELEASE) {
+                s.setIndex(((s.getIndex() - 1) + presetsSize) % presetsSize);
+                needsSwap = true;
+            }
+            prevLeftKey = leftKey;
+            //check for shuffle button
+            int shuffleKey = glfwGetKey(glfw.window, GLFW_KEY_DOWN);
+            if (shuffleKey == GLFW_PRESS && prevShuffleKey == GLFW_RELEASE) {
+                s.setIndex(rand() % presetsSize);
+                needsSwap = true;
+            }
+            prevShuffleKey = shuffleKey;
+        }
+        //check up key for fullscreen
+        int fsKey = glfwGetKey(glfw.window, GLFW_KEY_UP);
+        if (fsKey == GLFW_PRESS && prevFSKey == GLFW_RELEASE) {
+            glfw.toggleFullscreen();
+            needsSwap = true;
+        }
+        prevFSKey = fsKey;
         //check for device menu button
         int menuKey = glfwGetKey(glfw.window, GLFW_KEY_BACKSPACE);
         if (menuKey == GLFW_PRESS && prevMenuKey == GLFW_RELEASE) {
