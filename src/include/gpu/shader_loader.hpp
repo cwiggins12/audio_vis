@@ -36,6 +36,8 @@ inline std::vector<ShaderPreset> loadPresets(const std::string& shadersDir) {
         return presets;
     }
 
+    std::string vtxSrc = getVertexSrc();
+
     std::vector<std::filesystem::directory_entry> entries;
     for (auto& entry : std::filesystem::directory_iterator(shadersDir)) {
         if (entry.is_directory()) {
@@ -123,7 +125,7 @@ inline std::vector<ShaderPreset> loadPresets(const std::string& shadersDir) {
         }
 
         p.shader = Shader();
-        ret = p.shader.init(vertexSrc, fragSrc.c_str());
+        ret = p.shader.init(vtxSrc.c_str(), fragSrc.c_str());
         p.shaderDir = entry.path().string();
         p.lastFragWrite = std::filesystem::last_write_time(fragPath);
         p.lastSpecWrite = std::filesystem::exists(specPath)
@@ -151,7 +153,7 @@ inline std::vector<ShaderPreset> loadPresets(const std::string& shadersDir) {
 inline void reloadPreset(ShaderPreset* p) {
     auto fragPath = std::filesystem::path(p->shaderDir) / "frag.glsl";
     auto specPath = std::filesystem::path(p->shaderDir) / "spec.cfg";
-    std::string fragSrc = loadFile(fragPath);
+    std::string fragSrc = loadFile(fragPath.string());
     if (fragSrc.empty()) {
         p->hasError     = true;
         const std::string err = "Hot Reload - " + p->name +
@@ -164,7 +166,7 @@ inline void reloadPreset(ShaderPreset* p) {
     Spec newSpec{};
     std::string errLog = "";
     if (!specPath.empty() && std::filesystem::exists(specPath)) {
-        errLog = parseSpec(specPath, newSpec);
+        errLog = parseSpec(specPath.string(), newSpec);
         if (errLog != "") {
             p->hasError     = true;
             const std::string err = "Hot Reload - " + p->name +
@@ -179,8 +181,9 @@ inline void reloadPreset(ShaderPreset* p) {
         }
     }
 
+    std::string vtxSrc = getVertexSrc();
     Shader newShader;
-    errLog = newShader.init(vertexSrc, fragSrc.c_str());
+    errLog = newShader.init(vtxSrc.c_str(), fragSrc.c_str());
     if (!errLog.empty()) {
         p->hasError     = true;
         const std::string err = "Hot Reload - " + p->name + " - " + errLog;
@@ -271,4 +274,3 @@ inline void validateFFTRates(Globals& g, ShaderPreset* s) {
                   << " and fftOrder is now " << s->spec.fftOrder << ".\n";
     }
 }
-

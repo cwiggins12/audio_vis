@@ -12,11 +12,12 @@ public:
             std::cerr << "No valid presets found\n";
             return;
         }
-        if (!error.init(vertexSrc, errorFragSrc).empty()) {
+        std::string vtxSrc = getVertexSrc();
+        if (!error.init(vtxSrc.c_str(), errorFragSrc).empty()) {
             std::cout << "Failed compilation of error shader. "
                          "Hot reloads will be UB until errorFragSrc is fixed\n";
         }
-        if (!deviceMenu.init(vertexSrc, deviceFragSrc).empty()) {
+        if (!deviceMenu.init(vtxSrc.c_str(), deviceFragSrc).empty()) {
             std::cout << "Failed compilation of display menu shader. "
                          "Opening the device menu will be UB until deviceFragSrc is fixed\n";
         }
@@ -127,4 +128,3 @@ private:
     int                       index = 0;
     Globals&                  globals;
 };
-

@@ -1,6 +1,6 @@
-1.2 goals:
- - hot reload rework for optimization
- - windows build
+1.2 Goals:
+ - hot reload rework
+ - windows build - DONE
  - timed shuffle mode
  - interpolation between presets on swap
  - More smoothing modes for the high end on customFFTSize output
@@ -9,7 +9,5 @@
 1.3 Goals:
  - Allow for user defined resolutions and larger glyph ranges for fonts
  - Allow for user defined uniforms that can be adjusted by midi, key input, or ui
- - Have 2 separate builds: one ES for pi and embedded devices, one not ES for desktop
  - VST3 port
  - more shaders!
-

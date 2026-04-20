@@ -505,4 +505,3 @@ private:
     int swapIndex = 0;
     float swapFreq = 0.0f;
 };
-

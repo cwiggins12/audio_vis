@@ -1,6 +1,6 @@
 #pragma once
 
-#include <glad/glad.h>
+#include "utils/gl_platform.hpp"
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -29,7 +29,7 @@ public:
     Shader& operator=(const Shader&) = delete;
 
     std::string init(const char* vertSrc, const char* fragSrc) {
-        std::string fragFinal = std::string(fragmentHeader) + fragSrc;
+        std::string fragFinal = std::string(getFragmentHeader()) + fragSrc;
         std::string vertErr, fragErr, errorLog;
         GLuint vert = compile(GL_VERTEX_SHADER, vertSrc, vertErr);
         GLuint frag = compile(GL_FRAGMENT_SHADER, fragFinal.c_str(), fragErr);
@@ -91,9 +91,12 @@ private:
     }
 };
 
-inline const char* vertexSrc = R"(#version 310 es
-precision highp float;
-out vec2 v_pos;
+inline std::string getVertexSrc() {
+    return std::string(glslVersionString()) +
+#ifdef USE_GLES
+        "precision highp float;\n"
+#endif
+        R"(out vec2 v_pos;
 void main() {
     vec2 positions[3] = vec2[](
         vec2(-1.0, -1.0),
@@ -105,6 +108,7 @@ void main() {
     gl_Position = vec4(v_pos, 0.0, 1.0);
 }
 )";
+}
 
 inline const char* errorFragSrc = R"(
 void main() {
@@ -147,7 +151,6 @@ void main() {
     int charAmt = 72;
     float lineH = spacing + fontSize;
 
-    // which line is this pixel on?
     float fromTop = H - fragPx.y;
     int line = int((fromTop - spacing) / lineH);
     int totalLines = (deviceMenuLen + charAmt - 1) / charAmt;
@@ -168,4 +171,3 @@ void main() {
     FragColor = mix(bg, vec4(textCol, 1.0), text);
 }
 )";
-

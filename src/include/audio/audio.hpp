@@ -144,10 +144,12 @@ public:
             std::cerr << "Device index " << i << " out of range\n";
             return false;
         }
+#ifndef _WIN32
         if (!capture.playbackDevices[i].hasMonitor) {
             std::cerr << "Device " << i << " has no monitor\n";
             return false;
         }
+#endif
         if (i == capture.getCurrentDeviceIndex()) {
             std::cout << "Already on device " << i << "\n";
             return false;
@@ -184,4 +186,3 @@ private:
     bool isRawSamplesMono = true;
     bool newDeviceOnSwap = false;
 };
-

@@ -1,5 +1,11 @@
 #define MINIAUDIO_IMPLEMENTATION
 
+#ifdef _WIN32
+    #include <windows.h>
+#else
+    #include <unistd.h>
+#endif
+
 #include "audio/audio_system.hpp"
 #include "gpu/shader_system.hpp"
 #include "utils/glfw_context.hpp"
@@ -8,12 +14,20 @@
 #include "utils/log.hpp"
 
 std::string getAssetPath(const std::string& relative) {
+#ifdef _WIN32
+    char buf[4096];
+    DWORD len = GetModuleFileNameA(nullptr, buf, sizeof(buf));
+    if (len == 0 || len == sizeof(buf)) return relative;
+    auto binDir = std::filesystem::path(buf).parent_path();
+    return (binDir / relative).string();
+#else
     char buf[4096];
     ssize_t len = readlink("/proc/self/exe", buf, sizeof(buf) - 1);
     if (len == -1) return relative;
     buf[len] = '\0';
     auto binDir = std::filesystem::path(buf).parent_path();
     return (binDir / relative).string();
+#endif
 }
 
 void evalPresetExprs(Globals& g, ShaderPreset* pre) {
@@ -74,11 +88,8 @@ int main() {
     Globals globals;
     GLFWContext glfw(globals);
     if (!glfw.isValid()) return -1;
-    //init glad
-    if (!gladLoadGLES2Loader((GLADloadproc)glfwGetProcAddress)) {
-        std::cerr << "Failed to initialize GLAD\n";
-        return -1;
-    }
+    //init glad (handled by gl_platform.hpp)
+    if (!initGLAD()) return -1;
     //get initial width and height from framebuffer then log gl info
     glfw.initFramebuffer();
     globals.initWidth = globals.W; globals.initHeight = globals.H;
@@ -142,4 +153,3 @@ int main() {
     std::cout << "Program ended successfully :)";
     return 0;
 }
-

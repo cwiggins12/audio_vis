@@ -1,6 +1,6 @@
 #pragma once
 
-#include <glad/glad.h>
+#include "utils/gl_platform.hpp"
 #include <iostream>
 #include <cstring>
 
@@ -37,10 +37,17 @@ struct SSBO {
         size = bytes;
         glGenBuffers(1, &id);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, id);
+#ifdef USE_GLES
         glBufferStorageEXT(GL_SHADER_STORAGE_BUFFER, bytes, nullptr,
             GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT_EXT | GL_MAP_COHERENT_BIT_EXT);
         ptr = (float*)glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, bytes,
             GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT_EXT | GL_MAP_COHERENT_BIT_EXT);
+#else
+        glBufferStorage(GL_SHADER_STORAGE_BUFFER, bytes, nullptr,
+            GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
+        ptr = (float*)glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, bytes,
+            GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
+#endif
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
         if (!ptr) {
             std::cerr << "SSBO: glMapBufferRange returned nullptr\n";
@@ -84,4 +91,3 @@ struct SSBO {
         }
     }
 };
-

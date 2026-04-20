@@ -1,8 +1,14 @@
 #pragma once
 
-inline const char* fragmentHeader = R"(#version 310 es
-precision highp float;
+#include "utils/gl_platform.hpp"
+#include <string>
 
+inline std::string getFragmentHeader() {
+    std::string header = glslVersionString();
+#ifdef USE_GLES
+    header += "precision highp float;\n";
+#endif
+    header += R"(
 in vec2 v_pos;
 out vec4 FragColor;
 
@@ -324,4 +330,5 @@ float renderSdfText(sampler2D atlas, sampler2D metrics,
 
 #line 1
 )";
-
+    return header;
+}
