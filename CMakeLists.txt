@@ -76,9 +76,15 @@ endif()
 # ---------------------------------------------------------------------------
 # Target
 # ---------------------------------------------------------------------------
-add_executable(audio_vis
-    src/main.cpp
-)
+if(WIN32)
+	add_executable(audio_vis WIN32
+    	    src/main.cpp
+	)
+else()
+	add_executable(audio_vis
+    	    src/main.cpp
+	)
+endif()
 target_include_directories(audio_vis PRIVATE
     src/include
     src/external
