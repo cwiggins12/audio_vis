@@ -207,6 +207,8 @@ FragColor = <span class="fn">mix</span>(backgroundColor, <span class="kw">vec4</
   <tr><td><code>fftOutputMeasurement</code></td><td>enum</td><td><code>DECIBELS</code></td><td>Output value format</td></tr>
   <tr><td><code>perceptualSlopeDegrees</code></td><td>float</td><td><code>3.0</code></td><td>Frequency-dependent gain tilt</td></tr>
   <tr><td><code>isFFTHannWindowed</code></td><td>bool</td><td><code>true</code></td><td>Apply Hann window with normalization before FFT</td></tr>
+  <tr><td><code>highSmoothing</code></td><td>float</td><td><code>0.0</code></td><td>0.0-12.0 range sigma for a gaussian pass over the high end (<code>CUSTOM_SIZE</code> mode only). Only interacts with the bins that are within the collate range.</td></tr>
+  <tr><td><code>allowDroppedSamples</code></td><td>bool</td><td><code>true</code></td><td>Allows smaller hop/fft sizes to be used by only using the most recently written samples to ensure that the reading of the samples is never overtaken by the writing of the samples</td></tr>
 </table>
 
 <h4>fftOrder</h4>
@@ -227,7 +229,7 @@ FragColor = <span class="fn">mix</span>(backgroundColor, <span class="kw">vec4</
   <tr><td><code>TWO</code></td><td>50% overlap on each FFT window</td></tr>
   <tr><td><code>ONE</code></td><td>0% overlap on each FFT window</td></tr>
 </table>
-<div class="warn"><strong>Warning:</strong> If <code>fftSize / hopAmount * displayHz < sampleRate</code>, then <code>hopAmount</code> will be lowered a step until the disparity is resolved. If <code>hopAmount</code> is one and the expression is still not resolved, <code>fftOrder</code> will be raised until the expression is resolved to ensure that the amount of samples being pulled always keeps up with the sample rate.</div>
+<div class="warn"><strong>Warning:</strong> If <code>fftSize / hopAmount * displayHz < sampleRate</code> and <code>allowDroppedSamples != true</code>, then <code>hopAmount</code> will be lowered a step until the disparity is resolved. If <code>hopAmount</code> is one and the expression is still not resolved, <code>fftOrder</code> will be raised until the expression is resolved to ensure that the amount of samples being pulled always keeps up with the sample rate.</div>
 
 <h4>fftOutputMode</h4>
 <table>
@@ -334,7 +336,7 @@ Index <span class="num">1</span>: RMS  (all channels summed)</code></pre>
 <p><code>prHolds[]</code> follows the same layout as <code>peakRMSData[]</code> and follows all the same conventions as <code>fftHolds[]</code>.</p>
 
 <h2 id="feedback">Feedback Buffer</h2>
-<p>This will allow for you to use data from a prior frame. Everything you write to feedbackOut[] will be the feedbackIn[] next frame</p>
+<p>This will allow for you to use data from a prior frame. Everything you write to <code>feedbackOut[]</code> will be the <code>feedbackIn[]</code> next frame</p>
 <table>
   <tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr>
   <tr><td><code>feedbackBufferSize</code></td><td>expr</td><td><code>0</code></td><td>Size in floats. 0 = disabled. Supports expressions.</td></tr>

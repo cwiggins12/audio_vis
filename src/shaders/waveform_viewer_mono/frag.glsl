@@ -2,7 +2,7 @@
 
 vec4 helper(float waveY, vec2 px) {
     float dist = abs(px.y - waveY);
-    float line = smoothstep(2.0, 0.0, dist);
+    float line = smoothstep(8.0, 0.0, dist);
 
     vec3 col;
     if (mouseDown == 1) {

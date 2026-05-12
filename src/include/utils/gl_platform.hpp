@@ -1,15 +1,12 @@
 #pragma once
-// ---------------------------------------------------------------------------
-// gl_platform.hpp
-//
-// Centralises the GL ES vs Desktop GL compile-time switch.
+
+// GL ES vs Desktop GL compile-time switch
 //
 // Build-system contract (set by CMake):
 //   -DUSE_GLES=1 uses OpenGL ES 3.1   (Raspberry Pi, embedded)
 //   (nothing) uses Desktop OpenGL 4.4 core  (Linux x86, Windows)
-// ---------------------------------------------------------------------------
 
-// ---- pick the right GL headers ----
+//pick the right GL headers
 #ifdef USE_GLES
     #include <GLES3/gl31.h>         // system-provided GL ES 3.1: no loader needed
 #else
@@ -19,7 +16,7 @@
 #include <GLFW/glfw3.h>
 #include <iostream>
 
-// ---- GLSL version string to prepend to every shader ----
+//GLSL version string to prepend
 inline const char* glslVersionString() {
 #ifdef USE_GLES
     return "#version 310 es\n";
@@ -28,10 +25,10 @@ inline const char* glslVersionString() {
 #endif
 }
 
-// ---- initialise GLAD (desktop GL only, no-op on ES) ----
+//initialise GLAD (desktop GL only)
 inline bool initGLAD() {
 #ifdef USE_GLES
-    // GL ES functions are provided directly by the system — nothing to load
+    // GL ES functions are provided directly by the system - nothing to load
     return true;
 #else
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {

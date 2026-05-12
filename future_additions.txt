@@ -1,0 +1,9 @@
+Potential future additions:
+ - Allow for user defined resolutions and larger glyph ranges for fonts
+ - Allow for user defined uniforms that can be adjusted by midi, key input, or ui
+ - timed shuffle mode
+ - optional system wide interpolation between presets on swap
+ - more customization options for the high smoothing option
+ - VST3 port
+ - more shaders!
+ 

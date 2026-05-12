@@ -58,7 +58,16 @@ public:
     }
 
     void analyze() {
-        uint32_t start = capture.getReadIndex();
+        uint32_t start;
+        if (droppingFrames) {
+            uint32_t write = capture.getWriteIndex();
+            uint32_t rewind = globals.fftSize * capture.getNumChannels();
+            uint32_t bufSize = capture.getBufferSize();
+            start = (write + bufSize - rewind) % bufSize;
+        }
+        else {
+            start = capture.getReadIndex();
+        }
         float* temp = fft->getInputBuffer();
         float* buf = capture.getRawBufferPointer();
         capture.getMonoSummedWindow(temp, globals.fftSize, start);
@@ -91,11 +100,15 @@ public:
                                           globals.numChannels, capture.getBufferSize());
         }
         fft->runFFT();
-        capture.setReadIndexForwardByFrames(globals.hopSize);
+        if (!droppingFrames) {
+            capture.setReadIndexForwardByFrames(globals.hopSize);
+        }
     }
-
+ 
     void swapSpec(Spec& spec) {
         resetAccumulator();
+        droppingFrames = spec.allowDroppedSamples &&
+                         (globals.sampleRate > globals.displayHz * globals.hopSize);
         isPeakRMSMono = spec.isPeakRMSMono;
         pr.clear();
         pr.resize(isPeakRMSMono, globals.numChannels);
@@ -107,6 +120,7 @@ public:
         fft->swapSpec(spec, globals.sampleRate, newDeviceOnSwap);
         newDeviceOnSwap = false;
     }
+ 
 
     void resetAccumulator() {
         firstWindowAccumulated = false;
@@ -185,4 +199,5 @@ private:
     bool getRawSamples = true;
     bool isRawSamplesMono = true;
     bool newDeviceOnSwap = false;
+    bool droppingFrames = false;
 };

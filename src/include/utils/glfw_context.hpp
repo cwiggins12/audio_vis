@@ -8,7 +8,7 @@
 
 struct GLFWContext {
 public:
-    GLFWwindow*        window    = nullptr;
+    GLFWwindow* window = nullptr;
 
     GLFWContext(Globals& g) : globals(g) {
         monitor = glfwGetPrimaryMonitor();
@@ -167,3 +167,4 @@ private:
         return best;
     }
 };
+

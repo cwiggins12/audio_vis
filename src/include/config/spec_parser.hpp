@@ -13,12 +13,12 @@ static std::string trimStr(const std::string& s) {
 
 static std::string parseInterp(const std::string& val, int lineNum, Interps& out) {
     std::string ret = "";
-    if (val == "LINEAR"        || val == "0") { out = LINEAR;        return ret; }
-    if (val == "PCHIP"         || val == "1") { out = PCHIP;         return ret; }
-    if (val == "LANCZOS"       || val == "2") { out = LANCZOS;       return ret; }
-    if (val == "GAUSSIAN"      || val == "3") { out = GAUSSIAN;      return ret; }
-    if (val == "CUBIC_B"       || val == "4") { out = CUBIC_B;       return ret; }
-    if (val == "AKIMA"         || val == "5") { out = AKIMA;         return ret; }
+    if (val == "LINEAR"     || val == "0") { out = LINEAR;      return ret; }
+    if (val == "PCHIP"      || val == "1") { out = PCHIP;       return ret; }
+    if (val == "LANCZOS"    || val == "2") { out = LANCZOS;     return ret; }
+    if (val == "GAUSSIAN"   || val == "3") { out = GAUSSIAN;    return ret; }
+    if (val == "CUBIC_B"    || val == "4") { out = CUBIC_B;     return ret; }
+    if (val == "AKIMA"      || val == "5") { out = AKIMA;       return ret; }
     ret = "parseSpec: line " + std::to_string(lineNum) +
           ": invalid Interps value \"" + val + "\"\n";
     //std::cerr << ret;
@@ -27,9 +27,9 @@ static std::string parseInterp(const std::string& val, int lineNum, Interps& out
 
 static std::string parseCollates(const std::string& val, int lineNum, Collates& out) {
     std::string ret = "";
-    if (val == "RMS"        || val == "0") { out = RMS;        return ret; }
-    if (val == "PEAK"       || val == "1") { out = PEAK;       return ret; }
-    if (val == "POWER_MEAN" || val == "2") { out = POWER_MEAN; return ret; }
+    if (val == "RMS"        || val == "0") { out = RMS;         return ret; }
+    if (val == "PEAK"       || val == "1") { out = PEAK;        return ret; }
+    if (val == "POWER_MEAN" || val == "2") { out = POWER_MEAN;  return ret; }
     ret = "parseSpec: line " + std::to_string(lineNum) +
           ": invalid Collates value \"" + val + "\"\n";
     //std::cerr << ret;
@@ -39,9 +39,9 @@ static std::string parseCollates(const std::string& val, int lineNum, Collates& 
 static std::string parseFFTOutputMode(const std::string& val, int lineNum,
                                       FFTOutputMode& out) {
     std::string ret = "";
-    if (val == "FULL_BIN"     || val == "0") { out = FULL_BIN;     return ret; }
-    if (val == "AUDIBLE_BIN"  || val == "1") { out = AUDIBLE_BIN;  return ret; }
-    if (val == "CUSTOM_SIZE"  || val == "2") { out = CUSTOM_SIZE;  return ret; }
+    if (val == "FULL_BIN"    || val == "0") { out = FULL_BIN;    return ret; }
+    if (val == "AUDIBLE_BIN" || val == "1") { out = AUDIBLE_BIN; return ret; }
+    if (val == "CUSTOM_SIZE" || val == "2") { out = CUSTOM_SIZE; return ret; }
     ret = "parseSpec: line " + std::to_string(lineNum) +
           ": invalid FFTOutputMode value \"" + val + "\"\n";
     //std::cerr << ret;
@@ -231,8 +231,27 @@ inline std::string parseSpec(const std::string& path, Spec& out) {
             }
         }
         else if (key == "fftOutputMeasurement") {
-            if ((ret = parseFFTMeasurement(val, lineNum, out.fftOutputMeasurement)) != "") {
+            if ((ret = parseFFTMeasurement(val, lineNum,
+                                           out.fftOutputMeasurement)) != "") {
                 return ret;
+            }
+        }
+        else if (key == "highSmoothing") {
+            if ((ret = parseFloat(val, lineNum, key, out.highSmoothing)) != "") {
+                return ret;
+            }
+            if (out.highSmoothing < 0.0f) {
+                std::cout << "parseSpec: line " << lineNum
+                          << ": highSmoothing clamped from " << out.highSmoothing
+                          << " to 0.0 (minimum). Must be >= 0.0\n";
+                out.highSmoothing = 0.0f;
+            }
+            if (out.highSmoothing > 12.0f) {
+                std::cout << "parseSpec: line " << lineNum
+                          << ": highSmoothing clamped from " << out.highSmoothing
+                          << " to 12.0 (maximum). Higher values smear peaks"
+                          << " beyond recognition\n";
+                out.highSmoothing = 12.0f;
             }
         }
         else if (key == "fftAtk") {
@@ -256,7 +275,8 @@ inline std::string parseSpec(const std::string& path, Spec& out) {
             }
         }
         else if (key == "perceptualSlopeDegrees") {
-            if ((ret = parseFloat(val, lineNum, key, out.perceptualSlopeDegrees)) != "") {
+            if ((ret = parseFloat(val, lineNum, key,
+                                  out.perceptualSlopeDegrees)) != "") {
                 return ret;
             }
         }
@@ -283,6 +303,9 @@ inline std::string parseSpec(const std::string& path, Spec& out) {
         }
         else if (key == "getPeakRMSHolds") {
             if (!parseBool(out.getPeakRMSHolds)) return ret;
+        }
+        else if (key == "allowDroppedSamples") {
+            if (!parseBool(out.allowDroppedSamples)) return ret;
         }
         else if (key == "isPeakRMSdB") {
             if (!parseBool(out.isPeakRMSdB)) return ret;
@@ -317,12 +340,14 @@ inline std::string parseSpec(const std::string& path, Spec& out) {
             }
         }
         else if (key == "feedbackBufferScalesWithWindow") {
-            if ((ret = parseWindowScalingMode(val, lineNum, out.feedbackBufferScalesWithWindow)) != "") {
+            if ((ret = parseWindowScalingMode(val, lineNum,
+                                           out.feedbackBufferScalesWithWindow)) != "") {
                 return ret;
             }
         }
         else if (key == "feedbackBufferInitValue") {
-            if ((ret = parseFloat(val, lineNum, key, out.feedbackBufferInitValue)) != "") {
+            if ((ret = parseFloat(val, lineNum, key,
+                                  out.feedbackBufferInitValue)) != "") {
                 return ret;
             }
         }

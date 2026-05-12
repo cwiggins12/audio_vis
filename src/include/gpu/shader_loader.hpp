@@ -247,6 +247,10 @@ inline void validateFFTRates(Globals& g, ShaderPreset* s) {
     FFTOrder specOrder = s->spec.fftOrder;
     HopAmount specHops = s->spec.hopAmount;
     while (g.sampleRate > g.displayHz * g.hopSize) {
+        if (s->spec.allowDroppedSamples) {
+            valuesChanged = true;
+            break;
+        }
         if (s->spec.hopAmount > 1) {
             s->spec.hopAmount = static_cast<HopAmount>(s->spec.hopAmount / 2);
             g.hopSize = g.fftSize / s->spec.hopAmount;
@@ -267,10 +271,85 @@ inline void validateFFTRates(Globals& g, ShaderPreset* s) {
         valuesChanged = true;
     }
     if (valuesChanged) {
-        std::cout << "fftOrder: " << specOrder << ", hopAmount: " << specHops
-                  << ", and displayHz: " << g.displayHz <<
-                  " cannot keep up with sample rate: " << g.sampleRate <<
-                  ". To avoid buffer overlap, hopAmount is now" << s->spec.hopAmount
-                  << " and fftOrder is now " << s->spec.fftOrder << ".\n";
+        if (s->spec.allowDroppedSamples) {
+            std::cout << "fftOrder: " << specOrder << ", hopAmount: " << specHops
+                      << ", and displayHz: " << g.displayHz <<
+                      " cannot keep up with sample rate: " << g.sampleRate <<
+                      ". allowDroppedSamples is enabled, samples will be dropped.\n";
+        }
+        else {
+            std::cout << "fftOrder: " << specOrder << ", hopAmount: " << specHops
+                      << ", and displayHz: " << g.displayHz <<
+                      " cannot keep up with sample rate: " << g.sampleRate <<
+                      ". To avoid buffer overlap, hopAmount is now " << s->spec.hopAmount
+                      << " and fftOrder is now " << s->spec.fftOrder << ".\n";
+        }
     }
 }
+
+//Selective hot-reload helpers
+
+inline void reloadTextureSlot(ShaderPreset* p, TextureSlot& slot) {
+    auto fullPath = std::filesystem::path(p->shaderDir) / slot.filename;
+    if (!isTextureFilenameSafe(slot.filename)) {
+        std::cerr << "reloadTextureSlot: unsafe filename " << slot.filename << "\n";
+        return;
+    }
+    int newW = 0, newH = 0;
+    GLuint newId = uploadTexture(fullPath.string(), newW, newH);
+    if (!newId) {
+        std::cerr << "reloadTextureSlot: upload failed for " << slot.filename << "\n";
+        return;
+    }
+    if (slot.texId) glDeleteTextures(1, &slot.texId);
+    slot.texId = newId;
+    slot.w = newW;
+    slot.h = newH;
+    // Re-bind the sampler uniform in case the program is already in use
+    p->shader.use();
+    auto it = p->shader.samplerLocations.find(slot.uniformName);
+    if (it != p->shader.samplerLocations.end() && it->second != -1)
+        glUniform1i(it->second, slot.unit);
+    std::cout << "reloadTextureSlot: reloaded " << slot.filename << "\n";
+}
+
+inline void reloadFontSlot(ShaderPreset* p, FontSlot& slot) {
+    auto fullPath = std::filesystem::path(p->shaderDir) / slot.filename;
+    if (!isFontFilenameSafe(slot.filename)) {
+        std::cerr << "reloadFontSlot: unsafe filename " << slot.filename << "\n";
+        return;
+    }
+    auto fontData = loadFontBytes(fullPath.string());
+    if (fontData.empty()) {
+        std::cerr << "reloadFontSlot: could not load " << slot.filename << "\n";
+        return;
+    }
+    SdfBakeResult bake;
+    if (!bakeSdfAtlas(fontData, FONT_SDF_SIZE, FONT_SDF_PADDING,
+                      FONT_FIRST_CHAR, FONT_NUM_GLYPHS, bake)) {
+        std::cerr << "reloadFontSlot: bake failed for " << slot.filename << "\n";
+        return;
+    }
+    GLuint newAtlas   = uploadSdfAtlas(bake);
+    GLuint newMetrics = uploadMetricsTexture(bake);
+    if (!newAtlas || !newMetrics) {
+        if (newAtlas)   glDeleteTextures(1, &newAtlas);
+        if (newMetrics) glDeleteTextures(1, &newMetrics);
+        std::cerr << "reloadFontSlot: GPU upload failed for " << slot.filename << "\n";
+        return;
+    }
+    if (slot.atlasTexId)   glDeleteTextures(1, &slot.atlasTexId);
+    if (slot.metricsTexId) glDeleteTextures(1, &slot.metricsTexId);
+    slot.atlasTexId   = newAtlas;
+    slot.metricsTexId = newMetrics;
+    // Re-bind sampler uniforms
+    p->shader.use();
+    auto itA = p->shader.samplerLocations.find(slot.uniformName);
+    if (itA != p->shader.samplerLocations.end() && itA->second != -1)
+        glUniform1i(itA->second, slot.atlasUnit);
+    auto itM = p->shader.samplerLocations.find(slot.uniformName + "Metrics");
+    if (itM != p->shader.samplerLocations.end() && itM->second != -1)
+        glUniform1i(itM->second, slot.metricsUnit);
+    std::cout << "reloadFontSlot: reloaded " << slot.filename << "\n";
+}
+

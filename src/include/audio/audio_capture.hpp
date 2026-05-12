@@ -186,6 +186,10 @@ public:
 		return buffer.readIndex.load();
 	}
 
+	uint32_t getWriteIndex() {
+		return buffer.writeIndex.load();
+	}
+
 	uint32_t getBufferSize() { return buffer.getBufferSize(); }
 
 	uint32_t getAccumulatedFrames() {
@@ -217,7 +221,7 @@ public:
 private:
 	bool initCaptureDevice(int playbackIndex) {
 #ifdef _WIN32
-		// Windows: use loopback mode — captures output of a playback device directly
+		// Windows: use loopback mode. Captures output of a playback device directly
 		ma_device_config config = ma_device_config_init(ma_device_type_loopback);
 		config.capture.format = ma_format_f32;
 		config.capture.channels = 0;
@@ -226,7 +230,7 @@ private:
 		config.pUserData = this;
 		config.capture.pDeviceID = &playbackDevices[playbackIndex].deviceId;
 #else
-		// Linux: use capture mode with PulseAudio monitor device
+		// Linux: use capture mode with PulseAudio/Pipewire monitor device
 		ma_device_config config = ma_device_config_init(ma_device_type_capture);
 		config.capture.format = ma_format_f32;
 		config.capture.channels = 0;
@@ -310,3 +314,4 @@ private:
 
 	static constexpr int DEVICE_LINE_WIDTH = 72;
 };
+
