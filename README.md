@@ -100,23 +100,15 @@ Save your `frag.glsl` and the engine picks up changes automatically.
 
 ## Building from Source
 
-### Dependencies
+### Linux / Raspberry Pi OS
 
+#### Dependencies
 Install the following:
-
 ```
 sudo apt install cmake build-essential git libglfw3-dev libfftw3-dev libegl-dev libgles-dev pkg-config
 ```
 
-This project also relies on the headers below that are all public domain found in `src/external/stb`:
-
-- `stb_image.h`, `std_truetype.h`, and `std_rect_pack.h` from [Official STB GitHub](https://github.com/nothings/stb)
-- `miniaudio.h` from [Official miniaudio GitHub](https://github.com/mackron/miniaudio)
-
-GLAD (OpenGL ES 3.1 loader) is included in the repo under `src/external/glad/`.
-
-### Build
-
+#### Build
 ```
 git clone https://github.com/cwiggins12/audio_vis.git
 cd audio_vis
@@ -124,12 +116,39 @@ cmake -S . -B build
 cmake --build build (add the -j4 flag on Raspberry Pi 4+)
 cd build
 ```
-
 The executable and shader directory will be in `build/`. Run from there:
-
 ```
 ./audio_vis
 ```
+
+### Windows
+
+#### Dependencies
+Install the following:
+- [CMake](https://cmake.org/download/) (3.16 or later, add to PATH during install)
+- [MinGW-w64](https://www.mingw-w64.org/) (install via [MSYS2](https://www.msys2.org/) or standalone, add `bin/` to PATH)
+
+GLFW and FFTW libraries are included in the repo under `libs/` — no additional downloads needed.
+
+#### Build
+```
+git clone https://github.com/cwiggins12/audio_vis.git
+cd audio_vis
+cmake -S . -B build -G "MinGW Makefiles"
+cmake --build build
+cd build
+```
+The executable, shader directory, and `libfftw3f-3.dll` will be in `build/`. Run from there:
+```
+audio_vis.exe
+```
+
+### Common
+This project also relies on the headers below that are all public domain found in `src/external/stb`:
+- `stb_image.h`, `stb_truetype.h`, and `stb_rect_pack.h` from [Official STB GitHub](https://github.com/nothings/stb)
+- `miniaudio.h` from [Official miniaudio GitHub](https://github.com/mackron/miniaudio)
+
+GLAD (OpenGL 4.4 / OpenGL ES 3.1 loader) is included in the repo under `src/external/glad/`.
 
 
 ## Issues and Contribution
