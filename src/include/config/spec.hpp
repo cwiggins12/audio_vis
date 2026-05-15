@@ -115,6 +115,17 @@ struct Spec {
     //on very small fft windows that wouldn't keep up with sample rate / display hz
     //grabs from last written samples - hop size rather than reading from the sample after the last read ended
     bool allowDroppedSamples = false;
+    //normalizes fft output so that 1.0 represents the running average
+    //energy level. Values above 1.0 mean louder than recent average,
+    //below 1.0 means quieter. Useful for presets where the math should
+    //revolve around a consistent baseline regardless of source volume.
+    //if you plan to make a .milk style shader, this is highly recommended
+    bool normalizedFFT = false;
+    //time constant in seconds for the normalization adaptation window.
+    //higher = slower adaptation (more stable baseline, less responsive).
+    //lower = faster adaptation (more responsive, less stable).
+    //4.0 is a good default. Range: 0.5 to 30.0
+    float normalizedFFTTime = 4.0f;
 
     //if you want the samples from each hop for a waveform or something.
     bool getRawSamples = true;

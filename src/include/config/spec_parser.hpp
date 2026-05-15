@@ -307,6 +307,28 @@ inline std::string parseSpec(const std::string& path, Spec& out) {
         else if (key == "allowDroppedSamples") {
             if (!parseBool(out.allowDroppedSamples)) return ret;
         }
+        else if (key == "normalizedFFT") {
+            if (!parseBool(out.normalizedFFT)) return ret;
+        }
+        else if (key == "normalizedFFTTime") {
+            if ((ret = parseFloat(val, lineNum, key, out.normalizedFFTTime)) != "") {
+                return ret;
+            }
+            if (out.normalizedFFTTime < 0.5f) {
+                std::cout << "parseSpec: line " << lineNum
+                          << ": normalizedFFTTime clamped from "
+                          << out.normalizedFFTTime
+                          << " to 0.5 (minimum)\n";
+                out.normalizedFFTTime = 0.5f;
+            }
+            if (out.normalizedFFTTime > 30.0f) {
+                std::cout << "parseSpec: line " << lineNum
+                          << ": normalizedFFTTime clamped from "
+                          << out.normalizedFFTTime
+                          << " to 30.0 (maximum)\n";
+                out.normalizedFFTTime = 30.0f;
+            }
+        }
         else if (key == "isPeakRMSdB") {
             if (!parseBool(out.isPeakRMSdB)) return ret;
         }

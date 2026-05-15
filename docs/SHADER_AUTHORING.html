@@ -208,7 +208,7 @@ FragColor = <span class="fn">mix</span>(backgroundColor, <span class="kw">vec4</
   <tr><td><code>perceptualSlopeDegrees</code></td><td>float</td><td><code>3.0</code></td><td>Frequency-dependent gain tilt</td></tr>
   <tr><td><code>isFFTHannWindowed</code></td><td>bool</td><td><code>true</code></td><td>Apply Hann window with normalization before FFT</td></tr>
   <tr><td><code>highSmoothing</code></td><td>float</td><td><code>0.0</code></td><td>0.0-12.0 range sigma for a gaussian pass over the high end (<code>CUSTOM_SIZE</code> mode only). Only interacts with the bins that are within the collate range.</td></tr>
-  <tr><td><code>allowDroppedSamples</code></td><td>bool</td><td><code>true</code></td><td>Allows smaller hop/fft sizes to be used by only using the most recently written samples to ensure that the reading of the samples is never overtaken by the writing of the samples</td></tr>
+  <tr><td><code>allowDroppedSamples</code></td><td>bool</td><td><code>false</code></td><td>Allows smaller hop/fft sizes to be used by only using the most recently written samples to ensure that the reading of the samples is never overtaken by the writing of the samples</td></tr>
 </table>
 
 <h4>fftOrder</h4>
@@ -383,8 +383,9 @@ feedbackBufferSize = (WINDOW_HEIGHT * WINDOW_WIDTH) * <span class="num">4</span>
 <h2 id="raw-sample">Raw Sample Customization Options</h2>
 <table>
   <tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr>
-  <tr><td><code>isRawSamplesMono</code></td><td>bool</td><td><code>false</code></td><td>Mono-sum channels before measuring</td></tr>
-  <tr><td><code>isRawSamplesdB</code></td><td>bool</td><td><code>true</code></td><td>Output in dB (true) or linear magnitude (false)</td></tr>
+  <tr><td><code>getRawSamples</code></td><td>bool</td><td><code>true</code></td><td>On/off switch for raw sample array</td></tr>
+  <tr><td><code>isRawSamplesMono</code></td><td>bool</td><td><code>true</code></td><td>Mono-sum channels before measuring</td></tr>
+  <tr><td><code>isRawSamplesdB</code></td><td>bool</td><td><code>false</code></td><td>Output in dB (true) or linear magnitude (false)</td></tr>
 </table>
 
 <h4>rawSamples layout</h4>
