@@ -18,8 +18,8 @@ const float PI      = 3.14159265359;
 const float TWO_PI  = 6.28318530718;
 
 // --- Speed ---
-const float BASE_SPEED     = 1.5;
-const float BASS_SPEED     = 6.0;
+const float BASE_SPEED     = 1.0;
+const float BASS_SPEED     = 4.0;
 
 // --- Tunnel Geometry ---
 const float TUNNEL_RADIUS  = 0.8;     // tunnel bore radius
@@ -39,7 +39,7 @@ const float WARP_SPEED     = 0.6;
 // --- Color ---
 const float HUE_SPEED      = 0.04;
 const float HUE_DEPTH_RATE = 0.08;
-const float SATURATION     = 0.8;
+const float SATURATION     = 0.6;
 const float VIGNETTE_AMT   = 0.4;
 
 // --- Raymarch ---
@@ -201,7 +201,7 @@ void main() {
         float hue = fract(time * HUE_SPEED
                          + depthAlongTunnel * HUE_DEPTH_RATE
                          + angularColor);
-        hue = fract(hue + (mid - 1.0) * 0.1);
+        hue = fract(hue + (mid - 1.0) * 0.05);
 
         float sat = SATURATION;
         sat = clamp(sat + (treb - 1.0) * 0.15, 0.4, 1.0);

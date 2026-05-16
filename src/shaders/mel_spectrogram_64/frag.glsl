@@ -71,7 +71,7 @@ void main() {
     vec2 uv = uvBottomLeft();
     float sr = float(sampleRate);
     float hSize = float(hopSize);
-    int columnAmt = int(sr / hSize * float(SECONDS_SHOWN));
+    int columnAmt = int(displayHz * float(SECONDS_SHOWN));
     float columnWidth = 1.0 / float(columnAmt);
     int m = int(uv.y * float(TOTAL_MEL_BINS));
     m = clamp(m, 0, TOTAL_MEL_BINS - 1);

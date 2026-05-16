@@ -207,8 +207,10 @@ FragColor = <span class="fn">mix</span>(backgroundColor, <span class="kw">vec4</
   <tr><td><code>fftOutputMeasurement</code></td><td>enum</td><td><code>DECIBELS</code></td><td>Output value format</td></tr>
   <tr><td><code>perceptualSlopeDegrees</code></td><td>float</td><td><code>3.0</code></td><td>Frequency-dependent gain tilt</td></tr>
   <tr><td><code>isFFTHannWindowed</code></td><td>bool</td><td><code>true</code></td><td>Apply Hann window with normalization before FFT</td></tr>
-  <tr><td><code>highSmoothing</code></td><td>float</td><td><code>0.0</code></td><td>0.0-12.0 range sigma for a gaussian pass over the high end (<code>CUSTOM_SIZE</code> mode only). Only interacts with the bins that are within the collate range.</td></tr>
+  <tr><td><code>highSmoothing</code></td><td>float</td><td><code>0.0</code></td><td>0.0-12.0 range sigma for a gaussian pass over the high end (<code>CUSTOM_SIZE</code> mode only). Only interacts with the bins that are within the collate range</td></tr>
   <tr><td><code>allowDroppedSamples</code></td><td>bool</td><td><code>false</code></td><td>Allows smaller hop/fft sizes to be used by only using the most recently written samples to ensure that the reading of the samples is never overtaken by the writing of the samples</td></tr>
+  <tr><td><code>normalizedFFT</code></td><td>bool</td><td><code>false</code></td><td>Normalize the FFT output around 1.0. Made to be a close match to the Milkdrop auto-gain</td></tr>
+  <tr><td><code>normalizedFFTTime</code></td><td>float</td><td><code>4.0</code></td><td>0.5-30.0 time constant in seconds for the normalization adaption window</td></tr>
 </table>
 
 <h4>fftOrder</h4>
@@ -286,7 +288,7 @@ FragColor = <span class="fn">mix</span>(backgroundColor, <span class="kw">vec4</
   <tr><td><code>4.5</code></td><td>Music-focused: extra high-end boost, popularized by FabFilter Pro-Q</td></tr>
 </table>
 
-<h4>FFT Temporal Smoothing</h4>
+<h3>FFT Temporal Smoothing</h3>
 <table>
   <tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr>
   <tr><td><code>useFFTSmoothing</code></td><td>bool</td><td><code>true</code></td><td>Enable temporal smoothing on FFT output</td></tr>
@@ -295,7 +297,7 @@ FragColor = <span class="fn">mix</span>(backgroundColor, <span class="kw">vec4</
 </table>
 <p>Smoothing is <strong>asymmetric</strong>. You can have a fast attack to catch transients and a slow release for smooth decay. Values are converted to frame counts based on your display refresh rate. Setting either to 0.0 or below disables smoothing for that direction even if the bool is true.</p>
 
-<h4>FFT Holds</h4>
+<h3>FFT Holds</h3>
 <table>
   <tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr>
   <tr><td><code>getFFTHolds</code></td><td>bool</td><td><code>true</code></td><td>Enable peak-hold tracking for FFT data</td></tr>
@@ -326,7 +328,7 @@ Index <span class="num">3</span>: Right RMS
 <pre><code>Index <span class="num">0</span>: Peak (all channels summed)
 Index <span class="num">1</span>: RMS  (all channels summed)</code></pre>
 
-<h4>Peak/RMS Holds</h4>
+<h3>Peak/RMS Holds</h3>
 <table>
   <tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr>
   <tr><td><code>getPeakRMSHolds</code></td><td>bool</td><td><code>true</code></td><td>Enable peak-hold tracking for peak and RMS data</td></tr>

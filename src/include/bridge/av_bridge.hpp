@@ -552,7 +552,7 @@ private:
         }
         for (int i = 0; i < globals.fftArrSize; ++i) {
             fftNormAvg[i] += (buffPtr[i] - fftNormAvg[i]) * normAdaptRate;
-            float avg = std::max(fftNormAvg[i], 1e-6f);
+            float avg = std::max(fftNormAvg[i], normAvgFloor);
             buffPtr[i] /= avg;
         }
     }

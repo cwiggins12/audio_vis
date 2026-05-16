@@ -68,8 +68,8 @@ public:
                 if (!std::filesystem::exists(fragPath)) {
                     if (std::filesystem::exists(active->shaderDir)) {
                         active->hasError = true;
-                        const std::string err = active->name +
-                            " error - frag.glsl could not be found.";
+                        const std::string err = "hotReload: " + active->name +
+                            "frag.glsl could not be found";
                         active->errorMessage = formatErrorMessageForPreset(
                             err, active->errorLen);
                         std::cerr << err << "\n";
@@ -79,7 +79,6 @@ public:
                     errorSwap();
                     break;
                 }
-                std::cout << "Hot Reloading: " << active->name << "\n";
                 reloadPreset(active);
                 if (!active->hasError) {
                     needsSwap = true;
@@ -126,8 +125,9 @@ public:
                 std::cout << "Preset directory removed: " << ev.path << "\n";
                 if (ev.path == active->shaderDir) {
                     removeActiveFromPresets();
+                    needsSwap = true;
                 } else {
-                    removePresetByPath(ev.path);
+                    removePresetByPath(ev.path, needsSwap);
                 }
                 break;
             }
@@ -193,15 +193,6 @@ private:
     // Load a single new preset from a directory path and insert it in
     // sorted order to keep the preset list alphabetically consistent
     void addPreset(const std::string& dirPath, bool& needsSwap) {
-        auto fragPath = std::filesystem::path(dirPath) / "frag.glsl";
-        if (!std::filesystem::exists(fragPath)) {
-            // Directory exists but no frag.glsl yet — editor may still be
-            // creating files. The next SHADER_CHANGED event will catch it.
-            return;
-        }
-
-        // Build a minimal single-preset vector via loadPresets on just this dir
-        // by re-using existing loading logic
         std::string name = std::filesystem::path(dirPath).filename().string();
 
         // Check for duplicate
@@ -209,41 +200,12 @@ private:
             if (p.name == name) return;
         }
 
-        // Use the existing loadPresets machinery on a temporary single-entry
-        // by loading from the parent and filtering — simpler: just call the
-        // internal loading path directly
         ShaderPreset p;
         p.name      = name;
         p.shaderDir = dirPath;
-        p.spec      = Spec{};
 
-        auto specPath = std::filesystem::path(dirPath) / "spec.cfg";
-        if (std::filesystem::exists(specPath)) {
-            std::string err = parseSpec(specPath.string(), p.spec);
-            if (!err.empty()) {
-                p.errorMessage = formatErrorMessageForPreset(err, p.errorLen);
-                p.hasError = true;
-            }
-        }
+        compilePreset(p);
 
-        if (!p.hasError) {
-            std::string fragSrc = loadFile(fragPath.string());
-            std::string vtxSrc  = getVertexSrc();
-            std::string err     = p.shader.init(vtxSrc.c_str(), fragSrc.c_str());
-            p.lastFragWrite = std::filesystem::last_write_time(fragPath);
-            p.lastSpecWrite = std::filesystem::exists(specPath)
-                            ? std::filesystem::last_write_time(specPath)
-                            : std::filesystem::file_time_type{};
-            if (!err.empty()) {
-                p.errorMessage = formatErrorMessageForPreset(err, p.errorLen);
-                p.hasError = true;
-            } else {
-                buildTextures(p);
-                buildFonts(p);
-            }
-        }
-
-        // Insert in sorted position
         auto insertPos = std::lower_bound(presets.begin(), presets.end(), p,
             [](const ShaderPreset& a, const ShaderPreset& b) {
                 return a.name < b.name;
@@ -251,23 +213,30 @@ private:
         int insertIdx = (int)std::distance(presets.begin(), insertPos);
         presets.insert(insertPos, std::move(p));
 
-        // Adjust active index if the insertion shifted it
-        if (insertIdx <= index) index++;
-        active = &presets[index];
+        if (insertIdx <= index) {
+            index++;
+            active = &presets[index];
+            needsSwap = true;
+        }
 
-        std::cout << "Added preset: " << name << "\n";
-        needsSwap = false; // don't auto-switch to the new preset
+        std::cout << "Added shader: " << name << 
+                     ", Shader count: " << presets.size() << "\n";
     }
 
-    void removePresetByPath(const std::string& dirPath) {
+    void removePresetByPath(const std::string& dirPath, bool& needsSwap) {
         for (int i = 0; i < (int)presets.size(); i++) {
             if (presets[i].shaderDir == dirPath) {
                 presets[i].destroyTextures();
                 presets[i].destroyFonts();
                 presets.erase(presets.begin() + i);
-                if (index >= (int)presets.size()) index = (int)presets.size() - 1;
+                // If the erased preset was before the active one,
+                // shift index down to keep pointing at the same preset
+                if (i < index) {
+                    index--;
+                }
+                // Pointer may have been invalidated by the erase
                 active = &presets[index];
-                std::cout << "Removed preset at: " << dirPath << "\n";
+                needsSwap = true;
                 return;
             }
         }

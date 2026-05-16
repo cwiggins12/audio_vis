@@ -1,16 +1,11 @@
 // ============================================================
 // julia morph - frag.glsl
-// ============================================================
+// ===========================================================
 //
-// Full Julia set visible at all times, continuously morphing as
-// the c-parameter orbits through parameter space. No zoom into
-// the fractal plane — the visual interest comes from the set
-// reshaping itself: filaments growing, splitting, connecting,
-// spirals tightening and unwinding.
-//
-// Audio drives the orbit speed and path. Bass accelerates the
-// orbit, treble perturbs the path, mid controls the view scale.
-// Rotation is continuous and audio-reactive.
+// Full Julia set visible at all times, continuously morphing.
+// Uses curated c-values that are known to produce visually rich
+// Julia sets, with smooth interpolation between them. View is
+// offset toward the fractal boundary so detail fills the screen.
 //
 // Uses normalizedFFT = true, so bass/mid/treb hover around 1.0
 // ============================================================
@@ -21,40 +16,32 @@
 const float PI      = 3.14159265359;
 const float TWO_PI  = 6.28318530718;
 
-// --- C-Parameter Orbit ---
-// The c-parameter traces a path through the complex plane.
-// The most visually interesting Julia sets occur near the
-// boundary of the Mandelbrot set, roughly |c| ~ 0.3 to 0.8.
-// The orbit traces a warped loop through this region.
-const float C_RADIUS_BASE   = 0.38;    // base orbit radius
-const float C_RADIUS_VAR    = 0.30;    // how much the radius varies
-const float C_RADIUS_SPEED  = 0.017;   // speed of radius variation
-const float C_ORBIT_SPEED   = 0.05;    // base angular speed through c-space
-const float C_BASS_ACCEL    = 0.04;    // bass accelerates the orbit
-const float C_TREB_PERTURB  = 0.03;    // treble wobbles the orbit path
+// --- C-Parameter ---
+const float C_DRIFT_SPEED   = 0.003;    // base speed through c-value path
+const float C_BASS_ACCEL    = 0.003;    // bass accelerates the drift
+const float C_MID_PERTURB  = 0.0025;   // treble perturbs c off the path
 
 // --- View ---
-// Fixed view scale — how much of the fractal plane is visible.
-// 1.8 shows the full set with some margin.
-const float VIEW_SCALE      = 1.8;
-// Mid gently breathes the scale
-const float VIEW_MID_SCALE  = 0.15;
+const float VIEW_SCALE      = 1.1;     // how much fractal space is visible
+const float VIEW_BASS_SCALE  = -0.07;    // bass breathes the scale
+// view center offset factor: shifts toward boundary
+const float VIEW_CENTER_AMT = 0.2;
 
 // --- Rotation ---
-const float BASE_ROT_RATE   = 0.006;
-const float TREB_ROT_EXTRA  = 0.015;
+const float BASE_ROT_RATE   = 0.002;
+const float TREB_ROT_EXTRA  = 0.005;
 
 // --- Iteration ---
-const int   MAX_ITER        = 80;
+const int   MAX_ITER        = 100;
 
 // --- Color ---
-const float COLOR_DENSITY   = 3.5;
-const float COLOR_CYCLE     = 0.015;
+const float COLOR_DENSITY   = 4.0;
+const float COLOR_CYCLE     = 0.03;
 const float COLOR_SAT       = 0.8;
 const float INTERIOR_BRIGHT = 0.55;
-const float EXTERIOR_BRIGHT = 0.95;
+const float EXTERIOR_BRIGHT = 0.65;
 const vec3  COLOR_TINT      = vec3(1.0, 0.97, 0.95);
-const float VIGNETTE_AMT    = 0.3;
+const float VIGNETTE_AMT    = 0.4;
 
 // --- Band Tracking ---
 const float ATT_RATE        = 0.95;
@@ -62,10 +49,6 @@ const float AVG_RATE        = 0.995;
 
 
 // ================== FEEDBACK BUFFER LAYOUT =================
-// [0..5]  : band tracking
-// [6]     : accumulated c-orbit angle
-// [7]     : accumulated view rotation
-
 const int FB_BASS_ATT   = 0;
 const int FB_MID_ATT    = 1;
 const int FB_TREB_ATT   = 2;
@@ -131,39 +114,67 @@ vec3 hsv2rgb(float h, float s, float v) {
     return rgb + m;
 }
 
+// Curated c-values that always produce visually rich Julia sets.
+// Smooth hermite interpolation between them guarantees we're
+// always near an interesting region of c-space.
+vec2 getInterestingC(float t) {
+    vec2 c0 = vec2(-0.70,  0.27);   // spiral
+    vec2 c1 = vec2(-0.54,  0.54);   // branching filaments
+    vec2 c2 = vec2( 0.355, 0.355);  // dendrite
+    vec2 c3 = vec2(-0.4,   0.6);    // rabbit
+    vec2 c4 = vec2(-0.75,  0.11);   // Douady rabbit
+    vec2 c5 = vec2( 0.28,  0.008);  // near main antenna
+    vec2 c6 = vec2(-0.12,  0.74);   // Siegel disk boundary
+    vec2 c7 = vec2(-1.25,  0.0);    // basilica
+
+    float segment = fract(t) * 8.0;
+    int idx = int(floor(segment));
+    float frac = fract(segment);
+    frac = frac * frac * (3.0 - 2.0 * frac);
+
+    vec2 ca, cb;
+    if      (idx == 0) { ca = c0; cb = c1; }
+    else if (idx == 1) { ca = c1; cb = c2; }
+    else if (idx == 2) { ca = c2; cb = c3; }
+    else if (idx == 3) { ca = c3; cb = c4; }
+    else if (idx == 4) { ca = c4; cb = c5; }
+    else if (idx == 5) { ca = c5; cb = c6; }
+    else if (idx == 6) { ca = c6; cb = c7; }
+    else               { ca = c7; cb = c0; }
+
+    return mix(ca, cb, frac);
+}
+
 
 // ===================== JULIA RENDER ========================
 
-vec3 renderJulia(vec2 ndc, float cAngle, float viewAngle) {
+vec3 renderJulia(vec2 ndc, float cProgress, float viewAngle) {
     // rotate the view
     float cs = cos(viewAngle);
     float sn = sin(viewAngle);
     vec2 rotated = vec2(ndc.x * cs - ndc.y * sn,
                         ndc.x * sn + ndc.y * cs);
 
-    // scale to show the full set — mid breathes the view gently
-    float scale = VIEW_SCALE + (mid_att - 1.0) * VIEW_MID_SCALE;
-    vec2 z = rotated * scale;
+    // get c from the curated path
+    vec2 c = getInterestingC(cProgress);
+    c.x += (mid - 1.0) * C_MID_PERTURB;
+    c.y += (treb - 1.0) * C_MID_PERTURB;
+    float cx = c.x;
+    float cy = c.y;
 
-    // compute c from the accumulated orbit angle
-    // the radius varies sinusoidally so c traces a wobbly loop
-    // that passes through different families of Julia sets
-    float cRadius = C_RADIUS_BASE
-                  + C_RADIUS_VAR * sin(cAngle * 0.23 + 1.0)
-                  * cos(cAngle * 0.17);
-    // treble perturbs the path off the clean orbit
-    float cx = cRadius * cos(cAngle)
-             + (treb_att - 1.0) * C_TREB_PERTURB * sin(cAngle * 3.0);
-    float cy = cRadius * sin(cAngle)
-             + (treb_att - 1.0) * C_TREB_PERTURB * cos(cAngle * 2.7);
+    // view scale
+    float scale = VIEW_SCALE + (bass_att - 1.0) * VIEW_BASS_SCALE;
 
-    // orbit traps for interior coloring
+    // offset view toward the fractal boundary
+    vec2 viewCenter = c * VIEW_CENTER_AMT;
+
+    vec2 z = rotated * scale + viewCenter;
+
+    // orbit traps
     float trapOrigin = 1e10;
-    float trapAxisX  = 1e10;
-    float trapAxisY  = 1e10;
     float trapCircle = 1e10;
+    float trapLine   = 1e10;
 
-    // iterate z = z^2 + c
     float smoothIter = 0.0;
     bool escaped = false;
     for (int i = 0; i < MAX_ITER; i++) {
@@ -172,10 +183,8 @@ vec3 renderJulia(vec2 ndc, float cAngle, float viewAngle) {
 
         float zLen = length(z);
         trapOrigin = min(trapOrigin, zLen);
-        trapAxisX  = min(trapAxisX, abs(z.y));
-        trapAxisY  = min(trapAxisY, abs(z.x));
-        // circle trap at radius 1 — catches structure around unit circle
         trapCircle = min(trapCircle, abs(zLen - 1.0));
+        trapLine   = min(trapLine, abs(z.x) + abs(z.y));
 
         if (dot(z, z) > 256.0) {
             smoothIter = float(i) - log2(log2(dot(z, z))) + 4.0;
@@ -184,50 +193,57 @@ vec3 renderJulia(vec2 ndc, float cAngle, float viewAngle) {
         }
     }
 
-    // normalize traps
-    float t0 = clamp(trapOrigin * 0.5, 0.0, 1.0);
-    float tx = clamp(trapAxisX * 2.0, 0.0, 1.0);
-    float ty = clamp(trapAxisY * 2.0, 0.0, 1.0);
-    float tc = clamp(1.0 - trapCircle * 3.0, 0.0, 1.0);
-    float trapMix = t0 * 0.3 + tx * 0.2 + ty * 0.2 + tc * 0.3;
+    float t0 = clamp(trapOrigin * 0.4, 0.0, 1.0);
+    float tc = clamp(1.0 - trapCircle * 2.5, 0.0, 1.0);
+    float tl = clamp(1.0 - trapLine * 0.5, 0.0, 1.0);
+    float trapMix = t0 * 0.3 + tc * 0.35 + tl * 0.35;
 
     float hue, sat, val;
 
     if (escaped) {
         float t = smoothIter / float(MAX_ITER);
-        hue = fract(t * COLOR_DENSITY + cAngle * 0.05 + time * COLOR_CYCLE);
+        hue = fract(t * COLOR_DENSITY + cProgress * 0.2 + time * COLOR_CYCLE);
         sat = COLOR_SAT + t * 0.15;
-        val = EXTERIOR_BRIGHT * (0.3 + t * 0.7);
+        val = EXTERIOR_BRIGHT * (0.3 + t * 0.8);
     } else {
-        hue = fract(trapMix * COLOR_DENSITY * 0.6 + cAngle * 0.05 + time * COLOR_CYCLE + 0.3);
+        hue = fract(trapMix * COLOR_DENSITY * 0.5 + cProgress * 0.2 + time * COLOR_CYCLE + 0.3);
         sat = COLOR_SAT * (0.5 + trapMix * 0.5);
         val = INTERIOR_BRIGHT * (0.2 + trapMix * 0.8);
     }
 
-    // audio brightness
-    val *= 0.85 + bass * 0.2;
-    sat = clamp(sat + (mid - 1.0) * 0.08, 0.3, 1.0);
+    val *= 0.85 + bass * 0.05;
+    sat = clamp(sat + (mid - 1.0) * 0.04, 0.3, 0.9);
 
     return hsv2rgb(hue, sat, val);
 }
 
+vec3 waveform() {
+    vec2 uv = uvBottomLeft();
+    int ind = int(float(hopSize) * uv.x);
+    float s = rawSamples[ind];
+    float waveY = (s * 0.5 + 0.5) * H;
+    vec2 px = toPx();
+    float dist = abs(px.y - waveY);
+    float line = smoothstep(8.0, 0.0, dist);
+
+    vec3 col = vec3(1-sin(time), sin(time), bass);
+    return col * line;
+
+}
 
 // ==================== POST-PROCESS =========================
 
 vec3 postProcess(vec3 col, vec2 uv) {
     col *= COLOR_TINT;
 
-    // vignette
     vec2 vc = uv - 0.5;
     float vignette = 1.0 - dot(vc, vc) * VIGNETTE_AMT * 4.0;
     col *= clamp(vignette, 0.0, 1.0);
 
-    // contrast
     col = smoothstep(0.0, 1.0, col);
 
-    // bass transient flash
-    float transient = clamp(bass - 1.3, 0.0, 0.3);
-    col += col * transient;
+    //float transient = clamp(0.3, 0.0, 0.3);
+    col += col * 0.9;
 
     return clamp(col, 0.0, 1.0);
 }
@@ -239,32 +255,31 @@ void main() {
     vec2 uv  = uvBottomLeft();
     vec2 ndc = ndcBottomLeftAR();
 
-    // 1. read audio
     readBands();
 
-    // 2. read accumulated state
     float cAngle    = feedbackIn[FB_C_ANGLE];
     float viewAngle = feedbackIn[FB_ROTATION];
 
-    // 3. advance c-parameter orbit — bass drives speed
-    float orbitSpeed = C_ORBIT_SPEED + max(bass_att - 1.0, 0.0) * C_BASS_ACCEL;
-    cAngle += orbitSpeed;
+    // advance through curated c-value path
+    float cSpeed = C_DRIFT_SPEED + max(bass_att - 1.0, 0.0) * C_BASS_ACCEL;
+    cAngle += cSpeed;
 
-    // 4. advance view rotation — treble drives speed
+    // advance rotation
     float rotSpeed = BASE_ROT_RATE + max(treb - 1.0, 0.0) * TREB_ROT_EXTRA;
     viewAngle += rotSpeed;
-
-    // keep angles in range
-    cAngle    = mod(cAngle, TWO_PI * 100.0);  // large range since radius uses non-integer multiples
     viewAngle = mod(viewAngle, TWO_PI);
 
-    // 5. render
-    vec3 col = renderJulia(ndc, cAngle, viewAngle);
+    // cProgress indexes into getInterestingC via fract()
+    // * 0.1 means one full cycle through all 8 c-values
+    // takes cAngle going from 0 to 10
+    float cProgress = cAngle * 0.1;
 
-    // 6. post-process
+    vec3 col = renderJulia(ndc, cProgress, viewAngle);
     col = postProcess(col, uv);
+    float opacity = mid * 0.1;
+    vec3 wave = waveform();
+    col = mix(col, wave, opacity);
 
-    // 7. write persistent state
     writeBands();
     feedbackOut[FB_C_ANGLE]  = cAngle;
     feedbackOut[FB_ROTATION] = viewAngle;

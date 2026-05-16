@@ -20,15 +20,12 @@
     #include <unordered_map>
 #endif
 
-// ---------------------------------------------------------------------------
-// Event types the main thread needs to act on — shared by both platforms
-// ---------------------------------------------------------------------------
 enum class WatchEventType {
-    SHADER_CHANGED,     // frag.glsl or spec.cfg modified → full reloadPreset
-    TEXTURE_CHANGED,    // texture file modified → rebuild that slot only
-    FONT_CHANGED,       // font file modified → rebuild that slot only
-    PRESET_ADDED,       // new subdirectory in shaders/ → loadPresets refresh
-    PRESET_REMOVED,     // subdirectory deleted/moved out → remove from list
+    SHADER_CHANGED,     // frag.glsl or spec.cfg modified: full reloadPreset
+    TEXTURE_CHANGED,    // texture file modified: rebuild that slot only
+    FONT_CHANGED,       // font file modified: rebuild that slot only
+    PRESET_ADDED,       // new subdirectory in shaders: runs addPreset
+    PRESET_REMOVED,     // subdirectory deleted/moved out: remove from list
 };
 
 struct WatchEvent {
@@ -36,12 +33,8 @@ struct WatchEvent {
     std::string    path;   // absolute path of changed file or directory
 };
 
-// ---------------------------------------------------------------------------
-// ShaderWatcher
-//
 // Constructed once. Call updateActivePreset() whenever the active preset
 // changes. Call drain() once per frame on the main thread to get events.
-// ---------------------------------------------------------------------------
 class ShaderWatcher {
 public:
     ShaderWatcher() = default;
@@ -50,18 +43,18 @@ public:
     ShaderWatcher(const ShaderWatcher&) = delete;
     ShaderWatcher& operator=(const ShaderWatcher&) = delete;
 
-    // shadersDir   — absolute path to the top-level shaders/ directory
-    // presetDir    — shaderDir of the currently active preset
-    // textureFiles — filenames (not full paths) from the active spec.textures
-    // fontFiles    — filenames (not full paths) from the active spec.fonts
+    // shadersDir: absolute path to the top-level shaders/ directory
+    // presetDir: shaderDir of the currently active preset
+    // textureFiles: filenames from the active spec.textures
+    // fontFiles: filenames from the active spec.fonts
     bool init(const std::string& shadersDir,
               const std::string& presetDir,
               const std::vector<std::string>& textureFiles,
               const std::vector<std::string>& fontFiles) {
-        shadersPath  = shadersDir;
-        activeDir    = presetDir;
+        shadersPath = shadersDir;
+        activeDir = presetDir;
         activeTextures = textureFiles;
-        activeFonts    = fontFiles;
+        activeFonts = fontFiles;
 
 #ifdef _WIN32
         return initWindows();
@@ -79,7 +72,7 @@ public:
         activeFonts    = fontFiles;
 
 #ifdef __linux__
-        // inotify needs explicit watch updates - Windows watches recursively
+        // inotify needs explicit watch updates, Windows watches recursively
         std::lock_guard<std::mutex> wlock(watchMutex);
         removeActiveWatches();
         setActiveWatches(presetDir, textureFiles, fontFiles);
@@ -127,7 +120,6 @@ public:
     }
 
 private:
-    // ---- shared state ----
     std::string              shadersPath;
     std::string              activeDir;
     std::vector<std::string> activeTextures;
@@ -149,16 +141,14 @@ private:
         eventQueue.push({ type, path });
     }
 
-    // -----------------------------------------------------------------------
     // WINDOWS implementation
-    // -----------------------------------------------------------------------
 #ifdef _WIN32
 
     HANDLE    dirHandle  = INVALID_HANDLE_VALUE;
     HANDLE    wakeEvent  = INVALID_HANDLE_VALUE;
     OVERLAPPED overlapped = {};
 
-    // ReadDirectoryChangesW result buffer — must stay alive during async op
+    // ReadDirectoryChangesW result buffer
     static constexpr DWORD RDC_BUF_SIZE = 65536;
     alignas(DWORD) char rdcBuf[RDC_BUF_SIZE];
 
@@ -209,7 +199,7 @@ private:
                 FILE_NOTIFY_CHANGE_LAST_WRITE |
                 FILE_NOTIFY_CHANGE_FILE_NAME  |
                 FILE_NOTIFY_CHANGE_DIR_NAME,
-                nullptr,    // bytes returned — not used in async mode
+                nullptr,    // bytes returned. Not used in async mode
                 &overlapped,
                 nullptr);   // no completion routine
 
@@ -277,7 +267,7 @@ private:
         std::string filename = fs::path(relPath).filename().string();
         std::string parentRel = fs::path(relPath).parent_path().string();
 
-        // ---- top-level subdirectory added/removed = preset add/remove ----
+        // top-level subdirectory added/removed = preset add/remove
         // A top-level entry has no parent in the relative path (parentRel is "")
         if (parentRel.empty() || parentRel == ".") {
             if (isAdd) {
@@ -293,7 +283,7 @@ private:
             return;
         }
 
-        // ---- only process events under the active preset's directory ----
+        // only process events under the active preset's directory
         std::string activeRel = fs::relative(activeDir, shadersPath).string();
         for (auto& c : activeRel) if (c == '\\') c = '/';
 
@@ -302,7 +292,7 @@ private:
 
         if (!isModify && !isAdd) return;
 
-        // ---- classify by filename ----
+        // classify by filename
         if (filename == "frag.glsl" || filename == "spec.cfg") {
             pushEvent(WatchEventType::SHADER_CHANGED, fullPath);
             return;
@@ -325,9 +315,7 @@ private:
 
 #endif // _WIN32
 
-    // -----------------------------------------------------------------------
     // LINUX implementation
-    // -----------------------------------------------------------------------
 #ifdef __linux__
 
     int ifd = -1;
@@ -445,7 +433,7 @@ private:
                     eventPath = (std::filesystem::path(entry.path)
                                  / ev->name).string();
 
-                // Top-level shaders dir — preset structural changes
+                // Top-level shaders dir: preset structural changes
                 if (entry.path == shadersPath) {
                     if (!(ev->mask & IN_ISDIR)) continue;
                     if (ev->mask & (IN_CREATE | IN_MOVED_TO))
@@ -455,13 +443,27 @@ private:
                     continue;
                 }
 
-                // Preset dir watch — catches rename-replace of frag/spec
+                // Preset dir watch: catches rename-replace of any watched file
                 if (entry.isActivePreset &&
                     std::filesystem::is_directory(entry.path)) {
                     if (!(ev->mask & IN_ISDIR)) {
                         std::string name = (ev->len > 0) ? ev->name : "";
-                        if (name == "frag.glsl" || name == "spec.cfg")
+                        if (name == "frag.glsl" || name == "spec.cfg") {
                             pushEvent(WatchEventType::SHADER_CHANGED, eventPath);
+                            continue;
+                        }
+                        for (auto& tf : activeTextures) {
+                            if (name == tf) {
+                                pushEvent(WatchEventType::TEXTURE_CHANGED, eventPath);
+                                break;
+                            }
+                        }
+                        for (auto& ff : activeFonts) {
+                            if (name == ff) {
+                                pushEvent(WatchEventType::FONT_CHANGED, eventPath);
+                                break;
+                            }
+                        }
                     }
                     continue;
                 }

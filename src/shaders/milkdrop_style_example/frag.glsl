@@ -31,17 +31,17 @@ const float TWO_PI  = 6.28318530718;
 // These control how the previous frame is distorted each cycle.
 // zoom > 1.0 = zooming in (content shrinks toward center)
 // zoom < 1.0 = zooming out (content expands from center)
-const float BASE_ZOOM     = 1.01;     // base zoom per frame
-const float BASS_ZOOM     = 0.04;     // additional zoom driven by bass
+const float BASE_ZOOM     = 1.05;     // base zoom per frame
+const float BASS_ZOOM     = 0.007;     // additional zoom driven by bass
 const float BASE_ROT      = 0.005;    // base rotation per frame (radians)
-const float TREB_ROT      = 0.04;     // additional rotation driven by treble
-const float WARP_AMOUNT   = 0.01;     // sinusoidal UV warp intensity
+const float TREB_ROT      = 0.06;     // additional rotation driven by treble
+const float WARP_AMOUNT   = 0.009;     // sinusoidal UV warp intensity
 const float WARP_SPEED    = 1.0;      // speed of the warp animation
 const float WARP_SCALE    = 4.0;      // spatial frequency of the warp pattern
 
 // --- Decay ---
 // How quickly the previous frame fades. 1.0 = no fade, 0.0 = instant clear
-const float DECAY         = 0.96;
+const float DECAY         = 0.98;
 
 // --- Waveform ---
 const float WAVE_THICK    = 0.02;    // waveform line thickness (in NDC)
@@ -51,10 +51,10 @@ const vec3  WAVE_COLOR    = vec3(1.0, 1.0, 1.0);
 // --- Center Shape ---
 const float SHAPE_RADIUS  = 0.1;     // base radius of center shape
 const float SHAPE_PULSE   = 0.1;     // how much bass expands the shape
-const float SHAPE_EDGE    = 0.03;    // softness of the shape edge
+const float SHAPE_EDGE    = 0.1;    // softness of the shape edge
 
 // --- Color ---
-const vec3  COLOR_TINT    = vec3(0.95, 0.9, 0.9);  // overall color tint
+const vec3  COLOR_TINT    = vec3(0.825, 0.825, 0.8);  // overall color tint
 const float VIGNETTE_AMT  = 0.4;      // vignette darkness (0 = none)
 
 // --- Band Tracking ---

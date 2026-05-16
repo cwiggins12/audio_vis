@@ -17,15 +17,15 @@ const float PI      = 3.14159265359;
 const float TWO_PI  = 6.28318530718;
 
 // --- Speed ---
-const float BASE_SPEED     = 1.5;     // slow crawl when quiet
-const float BASS_SPEED     = 6.0;     // bass^2 * this = huge range
+const float BASE_SPEED     = 1.0;     // slow crawl when quiet
+const float BASS_SPEED     = 4.0;     // bass^2 * this = huge range
 
 // --- Steering ---
 const float STEER_AMOUNT   = 0.3;
 const float STEER_SMOOTH   = 0.12;
 
 // --- Wall Warp ---
-const float WARP_AMOUNT    = 0.08;
+const float WARP_AMOUNT    = 0.00;
 const float WARP_RINGS     = 3.0;
 const float WARP_SIDES     = 4.0;
 const float WARP_SPEED     = 0.5;
@@ -149,14 +149,14 @@ void main() {
     hue = fract(hue + (mid - 1.0) * 0.12);
 
     float sat = SATURATION;
-    sat = clamp(sat + (treb - 1.0) * 0.15, 0.4, 1.0);
+    sat = clamp(sat + (treb - 1.0) * 0.1, 0.4, 0.8);
 
     // depth fog
     float fog = clamp(dist * 2.5, 0.0, 1.0);
     float val = pattern * fog;
 
     // bass brightness
-    val *= 0.5 + bass * 0.5;
+    val *= 0.5 + bass * 0.4;
 
     vec3 col = hsv2rgb(hue, sat, val);
 
@@ -164,11 +164,11 @@ void main() {
     col += vec3(ringEdge * fog * 0.2 * bass);
 
     // grid glow in complementary color
-    col += hsv2rgb(fract(hue + 0.5), 0.5, grid * fog * 0.12 * treb);
+    col += hsv2rgb(fract(hue + 0.5), 0.5, grid * fog * 0.1 * treb);
 
     // warp highlights
     float warpHighlight = clamp(-warp * 8.0, 0.0, 1.0) * fog;
-    col += hsv2rgb(fract(hue + 0.33), 0.4, warpHighlight * 0.15 * mid);
+    col += hsv2rgb(fract(hue + 0.33), 0.4, warpHighlight * 0.1 * mid);
 
     // center glow
     float centerGlow = smoothstep(0.12, 0.0, dist);

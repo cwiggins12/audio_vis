@@ -28,16 +28,120 @@ inline std::array<int, 512> formatErrorMessageForPreset(const std::string& msg,
     return errorChars;
 }
 
+inline void setPresetError(ShaderPreset& p, const std::string& err) {
+    std::cerr << err << "\n";
+    p.errorMessage = formatErrorMessageForPreset(err, p.errorLen);
+    p.hasError = true;
+}
+ 
+inline void updateWriteTimes(ShaderPreset& p) {
+    auto fragPath = std::filesystem::path(p.shaderDir) / "frag.glsl";
+    auto specPath = std::filesystem::path(p.shaderDir) / "spec.cfg";
+    p.lastFragWrite = std::filesystem::exists(fragPath)
+                    ? std::filesystem::last_write_time(fragPath)
+                    : std::filesystem::file_time_type{};
+    p.lastSpecWrite = std::filesystem::exists(specPath)
+                    ? std::filesystem::last_write_time(specPath)
+                    : std::filesystem::file_time_type{};
+}
+ 
+inline void warnSpecScaling(const std::string& name, Spec& spec) {
+    const int fftScale = spec.customFFTSizeScalesWithWindow;
+    if (spec.fftUsesExprVar[WINDOW_WIDTH] &&
+       (fftScale == WIDTH_SCALE || fftScale == RESOLUTION_SCALE)) {
+        std::cout << "WARNING: " << name
+                  << " FFT custom size doubly scaled by WINDOW_WIDTH "
+                  << "due to scale mode and width expression variable usage\n";
+    }
+    if (spec.fftUsesExprVar[WINDOW_HEIGHT] &&
+       (fftScale == HEIGHT_SCALE || fftScale == RESOLUTION_SCALE)) {
+        std::cout << "WARNING: " << name
+                  << " FFT custom size doubly scaled by WINDOW_HEIGHT "
+                  << "due to scale mode and height expression variable usage\n";
+    }
+    if (spec.customFFTSizeScalesWithWindow != NO_SCALE &&
+        spec.fftOutputMode != CUSTOM_SIZE) {
+        std::cout << "WARNING: " << name
+                  << " FFT is not using custom size mode, but has window scaling. "
+                  << "Window scaling set to none.\n";
+        spec.customFFTSizeScalesWithWindow = NO_SCALE;
+    }
+    const int fbScale = spec.feedbackBufferScalesWithWindow;
+    if (spec.feedbackUsesExprVar[WINDOW_WIDTH] &&
+       (fbScale == WIDTH_SCALE || fbScale == RESOLUTION_SCALE)) {
+        std::cout << "WARNING: " << name
+                  << " Feedback buffer doubly scaled by WINDOW_WIDTH due to "
+                  << "scale mode and width expression variable usage\n";
+    }
+    if (spec.feedbackUsesExprVar[WINDOW_HEIGHT] &&
+       (fbScale == HEIGHT_SCALE || fbScale == RESOLUTION_SCALE)) {
+        std::cout << "WARNING: " << name
+                  << " Feedback buffer doubly scaled by WINDOW_HEIGHT due to "
+                  << "scale mode and height expression variable usage\n";
+    }
+}
+ 
+// Attempts to parse spec, compile shader, and build textures/fonts for a preset.
+// Assumes p.name and p.shaderDir are already set.
+// Returns true if the preset loaded successfully (even if with warnings).
+// Returns false and sets error state on the preset if anything fails.
+inline bool compilePreset(ShaderPreset& p) {
+    auto fragPath = std::filesystem::path(p.shaderDir) / "frag.glsl";
+    auto specPath = std::filesystem::path(p.shaderDir) / "spec.cfg";
+    p.spec = Spec{};
+    p.hasError = false;
+    p.errorMessage = {0};
+ 
+    // Check frag.glsl exists
+    if (!std::filesystem::exists(fragPath)) {
+        setPresetError(p, p.name + " - no frag.glsl found");
+        return false;
+    }
+ 
+    // Load frag source
+    std::string fragSrc = loadFile(fragPath.string());
+    if (fragSrc.empty()) {
+        setPresetError(p, p.name + " - frag.glsl could not be opened");
+        return false;
+    }
+ 
+    // Parse spec if present
+    if (std::filesystem::exists(specPath)) {
+        std::string err = parseSpec(specPath.string(), p.spec);
+        if (!err.empty()) {
+            setPresetError(p, p.name + " spec.cfg - " + err);
+            updateWriteTimes(p);
+            return false;
+        }
+    }
+ 
+    warnSpecScaling(p.name, p.spec);
+ 
+    // Compile shader
+    std::string vtxSrc = getVertexSrc();
+    p.shader = Shader();
+    std::string err = p.shader.init(vtxSrc.c_str(), fragSrc.c_str());
+    updateWriteTimes(p);
+ 
+    if (!err.empty()) {
+        setPresetError(p, p.name + " - shader compile failed - " + err);
+        return false;
+    }
+ 
+    // Build resources
+    buildTextures(p);
+    buildFonts(p);
+    return true;
+}
+
 inline std::vector<ShaderPreset> loadPresets(const std::string& shadersDir) {
     std::vector<ShaderPreset> presets;
-
+ 
     if (!std::filesystem::exists(shadersDir)) {
         std::cerr << "loadPresets: directory not found: " << shadersDir << "\n";
         return presets;
     }
-
-    std::string vtxSrc = getVertexSrc();
-
+ 
     std::vector<std::filesystem::directory_entry> entries;
     for (auto& entry : std::filesystem::directory_iterator(shadersDir)) {
         if (entry.is_directory()) {
@@ -45,163 +149,33 @@ inline std::vector<ShaderPreset> loadPresets(const std::string& shadersDir) {
         }
     }
     std::sort(entries.begin(), entries.end());
-
+ 
     for (auto& entry : entries) {
         if (!entry.is_directory()) continue;
-
-        auto fragPath = entry.path() / "frag.glsl";
-        auto specPath = entry.path() / "spec.cfg";
-
-        std::string ret = "";
-        if (!std::filesystem::exists(fragPath)) {
-            std::cerr << "loadPresets: Error in " << entry.path().filename()
-                      << " - no frag.glsl found. Skipping\n";
-            continue;
-        }
-        std::string fragSrc = loadFile(fragPath.string());
-        if (fragSrc.empty()) {
-            std::cerr << "loadPresets: Error in " << entry.path().filename()
-                      << " - frag.glsl could not be opened. Skipping\n";
-            continue;
-        }
-
+ 
         ShaderPreset p;
-        p.name = entry.path().filename().string();
-        std::string loadedName = p.name;
-        p.spec = Spec{};
-
-        if (std::filesystem::exists(specPath)) {
-            ret = parseSpec(specPath.string(), p.spec);
-            if (ret != "") {
-                p.shaderDir = entry.path().string();
-                p.lastFragWrite = std::filesystem::last_write_time(fragPath);
-                p.lastSpecWrite = std::filesystem::exists(specPath)
-                                ? std::filesystem::last_write_time(specPath)
-                                : std::filesystem::file_time_type{};
-                const std::string err = "loadPresets: Error in " + loadedName +
-                                        " spec.cfg - " + ret;
-                std::cerr << err;
-                p.errorMessage = formatErrorMessageForPreset(err, p.errorLen);
-                p.hasError = true;
-                presets.push_back(std::move(p));
-                std::cout << "loadPresets: using ErrorShader in " << p.name << "\n";
-                continue;
-            }
-        }
-        const int fftScaleMode = p.spec.customFFTSizeScalesWithWindow;
-        if (p.spec.fftUsesExprVar[WINDOW_WIDTH] &&
-           (fftScaleMode == WIDTH_SCALE || fftScaleMode == RESOLUTION_SCALE)) {
-            std::cout << "WARNING: " << loadedName <<
-                " FFT custom size doubly scaled by WINDOW_WIDTH " <<
-                "due to scale mode and width expression variable usage\n";
-        }
-        if (p.spec.fftUsesExprVar[WINDOW_HEIGHT] &&
-           (fftScaleMode == HEIGHT_SCALE || fftScaleMode == RESOLUTION_SCALE)) {
-            std::cout << "WARNING: " << loadedName <<
-                " FFT custom size doubly scaled by WINDOW_HEIGH T" <<
-                "due to scale mode and height expression variable usage\n";
-        }
-        if (p.spec.customFFTSizeScalesWithWindow != NO_SCALE &&
-            p.spec.fftOutputMode != CUSTOM_SIZE) {
-            std::cout << "WARNING: " << loadedName <<
-                " FFT is not using custom size mode, but has window scaling. " <<
-                "Window scaling set to none. \n";
-            p.spec.customFFTSizeScalesWithWindow = NO_SCALE;
-        }
-        const int feedbackScaleMode = p.spec.feedbackBufferScalesWithWindow;
-        if (p.spec.feedbackUsesExprVar[WINDOW_WIDTH] &&
-           (feedbackScaleMode == WIDTH_SCALE ||
-            feedbackScaleMode == RESOLUTION_SCALE)) {
-            std::cout << "WARNING: " << loadedName <<
-                " Feedback buffer doubly scaled by WINDOW_WIDTH due to " <<
-                "scale mode and width expression variable usage\n";
-        }
-        if (p.spec.feedbackUsesExprVar[WINDOW_HEIGHT] &&
-           (feedbackScaleMode == HEIGHT_SCALE ||
-            feedbackScaleMode == RESOLUTION_SCALE)) {
-            std::cout << "WARNING: " << loadedName <<
-                " Feedback buffer doubly scaled by WINDOW_HEIGHT due to " <<
-                "scale mode and height expression variable usage\n";
-        }
-
-        p.shader = Shader();
-        ret = p.shader.init(vtxSrc.c_str(), fragSrc.c_str());
+        p.name      = entry.path().filename().string();
         p.shaderDir = entry.path().string();
-        p.lastFragWrite = std::filesystem::last_write_time(fragPath);
-        p.lastSpecWrite = std::filesystem::exists(specPath)
-                        ? std::filesystem::last_write_time(specPath)
-                        : std::filesystem::file_time_type{};
-        if (!ret.empty()) {
-            const std::string err = "loadPresets: " + loadedName +
-                                    " - shader compile failed - " + ret;
-                        p.errorMessage = formatErrorMessageForPreset(err, p.errorLen);
-            std::cerr << err;
-            p.hasError = true;
-            presets.push_back(std::move(p));
-            std::cout << "loadPresets: using ErrorShader in " << loadedName << "\n";
-            continue;
+ 
+        if (compilePreset(p)) {
+            std::cout << "loadPresets: loaded " << p.name << "\n";
+        } else {
+            std::cout << "loadPresets: using ErrorShader in " << p.name << "\n";
         }
-
-        buildTextures(p);
-        buildFonts(p);
         presets.push_back(std::move(p));
-        std::cout << "loadPresets: loaded " << loadedName << "\n";
     }
     return presets;
 }
-
+ 
 inline void reloadPreset(ShaderPreset* p) {
-    auto fragPath = std::filesystem::path(p->shaderDir) / "frag.glsl";
-    auto specPath = std::filesystem::path(p->shaderDir) / "spec.cfg";
-    std::string fragSrc = loadFile(fragPath.string());
-    if (fragSrc.empty()) {
-        p->hasError     = true;
-        const std::string err = "Hot Reload - " + p->name +
-                                " failed to open file - frag.glsl\n";
-        p->errorMessage = formatErrorMessageForPreset(err, p->errorLen);
+    p->destroyTextures();
+    p->destroyFonts();
+ 
+    if (compilePreset(*p)) {
+        std::cout << "Hot Reload: loaded " << p->name << "\n";
+    } else {
         std::cout << "Hot Reload: using ErrorShader in " << p->name << "\n";
-        return;
     }
-
-    Spec newSpec{};
-    std::string errLog = "";
-    if (!specPath.empty() && std::filesystem::exists(specPath)) {
-        errLog = parseSpec(specPath.string(), newSpec);
-        if (errLog != "") {
-            p->hasError     = true;
-            const std::string err = "Hot Reload - " + p->name +
-                                    " spec parse failed - " + errLog;
-            std::cerr << err;
-            p->errorMessage = formatErrorMessageForPreset(err, p->errorLen);
-            std::cout << "Hot Reload: using ErrorShader in " << p->name << "\n";
-            p->destroyTextures();
-            p->destroyFonts();
-            p->spec = newSpec;
-            return;
-        }
-    }
-
-    std::string vtxSrc = getVertexSrc();
-    Shader newShader;
-    errLog = newShader.init(vtxSrc.c_str(), fragSrc.c_str());
-    if (!errLog.empty()) {
-        p->hasError     = true;
-        const std::string err = "Hot Reload - " + p->name + " - " + errLog;
-        std::cerr << err;
-        p->errorMessage = formatErrorMessageForPreset(err, p->errorLen);
-        std::cout << "Hot Reload: using ErrorShader in " << p->name << "\n";
-        p->destroyTextures();
-        p->destroyFonts();
-        p->spec = newSpec;
-        return;
-    }
-
-    p->shader       = std::move(newShader);
-    p->spec         = newSpec;
-    p->hasError     = false;
-    p->errorMessage = {0};
-    buildTextures(p);
-    buildFonts(p);
 }
 
 inline void assertUserDefinedBufferSizes(ShaderPreset* p, size_t maxFBSize) {
@@ -210,21 +184,15 @@ inline void assertUserDefinedBufferSizes(ShaderPreset* p, size_t maxFBSize) {
     if (p->spec.fftOutputMode == CUSTOM_SIZE && (p->spec.customFFTSize > 8192)) {
         ret = p->name + " - customFFTSize outside of bounds: 0 to 8192 (inclusive). " +
               "customFFTSize has been set to 0.\n";
-        std::cerr << ret;
-        p->errorMessage = formatErrorMessageForPreset(ret, p->errorLen);
-        p->hasError = true;
+        setPresetError(*p, ret);
         p->spec.customFFTSize = 0;
-        std::cout << "Using ErrorShader in" << p->name << "\n";
     }
     if (p->spec.feedbackBufferSize > maxFBSize) {
         ret = p->name + " - feedback buffer size (" +
             std::to_string(p->spec.feedbackBufferSize) + " floats) exceeds gpu limit ("
             + std::to_string(maxFBSize) + ". feedbackBufferSize has been set to 0.\n";
-        std::cerr << ret;
-        p->errorMessage = formatErrorMessageForPreset(ret, p->errorLen);
-        p->hasError = true;
+        setPresetError(*p, ret);
         p->spec.feedbackBufferSize = 0;
-        std::cout << "Using ErrorShader in " << p->name << "\n";
     }
 }
 
@@ -261,8 +229,7 @@ inline void validateFFTRates(Globals& g, ShaderPreset* s) {
             const std::string err = "Display Hz: " + std::to_string(g.displayHz) +
                                     ". Sample rate: " + std::to_string(g.sampleRate) +
                                     ". All shaders will not work without a lower sample rate or higher display rate.\n";
-            s->hasError = true;
-            s->errorMessage = formatErrorMessageForPreset(err, s->errorLen);
+            setPresetError(*s, err);
             return;
         }
         s->spec.fftOrder = static_cast<FFTOrder>(s->spec.fftOrder + 1);

@@ -124,7 +124,7 @@ struct Spec {
     //time constant in seconds for the normalization adaptation window.
     //higher = slower adaptation (more stable baseline, less responsive).
     //lower = faster adaptation (more responsive, less stable).
-    //4.0 is a good default. Range: 0.5 to 30.0
+    //Range: 0.5 to 30.0
     float normalizedFFTTime = 4.0f;
 
     //if you want the samples from each hop for a waveform or something.
