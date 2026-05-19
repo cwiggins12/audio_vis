@@ -3,7 +3,7 @@ Potential future additions:
  - Add blur modes similar to WinAmp's Milkdrop
  - Allow for user defined uniforms that can be adjusted by midi, key input, or ui
  - Add a timed shuffle mode
- - Optional system wide interpolation between presets on swap
+ - Optional system wide interpolation between shaders on swap
  - More customization options for high end smoothing
  - VST3 port
  - More shaders!
