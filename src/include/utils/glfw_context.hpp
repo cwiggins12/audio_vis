@@ -1,6 +1,6 @@
 #pragma once
 
-#include <GLFW/glfw3.h>
+#include "utils/gl_platform.hpp"
 #include <iostream>
 #include "gpu/shader_preset.hpp"
 #include "audio/audio_system.hpp"
@@ -8,7 +8,7 @@
 
 struct GLFWContext {
 public:
-    GLFWwindow*        window    = nullptr;
+    GLFWwindow* window = nullptr;
 
     GLFWContext(Globals& g) : globals(g) {
         monitor = glfwGetPrimaryMonitor();
@@ -18,16 +18,7 @@ public:
             return;
         }
         g.displayHz = mode->refreshRate;
-        glfwWindowHint(GLFW_CLIENT_API,              GLFW_OPENGL_ES_API);
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR,   3);
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR,   1);
-        glfwWindowHint(GLFW_DOUBLEBUFFER,            GLFW_TRUE);
-        glfwWindowHint(GLFW_RESIZABLE,               GLFW_TRUE);
-        glfwWindowHint(GLFW_RED_BITS,                mode->redBits);
-        glfwWindowHint(GLFW_GREEN_BITS,              mode->greenBits);
-        glfwWindowHint(GLFW_BLUE_BITS,               mode->blueBits);
-        glfwWindowHint(GLFW_REFRESH_RATE,            g.displayHz);
-        glfwWindowHint(GLFW_MAXIMIZED,               GLFW_TRUE);
+        setGLFWContextHints(mode);
         window = glfwCreateWindow(mode->width, mode->height,
                  "audio_vis", nullptr, nullptr);
         if (!window) {

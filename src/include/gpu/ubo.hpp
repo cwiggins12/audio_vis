@@ -1,6 +1,6 @@
 #pragma once
 
-#include <glad/glad.h>
+#include "utils/gl_platform.hpp"
 #include "config/globals.hpp"
 
 class UBO {
@@ -29,4 +29,3 @@ public:
         glBufferSubData(GL_UNIFORM_BUFFER, 0, globalsGPUSize, &data);
     }
 };
-

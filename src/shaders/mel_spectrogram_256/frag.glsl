@@ -1,6 +1,6 @@
 const float DB_FLOOR        = -90.0;
 const float DB_CEIL         = 0.0;
-const int   TOTAL_MEL_BINS  = 64;
+const int   TOTAL_MEL_BINS  = 256;
 const int   SECONDS_SHOWN   = 5;
 
 float hzToMel(float hz) {

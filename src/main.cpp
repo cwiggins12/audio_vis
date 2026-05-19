@@ -1,5 +1,11 @@
 #define MINIAUDIO_IMPLEMENTATION
 
+#ifdef _WIN32
+    #include <windows.h>
+#else
+    #include <unistd.h>
+#endif
+
 #include "audio/audio_system.hpp"
 #include "gpu/shader_system.hpp"
 #include "utils/glfw_context.hpp"
@@ -8,26 +14,34 @@
 #include "utils/log.hpp"
 
 std::string getAssetPath(const std::string& relative) {
+#ifdef _WIN32
+    char buf[4096];
+    DWORD len = GetModuleFileNameA(nullptr, buf, sizeof(buf));
+    if (len == 0 || len == sizeof(buf)) return relative;
+    auto binDir = std::filesystem::path(buf).parent_path();
+    return (binDir / relative).string();
+#else
     char buf[4096];
     ssize_t len = readlink("/proc/self/exe", buf, sizeof(buf) - 1);
     if (len == -1) return relative;
     buf[len] = '\0';
     auto binDir = std::filesystem::path(buf).parent_path();
     return (binDir / relative).string();
+#endif
 }
 
 void evalPresetExprs(Globals& g, ShaderPreset* pre) {
     ExprContext ctx;
-    ctx.windowWidth   = g.W;
-    ctx.windowHeight  = g.H;
-    ctx.numChannels   = g.numChannels;
-    ctx.displayHz     = g.displayHz;
-    ctx.sampleRate    = g.sampleRate;
-    ctx.fftSize       = g.fftSize;
-    ctx.fftBinAmt     = g.fftBinAmt;
-    ctx.fftArrSize    = g.fftArrSize;
-    ctx.hopSize       = g.hopSize;
-    ctx.hopAmount     = g.hopAmt;
+    ctx.windowWidth    = g.W;
+    ctx.windowHeight   = g.H;
+    ctx.numChannels    = g.numChannels;
+    ctx.displayHz      = g.displayHz;
+    ctx.sampleRate     = g.sampleRate;
+    ctx.fftSize        = g.fftSize;
+    ctx.fftBinAmt      = g.fftBinAmt;
+    ctx.fftArrSize     = g.fftArrSize;
+    ctx.hopSize        = g.hopSize;
+    ctx.hopAmount      = g.hopAmt;
     ctx.isFeedbackExpr = false;
     std::string ret  = evalSpecExprs(pre->spec, ctx);
     if (!ret.empty()) {
@@ -62,6 +76,7 @@ void doSwap(ShaderSystem& s, AudioSystem& a, GPUBuffers& g,
     a.swap(s.active->spec);
     ResizeValues r = getResizeValues(gl, a, s);
     g.swap(r);
+    //std::cout << "RawSamp size: " << r.rawSize << ", fb size: " << r.fbSize << "\n";
     s.errorSwap();
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 }
@@ -74,11 +89,8 @@ int main() {
     Globals globals;
     GLFWContext glfw(globals);
     if (!glfw.isValid()) return -1;
-    //init glad
-    if (!gladLoadGLES2Loader((GLADloadproc)glfwGetProcAddress)) {
-        std::cerr << "Failed to initialize GLAD\n";
-        return -1;
-    }
+    //init glad (handled by gl_platform.hpp)
+    if (!initGLAD()) return -1;
     //get initial width and height from framebuffer then log gl info
     glfw.initFramebuffer();
     globals.initWidth = globals.W; globals.initHeight = globals.H;
@@ -88,8 +100,6 @@ int main() {
     //init shaders
     ShaderSystem shaders(getAssetPath("shaders/"), globals);
     if (!shaders.isValid()) return -1;
-    //pi only
-    //fftwf_import_wisdom_from_filename(getAssetPath("fftw_wisdom.dat").c_str());
     //init audio
     AudioSystem audioSys(globals, shaders.active->spec);
     if (!audioSys.isValid()) return -1;
@@ -124,13 +134,19 @@ int main() {
         globals.newAudioWindow = audioSys.analyzeAndFormat();
         globals.time = glfwGetTime();
         //write to gpu buffers
+        static GLsync writeSync = nullptr;
+        if (writeSync) {
+            glClientWaitSync(writeSync, GL_SYNC_FLUSH_COMMANDS_BIT, GL_TIMEOUT_IGNORED);
+            glDeleteSync(writeSync);
+        }
         gpuBuffs.writeToBuffers(audioSys.bridge, shaders.active->spec, globals);
         //use shader based on error state
         if (globals.showDeviceMenu) { shaders.useDeviceMenuShader(); }
         else if (shaders.active->hasError) { shaders.useErrorShader(); }
         else { shaders.useActiveShader(); }
         glDrawArrays(GL_TRIANGLES, 0, 3);
-        //glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+        writeSync = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+        gpuBuffs.writeToBuffers(audioSys.bridge, shaders.active->spec, globals);
         //flip for user defined feedback ssbo
         gpuBuffs.flipFeedback();
         //not sure if necessary
@@ -138,7 +154,6 @@ int main() {
         //set swap and count frame counter
         glfwSwapBuffers(glfw.window);
     }
-    //fftwf_export_wisdom_to_filename(getAssetPath("fftw_wisdom.dat").c_str());
     std::cout << "Program ended successfully :)";
     return 0;
 }

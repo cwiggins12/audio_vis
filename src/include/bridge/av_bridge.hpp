@@ -99,6 +99,10 @@ public:
             case 2: customSizeFFTPlacement();   break;
             default: fullBinPlacement();        break;
         }
+        if (currSpec->normalizedFFT) {
+            normalizeFFTOutput();
+        }
+        gpuFFT.setAllTargetsWithPtr(middlemanBuffer.data());
         if (currSpec->getFFTHolds) {
             fftHolds.compareValsToArray(gpuFFT.getCurrents());
         }
@@ -131,14 +135,12 @@ private:
         switch (currSpec->fftOutputMode) {
             case 0: {
                 globals.fftArrSize = globals.fftBinAmt;
-                middlemanBuffer.resize(0);
                 indexFreqs.resize(0);
                 break;
             }
             case 1: {
                 audio.getAudibleRange(&audibleStart, &audibleSize);
                 globals.fftArrSize = audibleSize;
-                middlemanBuffer.resize(0);
                 indexFreqs.resize(0);
                 break;
             }
@@ -146,11 +148,13 @@ private:
                 size_t s = currSpec->customFFTSize;
                 globals.fftArrSize = globals.getSizeFromModeSwitch(s,
                                             currSpec->customFFTSizeScalesWithWindow);
-                middlemanBuffer.resize(globals.fftArrSize);
                 setIndexFreqs(globals.fftArrSize);
+                (currSpec->highSmoothing > 0.0f) ?
+                        gaussScratch.resize(globals.fftBinAmt) : gaussScratch.resize(0);
                 break;
             }
         }
+        middlemanBuffer.resize(globals.fftArrSize);
     }
 
     void swapFFT() {
@@ -171,6 +175,17 @@ private:
         else {
             gpuFFT.reset(globals.displayHz, 0.0f, 0.0f, 0.0f,
                          globals.fftArrSize, fftMin);
+        }
+        if (currSpec->normalizedFFT) {
+            fftNormAvg.assign(globals.fftArrSize, 1.0f);
+            needsNormSeed = true;
+            normAdaptRate = 1.0f - std::exp(-1.0f / (globals.displayHz *
+                                                     currSpec->normalizedFFTTime));
+            normAvgFloor = 0.0f;
+        }
+        else {
+            fftNormAvg.resize(0);
+            needsNormSeed = false;
         }
     }
 
@@ -201,17 +216,23 @@ private:
         const float logRatio = std::log(MAX_FREQ / MIN_FREQ);
         swapFreq = binWidth * (float)(indexFreqs.size() - 1) / logRatio;
         swapFreq = std::min(std::max(swapFreq, MIN_FREQ), MAX_FREQ);
+        swapBin = (swapIndex > 0 && swapIndex < (int)indexFreqs.size())
+                  ? (int)indexFreqs[swapIndex] : 0;
     }
 
     void customSizeFFTPlacement() {
         const float* fftOut = audio.getFFTPtr();
         float* buffPtr = middlemanBuffer.data();
-        switchOnInterps(0, swapIndex, fftOut, buffPtr, currSpec->lowMode);
-        switchOnCollates(swapIndex, globals.fftArrSize, fftOut,
+        const float* srcBins = fftOut;
+        if (currSpec->highSmoothing > 0.0f) {
+            gaussianBinPass(fftOut);
+            srcBins = gaussScratch.data();
+        }
+        switchOnInterps(0, swapIndex, srcBins, buffPtr, currSpec->lowMode);
+        switchOnCollates(swapIndex, globals.fftArrSize, srcBins,
                          buffPtr, currSpec->highMode);
         switchOnMeasurement(globals.fftArrSize,
                             buffPtr, currSpec->fftOutputMeasurement);
-        gpuFFT.setAllTargetsWithPtr(buffPtr);
     }
 
     void switchOnInterps(int start, int end, const float* in,
@@ -463,17 +484,76 @@ private:
         }
     }
 
+    void gaussianBinPass(const float* fftOut) {
+        float maxSigma = currSpec->highSmoothing;
+        int binCount = globals.fftBinAmt;
+        // Copy low end through unchanged
+        for (int i = 0; i < swapBin && i < binCount; ++i) {
+            gaussScratch[i] = fftOut[i];
+        }
+        if (swapBin >= binCount) return;
+        float startSigma = maxSigma * ((float)swapBin / (float)binCount);
+        float sigmaRange = maxSigma - startSigma;
+        // Log growth from swapBin to end
+        float logRange = std::log((float)(binCount - swapBin));
+        for (int i = swapBin; i < binCount; ++i) {
+            float logPos = std::log((float)(i - swapBin + 1));
+            float sigma  = startSigma + sigmaRange * (logPos / logRange);
+            if (sigma < 0.5f) {
+                gaussScratch[i] = fftOut[i];
+                continue;
+            }
+            int halfW = std::min((int)(3.0f * sigma + 0.5f), 24);
+            float sum  = 0.0f;
+            float wsum = 0.0f;
+            float sig2 = sigma * sigma;
+            for (int k = -halfW; k <= halfW; ++k) {
+                int idx = i + k;
+                if (idx < 0 || idx >= binCount) continue;
+                float w = std::exp(-0.5f * (float)(k * k) / sig2);
+                sum  += w * fftOut[idx];
+                wsum += w;
+            }
+            gaussScratch[i] = (wsum > 1e-9f) ? sum / wsum : fftOut[i];
+        }
+    }
+
     void audibleBinPlacement() {
         const float* fftPtr = audio.getFFTPtr();
+        float* buffPtr = middlemanBuffer.data();
         for (int i = 0; i < audibleSize; ++i) {
-            gpuFFT.setTargetVal(i, fftPtr[i + audibleStart]);
+            buffPtr[i] = fftPtr[i + audibleStart];
         }
     }
 
     void fullBinPlacement() {
         const float* fftPtr = audio.getFFTPtr();
+        float* buffPtr = middlemanBuffer.data();
         for (int i = 0; i < globals.fftBinAmt; ++i) {
-            gpuFFT.setTargetVal(i, fftPtr[i]);
+            buffPtr[i] = fftPtr[i];
+        }
+    }
+
+    void normalizeFFTOutput() {
+        float* buffPtr = middlemanBuffer.data();
+        if (needsNormSeed) {
+            for (int i = 0; i < globals.fftArrSize; ++i) {
+                fftNormAvg[i] = std::max(buffPtr[i], 1e-6f);
+                buffPtr[i] = 1.0f;
+            }
+            float sum = 0.0f;
+            for (int i = 0; i < globals.fftArrSize; ++i) {
+                sum += fftNormAvg[i];
+            }
+            normAvgFloor = (sum / globals.fftArrSize) * 0.05f;
+            normAvgFloor = std::max(normAvgFloor, 1e-4f);
+            needsNormSeed = false;
+            return;
+        }
+        for (int i = 0; i < globals.fftArrSize; ++i) {
+            fftNormAvg[i] += (buffPtr[i] - fftNormAvg[i]) * normAdaptRate;
+            float avg = std::max(fftNormAvg[i], normAvgFloor);
+            buffPtr[i] /= avg;
         }
     }
 
@@ -500,9 +580,15 @@ private:
     HoldArray fftHolds;
     std::vector<float> indexFreqs;
     std::vector<float> middlemanBuffer;
+    std::vector<float> fftNormAvg;
+    std::vector<float> gaussScratch;
     int audibleStart = 0;
     int audibleSize = 0;
     int swapIndex = 0;
     float swapFreq = 0.0f;
+    int swapBin = 0;
+    float normAdaptRate = 0.0f;
+    float normAvgFloor = 0.0f;
+    bool needsNormSeed = false;
 };
 

@@ -30,7 +30,7 @@ void main() {
 
     float localY = px.y - float(channel) * chH;
     float dist = abs(localY - waveY);
-    float line = smoothstep(2.0, 0.0, dist);
+    float line = smoothstep(8.0, 0.0, dist);
 
     vec3 col;
     float g = (channel == 0) ? abs(sin(time)) : abs(cos(time));

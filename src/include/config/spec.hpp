@@ -77,6 +77,11 @@ struct Spec {
     //smooth it to match the low end below, and is optional
     Collates highMode = RMS;
     Interps lowMode = GAUSSIAN;
+    //gaussian smoothing pass over the high end of the output array.
+    //value is the max sigma in output-index units at the Nyquist end.
+    //0.0 = off. Values around 2.0–6.0 are a good starting range.
+    //only affects customFFTSize output mode.
+    float highSmoothing = 0.0f;
     //outputs fft output in db rather than 0 to 1 amplitude value.
     //generally, if you are looking for something to map more clearly to a
     //linear space similar to how we hear it, get dB then map to pixels
@@ -107,6 +112,20 @@ struct Spec {
     bool getFFTHolds = true;
     //adds a windowing function with normalization to the fft output
     bool isFFTHannWindowed = true;
+    //on very small fft windows that wouldn't keep up with sample rate / display hz
+    //grabs from last written samples - hop size rather than reading from the sample after the last read ended
+    bool allowDroppedSamples = false;
+    //normalizes fft output so that 1.0 represents the running average
+    //energy level. Values above 1.0 mean louder than recent average,
+    //below 1.0 means quieter. Useful for presets where the math should
+    //revolve around a consistent baseline regardless of source volume.
+    //if you plan to make a .milk style shader, this is highly recommended
+    bool normalizedFFT = false;
+    //time constant in seconds for the normalization adaptation window.
+    //higher = slower adaptation (more stable baseline, less responsive).
+    //lower = faster adaptation (more responsive, less stable).
+    //Range: 0.5 to 30.0
+    float normalizedFFTTime = 4.0f;
 
     //if you want the samples from each hop for a waveform or something.
     bool getRawSamples = true;
@@ -141,10 +160,10 @@ struct Spec {
     std::map<std::string, std::string> textures;
 
     //fonts follow the same pattern as textures.
-    //spec.cfg: font.myFont = coolFont.ttf
+    //spec.cfg: font.font = font.ttf
     //this creates two sampler2D uniforms in the shader:
-    //  uniform sampler2D myFont;          (SDF atlas, GL_R8)
-    //  uniform sampler2D myFontMetrics;   (glyph metrics, RGBA32F)
+    //  uniform sampler2D font;          (SDF atlas, GL_R8)
+    //  uniform sampler2D fontMetrics;   (glyph metrics, RGBA32F)
     //the font file must be a flat filename in the shader directory
     std::map<std::string, std::string> fonts;
 };

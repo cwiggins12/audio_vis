@@ -1,7 +1,7 @@
 /build
 /.cache
 /unused
-/Releases
+/releases
 notes.txt
 compile_commands.json
-
+current

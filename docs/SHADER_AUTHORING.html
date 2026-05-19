@@ -207,6 +207,10 @@ FragColor = <span class="fn">mix</span>(backgroundColor, <span class="kw">vec4</
   <tr><td><code>fftOutputMeasurement</code></td><td>enum</td><td><code>DECIBELS</code></td><td>Output value format</td></tr>
   <tr><td><code>perceptualSlopeDegrees</code></td><td>float</td><td><code>3.0</code></td><td>Frequency-dependent gain tilt</td></tr>
   <tr><td><code>isFFTHannWindowed</code></td><td>bool</td><td><code>true</code></td><td>Apply Hann window with normalization before FFT</td></tr>
+  <tr><td><code>highSmoothing</code></td><td>float</td><td><code>0.0</code></td><td>0.0-12.0 range sigma for a gaussian pass over the high end (<code>CUSTOM_SIZE</code> mode only). Only interacts with the bins that are within the collate range</td></tr>
+  <tr><td><code>allowDroppedSamples</code></td><td>bool</td><td><code>false</code></td><td>Allows smaller hop/fft sizes to be used by only using the most recently written samples to ensure that the reading of the samples is never overtaken by the writing of the samples</td></tr>
+  <tr><td><code>normalizedFFT</code></td><td>bool</td><td><code>false</code></td><td>Normalize the FFT output around 1.0. Made to be a close match to the Milkdrop auto-gain</td></tr>
+  <tr><td><code>normalizedFFTTime</code></td><td>float</td><td><code>4.0</code></td><td>0.5-30.0 time constant in seconds for the normalization adaption window</td></tr>
 </table>
 
 <h4>fftOrder</h4>
@@ -227,7 +231,7 @@ FragColor = <span class="fn">mix</span>(backgroundColor, <span class="kw">vec4</
   <tr><td><code>TWO</code></td><td>50% overlap on each FFT window</td></tr>
   <tr><td><code>ONE</code></td><td>0% overlap on each FFT window</td></tr>
 </table>
-<div class="warn"><strong>Warning:</strong> If <code>fftSize / hopAmount * displayHz < sampleRate</code>, then <code>hopAmount</code> will be lowered a step until the disparity is resolved. If <code>hopAmount</code> is one and the expression is still not resolved, <code>fftOrder</code> will be raised until the expression is resolved to ensure that the amount of samples being pulled always keeps up with the sample rate.</div>
+<div class="warn"><strong>Warning:</strong> If <code>fftSize / hopAmount * displayHz < sampleRate</code> and <code>allowDroppedSamples != true</code>, then <code>hopAmount</code> will be lowered a step until the disparity is resolved. If <code>hopAmount</code> is one and the expression is still not resolved, <code>fftOrder</code> will be raised until the expression is resolved to ensure that the amount of samples being pulled always keeps up with the sample rate.</div>
 
 <h4>fftOutputMode</h4>
 <table>
@@ -284,7 +288,7 @@ FragColor = <span class="fn">mix</span>(backgroundColor, <span class="kw">vec4</
   <tr><td><code>4.5</code></td><td>Music-focused: extra high-end boost, popularized by FabFilter Pro-Q</td></tr>
 </table>
 
-<h4>FFT Temporal Smoothing</h4>
+<h3>FFT Temporal Smoothing</h3>
 <table>
   <tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr>
   <tr><td><code>useFFTSmoothing</code></td><td>bool</td><td><code>true</code></td><td>Enable temporal smoothing on FFT output</td></tr>
@@ -293,7 +297,7 @@ FragColor = <span class="fn">mix</span>(backgroundColor, <span class="kw">vec4</
 </table>
 <p>Smoothing is <strong>asymmetric</strong>. You can have a fast attack to catch transients and a slow release for smooth decay. Values are converted to frame counts based on your display refresh rate. Setting either to 0.0 or below disables smoothing for that direction even if the bool is true.</p>
 
-<h4>FFT Holds</h4>
+<h3>FFT Holds</h3>
 <table>
   <tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr>
   <tr><td><code>getFFTHolds</code></td><td>bool</td><td><code>true</code></td><td>Enable peak-hold tracking for FFT data</td></tr>
@@ -324,7 +328,7 @@ Index <span class="num">3</span>: Right RMS
 <pre><code>Index <span class="num">0</span>: Peak (all channels summed)
 Index <span class="num">1</span>: RMS  (all channels summed)</code></pre>
 
-<h4>Peak/RMS Holds</h4>
+<h3>Peak/RMS Holds</h3>
 <table>
   <tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr>
   <tr><td><code>getPeakRMSHolds</code></td><td>bool</td><td><code>true</code></td><td>Enable peak-hold tracking for peak and RMS data</td></tr>
@@ -334,7 +338,7 @@ Index <span class="num">1</span>: RMS  (all channels summed)</code></pre>
 <p><code>prHolds[]</code> follows the same layout as <code>peakRMSData[]</code> and follows all the same conventions as <code>fftHolds[]</code>.</p>
 
 <h2 id="feedback">Feedback Buffer</h2>
-<p>This will allow for you to use data from a prior frame. Everything you write to feedbackOut[] will be the feedbackIn[] next frame</p>
+<p>This will allow for you to use data from a prior frame. Everything you write to <code>feedbackOut[]</code> will be the <code>feedbackIn[]</code> next frame</p>
 <table>
   <tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr>
   <tr><td><code>feedbackBufferSize</code></td><td>expr</td><td><code>0</code></td><td>Size in floats. 0 = disabled. Supports expressions.</td></tr>
@@ -381,8 +385,9 @@ feedbackBufferSize = (WINDOW_HEIGHT * WINDOW_WIDTH) * <span class="num">4</span>
 <h2 id="raw-sample">Raw Sample Customization Options</h2>
 <table>
   <tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr>
-  <tr><td><code>isRawSamplesMono</code></td><td>bool</td><td><code>false</code></td><td>Mono-sum channels before measuring</td></tr>
-  <tr><td><code>isRawSamplesdB</code></td><td>bool</td><td><code>true</code></td><td>Output in dB (true) or linear magnitude (false)</td></tr>
+  <tr><td><code>getRawSamples</code></td><td>bool</td><td><code>true</code></td><td>On/off switch for raw sample array</td></tr>
+  <tr><td><code>isRawSamplesMono</code></td><td>bool</td><td><code>true</code></td><td>Mono-sum channels before measuring</td></tr>
+  <tr><td><code>isRawSamplesdB</code></td><td>bool</td><td><code>false</code></td><td>Output in dB (true) or linear magnitude (false)</td></tr>
 </table>
 
 <h4>rawSamples layout</h4>
@@ -399,13 +404,19 @@ Index <span class="num">3</span>: Right 1</code></pre>
 <h2 id="tips">Tips</h2>
 
 <h4>Shader not showing up in engine?</h4>
-<p>Make sure to have a shaders directory in the same location as your executable, a subdirectory in shaders with the name you want, and at minimum a frag.glsl within that subdirectory before the program runs. From there, any changes you make, will either show your shader or an error message showing you where the issue is</p>
+<p>Make sure to have a shaders directory in the same location as your executable, a subdirectory in shaders with the name you want, and at minimum a frag.glsl within that subdirectory before the program runs. From there, any changes you make, will either show your shader or an error message showing you where the issue is.</p>
 
 <h4>Watch out for a common driver bug in GL ES 3.1 on some drivers</h4>
 <p>On some drivers, shaders have incorrect logic when casts are done within some expressions. My way around it has been casting to a new variable and using that. There are plenty of examples of this in the fragment header and in many of the example shaders. Try doing this if you are getting incorrect results on lines that have casts in expressions.</p>
 
+<h4>More familiar with Milkdrop?</h4>
+<p>I made some example shaders that emulate a lot of the milkdrop style of shaders to help anyone who may be used to .milk. All of these are in the example shaders and have the prefix "md_". While I am not very familiar with Milkdrop, I do hope that these can help folks with familiarity with it feel more comfortable with this engine and show more of what this engine can do.</p>
+
 <h4>Optimize hard when on the Pi</h4>
-<p>While this program does cost very little on the CPU, it can be very GPU heavy depending on the current shader. The Raspberry Pi 4, which is what this was tested on, has a substantially smaller GPU than even very low budget laptops. So, some shaders that are great on desktop may need more optimization to work well on the Pi</p>
+<p>While this program does cost very little on the CPU, it can be very GPU heavy depending on the current shader. The Raspberry Pi 4, which is what this was tested on, has a substantially smaller GPU than even very low budget laptops. So, some shaders that are great on desktop may need more optimization to work well on the Pi.</p>
+
+<h4>Be careful about 4k Ping Pong Framebuffers</h4>
+<p>There are multiple example shaders included that will do full framebuffers of the display's resolution using the feedback buffer. Even solid desktop GPUs may struggle with this, particularly, in my experience, on Windows machines. When making shaders that use a full resolution ping pong buffer, understand that at standard 16x9 4k resolution or higher, that these shaders may have glitches or cause problems. You can check if your device can handle these by using crt_lofi_analyser, md_fractal_feedback, or md_example_1 before you make one of your own.</p>
 
 <h4>dB mapping helper</h4>
 <p>Most shaders working in dB mode will want a normalization function:</p>
