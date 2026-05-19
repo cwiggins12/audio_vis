@@ -85,7 +85,7 @@ inline void warnSpecScaling(const std::string& name, Spec& spec) {
 // Assumes p.name and p.shaderDir are already set.
 // Returns true if the preset loaded successfully (even if with warnings).
 // Returns false and sets error state on the preset if anything fails.
-inline bool compilePreset(ShaderPreset& p) {
+inline bool compilePreset(ShaderPreset& p, const std::string parentPrepend) {
     auto fragPath = std::filesystem::path(p.shaderDir) / "frag.glsl";
     auto specPath = std::filesystem::path(p.shaderDir) / "spec.cfg";
     p.spec = Spec{};
@@ -94,14 +94,14 @@ inline bool compilePreset(ShaderPreset& p) {
  
     // Check frag.glsl exists
     if (!std::filesystem::exists(fragPath)) {
-        setPresetError(p, p.name + " - no frag.glsl found");
+        setPresetError(p, parentPrepend + p.name + " - no frag.glsl found");
         return false;
     }
  
     // Load frag source
     std::string fragSrc = loadFile(fragPath.string());
     if (fragSrc.empty()) {
-        setPresetError(p, p.name + " - frag.glsl could not be opened");
+        setPresetError(p, parentPrepend + p.name + " - frag.glsl could not be opened");
         return false;
     }
  
@@ -109,7 +109,7 @@ inline bool compilePreset(ShaderPreset& p) {
     if (std::filesystem::exists(specPath)) {
         std::string err = parseSpec(specPath.string(), p.spec);
         if (!err.empty()) {
-            setPresetError(p, p.name + " spec.cfg - " + err);
+            setPresetError(p, parentPrepend + p.name + " spec.cfg - " + err);
             updateWriteTimes(p);
             return false;
         }
@@ -124,7 +124,7 @@ inline bool compilePreset(ShaderPreset& p) {
     updateWriteTimes(p);
  
     if (!err.empty()) {
-        setPresetError(p, p.name + " - shader compile failed - " + err);
+        setPresetError(p, parentPrepend + p.name + " - shader compile failed - " + err);
         return false;
     }
  
@@ -157,7 +157,7 @@ inline std::vector<ShaderPreset> loadPresets(const std::string& shadersDir) {
         p.name      = entry.path().filename().string();
         p.shaderDir = entry.path().string();
  
-        if (compilePreset(p)) {
+        if (compilePreset(p, "loadPreset: ")) {
             std::cout << "loadPresets: loaded " << p.name << "\n";
         } else {
             std::cout << "loadPresets: using ErrorShader in " << p.name << "\n";
@@ -171,7 +171,7 @@ inline void reloadPreset(ShaderPreset* p) {
     p->destroyTextures();
     p->destroyFonts();
  
-    if (compilePreset(*p)) {
+    if (compilePreset(*p, "reloadPreset: ")) {
         std::cout << "Hot Reload: loaded " << p->name << "\n";
     } else {
         std::cout << "Hot Reload: using ErrorShader in " << p->name << "\n";

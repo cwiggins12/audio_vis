@@ -94,7 +94,7 @@ public:
                     std::filesystem::path(ev.path).filename().string();
                 for (auto& slot : active->textures) {
                     if (slot.filename == changedFile) {
-                        std::cout << "Hot reloading texture: " << changedFile << "\n";
+                        std::cout << "Hot reloading texture: " << active->name << " - " << changedFile << "\n";
                         reloadTextureSlot(active, slot);
                         break;
                     }
@@ -107,7 +107,7 @@ public:
                     std::filesystem::path(ev.path).filename().string();
                 for (auto& slot : active->fonts) {
                     if (slot.filename == changedFile) {
-                        std::cout << "Hot reloading font: " << changedFile << "\n";
+                        std::cout << "Hot reloading font: " << active->name << " - " << changedFile << "\n";
                         reloadFontSlot(active, slot);
                         break;
                     }
@@ -204,7 +204,7 @@ private:
         p.name      = name;
         p.shaderDir = dirPath;
 
-        compilePreset(p);
+        compilePreset(p, "addPreset: ");
 
         auto insertPos = std::lower_bound(presets.begin(), presets.end(), p,
             [](const ShaderPreset& a, const ShaderPreset& b) {
@@ -218,9 +218,6 @@ private:
             active = &presets[index];
             needsSwap = true;
         }
-
-        std::cout << "Added shader: " << name << 
-                     ", Shader count: " << presets.size() << "\n";
     }
 
     void removePresetByPath(const std::string& dirPath, bool& needsSwap) {
