@@ -34,9 +34,8 @@ Use this for live visuals, desktop audio-reactive backgrounds, shader experiment
 
 ## Download
 
-Download the latest release from the [Releases](https://github.com/cwiggins12/audio_vis/releases) page. The release includes the executable, example shaders, and a Shader Authoring Guide to help anyone get started.
+Download the latest release from the [Releases](https://github.com/cwiggins12/audio_vis/releases) page. The release includes the executable, example shaders, and a Shader Authoring Guide to help anyone get started. Available for Windows, Linux, and Pi OS.
 
-Linux only for now. Windows support is planned.
 
 ### Requirements
 
@@ -45,7 +44,7 @@ Linux only for now. Windows support is planned.
   enable one in your audio settings and/or install PulseAudio/PipeWire. I made a
   section specifically for this issue in docs/SHADER_AUTHORING.html at the
   bottom to, hopefully, help anyone who may run into this.
-- OpenGL ES 3.1 capable GPU
+- OpenGL capable GPU
 - GLFW runtime libraries (`sudo apt install libglfw3` on Debian/Ubuntu)
 - FFTW3 runtime libraries (`sudo apt install libfftw3-3` on Debian/Ubuntu)
 - Raspberry Pi 4 and up only: Mesa V3DV
@@ -53,6 +52,7 @@ Linux only for now. Windows support is planned.
 ### Tested Hardware
 
 - Desktop Linux (x86_64, Ubuntu 24.04.4 LTS)
+- Desktop Windows (x86_64, Windows 11)
 - Raspberry Pi 4 (aarch64, Raspberry Pi OS 64-bit)
 
 ### Running
@@ -113,7 +113,7 @@ sudo apt install cmake build-essential git libglfw3-dev libfftw3-dev libegl-dev 
 git clone https://github.com/cwiggins12/audio_vis.git
 cd audio_vis
 cmake -S . -B build
-cmake --build build (add the -j4 flag on Raspberry Pi 4+)
+cmake --build build (add the -j4 flag here on Raspberry Pi 4+)
 cd build
 ```
 The executable and shader directory will be in `build/`. Run from there:
@@ -144,6 +144,8 @@ audio_vis.exe
 ```
 
 ### Common
+If you are building on a desktop, but would prefer to use OpenGL ES 3.1 rather than desktop OpenGL, you can add the flag -DUSE_GLES=ON when configuring the build folder to for ES 3.1 usage.
+
 This project also relies on the headers below that are all public domain found in `src/external/stb`:
 - `stb_image.h`, `stb_truetype.h`, and `stb_rect_pack.h` from [Official STB GitHub](https://github.com/nothings/stb)
 - `miniaudio.h` from [Official miniaudio GitHub](https://github.com/mackron/miniaudio)
