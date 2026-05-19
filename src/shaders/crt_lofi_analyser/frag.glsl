@@ -75,6 +75,7 @@ vec3 addPeakMeters(vec3 color, vec2 px) {
 
 vec3 addChannelNum(vec3 color, vec2 px) {
     float fontSize = 64.0;
+    fontSize = fontSize * (W / 1280.0);
     vec2  labelOrigin = vec2(100.0, H - 60.0 - fontSize);
 	//if (px.y < labelOrigin.y || px.y > labelOrigin.y + fontSize) return color;
     int   ch0 = 48; // '0'
@@ -115,11 +116,11 @@ vec3 addScanning(vec3 color, vec2 px) {
     if (cycle > 1.2) return color;
 
     float fontSize = 32.0;
+    fontSize = fontSize * (W / 1280.0);
     int totalChars = 11;
 
     float totalW = float(totalChars) * fontSize;
     vec2  origin = vec2((W - totalW) * 0.5, H - 30.0 - fontSize);
-	//if (px.y > origin.y + fontSize || px.y < origin.y) return color;
 
     float mask = renderText(scanChars, totalChars, origin, fontSize, px, 0);
 

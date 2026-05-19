@@ -404,13 +404,19 @@ Index <span class="num">3</span>: Right 1</code></pre>
 <h2 id="tips">Tips</h2>
 
 <h4>Shader not showing up in engine?</h4>
-<p>Make sure to have a shaders directory in the same location as your executable, a subdirectory in shaders with the name you want, and at minimum a frag.glsl within that subdirectory before the program runs. From there, any changes you make, will either show your shader or an error message showing you where the issue is</p>
+<p>Make sure to have a shaders directory in the same location as your executable, a subdirectory in shaders with the name you want, and at minimum a frag.glsl within that subdirectory before the program runs. From there, any changes you make, will either show your shader or an error message showing you where the issue is.</p>
 
 <h4>Watch out for a common driver bug in GL ES 3.1 on some drivers</h4>
 <p>On some drivers, shaders have incorrect logic when casts are done within some expressions. My way around it has been casting to a new variable and using that. There are plenty of examples of this in the fragment header and in many of the example shaders. Try doing this if you are getting incorrect results on lines that have casts in expressions.</p>
 
+<h4>More familiar with Milkdrop?</h4>
+<p>I made some example shaders that emulate a lot of the milkdrop style of shaders to help anyone who may be used to .milk. All of these are in the example shaders and have the prefix "md_". While I am not very familiar with Milkdrop, I do hope that these can help folks with familiarity with it feel more comfortable with this engine and show more of what this engine can do.</p>
+
 <h4>Optimize hard when on the Pi</h4>
-<p>While this program does cost very little on the CPU, it can be very GPU heavy depending on the current shader. The Raspberry Pi 4, which is what this was tested on, has a substantially smaller GPU than even very low budget laptops. So, some shaders that are great on desktop may need more optimization to work well on the Pi</p>
+<p>While this program does cost very little on the CPU, it can be very GPU heavy depending on the current shader. The Raspberry Pi 4, which is what this was tested on, has a substantially smaller GPU than even very low budget laptops. So, some shaders that are great on desktop may need more optimization to work well on the Pi.</p>
+
+<h4>Be careful about 4k Ping Pong Framebuffers</h4>
+<p>There are multiple example shaders included that will do full framebuffers of the display's resolution using the feedback buffer. Even solid desktop GPUs may struggle with this, particularly, in my experience, on Windows machines. When making shaders that use a full resolution ping pong buffer, understand that at standard 16x9 4k resolution or higher, that these shaders may have glitches or cause problems. You can check if your device can handle these by using crt_lofi_analyser, md_fractal_feedback, or md_example_1 before you make one of your own.</p>
 
 <h4>dB mapping helper</h4>
 <p>Most shaders working in dB mode will want a normalization function:</p>
