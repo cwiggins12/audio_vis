@@ -1,6 +1,6 @@
 # audio_vis
 
-A shader-driven, real-time audio visualization engine that captures your system audio and drives GLSL fragment shaders with FFT, peak/RMS, raw sample, and/or feedback buffer data each frame. Write shaders, tweak a config file, and see changes instantly with hot-reloading. Currently supports Linux x86_64/aarch64 (desktop and Raspberry Pi 4+)
+A shader-driven, real-time audio visualization engine that captures your system audio and drives GLSL fragment shaders with FFT, peak/RMS, raw sample, and/or feedback buffer data each frame. Write shaders, tweak a config file, and see changes instantly with hot-reloading. Currently supports Linux x86_64/aarch64 (desktop and Raspberry Pi 4+) and Windows x86_64.
 
 Use this for live visuals, desktop audio-reactive backgrounds, shader experimentation, or as a foundation for other creative coding projects. All of the audio pipeline in particular is made to be reusable and modular for other projects with very few changes.
 
@@ -38,16 +38,14 @@ Download the latest release from the [Releases](https://github.com/cwiggins12/au
 
 
 ### Requirements
-
-- A PulseAudio or PipeWire system with a monitor capture device
+- OpenGL capable GPU
+- Linux/Pi Only: GLFW runtime libraries (`sudo apt install libglfw3` on Debian/Ubuntu)
+- Linux/Pi Only: FFTW3 runtime libraries (`sudo apt install libfftw3-3` on Debian/Ubuntu)
+- Linux/Pi Only: A PulseAudio or PipeWire system with a monitor capture device
   If none of the example shaders seem to be getting input, you may need to 
   enable one in your audio settings and/or install PulseAudio/PipeWire. I made a
   section specifically for this issue in docs/SHADER_AUTHORING.html at the
   bottom to, hopefully, help anyone who may run into this.
-- OpenGL capable GPU
-- GLFW runtime libraries (`sudo apt install libglfw3` on Debian/Ubuntu)
-- FFTW3 runtime libraries (`sudo apt install libfftw3-3` on Debian/Ubuntu)
-- Raspberry Pi 4 and up only: Mesa V3DV
 
 ### Tested Hardware
 
