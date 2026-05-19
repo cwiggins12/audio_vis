@@ -4,7 +4,7 @@ A shader-driven, real-time audio visualization engine that captures your system 
 
 Use this for live visuals, desktop audio-reactive backgrounds, shader experimentation, or as a foundation for other creative coding projects. All of the audio pipeline in particular is made to be reusable and modular for other projects with very few changes.
 
-![julia fractal morph](docs/sceen_captures/julia_morph.gif)
+![julia fractal morph](docs/screen_captures/julia_morph.gif)
 
 ## Features
 
@@ -164,15 +164,15 @@ Want your shader added to the examples? Email me with your shader directory (fra
 
 ## Screenshots
 
-![kaleidoscope fractal morph](docs/sceen_captures/kaleidoscope.gif)
+![kaleidoscope fractal morph](docs/screen_captures/kaleidoscope.gif)
 
-![paint fill feedback buffer](docs/sceen_captures/paint_spill.gif)
+![paint fill feedback buffer](docs/screen_captures/paint_spill.gif)
 
-![morphing tunnel travelling](docs/sceen_captures/tunnel.gif)
+![morphing tunnel travelling](docs/screen_captures/tunnel.gif)
 
-![waveform visualization](docs/sceen_captures/waveform.gif)
+![waveform visualization](docs/screen_captures/waveform.gif)
 
-![analyser with crt and vhs effects](docs/sceen_captures/crt_analyser.gif)
+![analyser with crt and vhs effects](docs/screen_captures/crt_analyser.gif)
 
 ![center pulsing abstract shader](docs/screen_captures/center_pulse.gif)
 
