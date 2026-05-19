@@ -4,8 +4,7 @@ A shader-driven, real-time audio visualization engine that captures your system 
 
 Use this for live visuals, desktop audio-reactive backgrounds, shader experimentation, or as a foundation for other creative coding projects. All of the audio pipeline in particular is made to be reusable and modular for other projects with very few changes.
 
-![analyser with crt and vhs effects](docs/gifs/crt_vhs_analyser.gif)
-
+![julia fractal morph](docs/sceen_captures/julia_morph.gif)
 
 ## Features
 
@@ -22,15 +21,9 @@ Use this for live visuals, desktop audio-reactive backgrounds, shader experiment
 - Built-in audio device menu to choose which system output to analyze
 - Built-in bitmap font for on-screen text rendering
 
-## Screenshots
-
-![standard spectrum analyser](docs/screen_captures/basic_analyser.gif)
+![standard spectrum analyser](docs/screen_captures/analyser.gif)
 
 ![mel spectrogram](docs/screen_captures/mel_spec.gif)
-
-![center pulsing abstract shader](docs/screen_captures/center_pulse.gif)
-
-![audio device selection menu](docs/screen_captures/device_menu.png)
 
 ## Download
 
@@ -167,3 +160,21 @@ Want your shader added to the examples? Email me with your shader directory (fra
  - codywigginsdev@gmail.com
 
  - [Development Blog](https://codywigginsdev.neocities.org/) - Weekly updates about what I am working on and a collection of prior projects
+
+
+## Screenshots
+
+![kaleidoscope fractal morph](docs/sceen_captures/kaleidoscope.gif)
+
+![paint fill feedback buffer](docs/sceen_captures/paint_spill.gif)
+
+![morphing tunnel travelling](docs/sceen_captures/tunnel.gif)
+
+![waveform visualization](docs/sceen_captures/waveform.gif)
+
+![analyser with crt and vhs effects](docs/sceen_captures/crt_analyser.gif)
+
+![center pulsing abstract shader](docs/screen_captures/center_pulse.gif)
+
+![audio device selection menu](docs/screen_captures/device_menu.png)
+
